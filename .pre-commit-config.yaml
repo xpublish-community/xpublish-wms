@@ -1,0 +1,66 @@
+repos:
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.2.0
+  hooks:
+    - id: trailing-whitespace
+      exclude: tests/data
+    - id: check-ast
+    - id: debug-statements
+    - id: end-of-file-fixer
+    - id: check-docstring-first
+    - id: check-added-large-files
+    - id: requirements-txt-fixer
+    - id: file-contents-sorter
+      files: requirements-dev.txt
+
+- repo: https://github.com/econchick/interrogate
+  rev: 1.5.0
+  hooks:
+    - id: interrogate
+      exclude: ^(docs|setup.py|tests)
+      args: [--config=pyproject.toml]
+
+- repo: https://github.com/keewis/blackdoc
+  rev: v0.3.4
+  hooks:
+    - id: blackdoc
+
+- repo: https://gitlab.com/pycqa/flake8
+  rev: 3.9.2
+  hooks:
+    - id: flake8
+      exclude: docs/source/conf.py
+      args: [--max-line-length=105]
+
+- repo: https://github.com/pycqa/isort
+  rev: 5.10.1
+  hooks:
+    - id: isort
+      additional_dependencies: [toml]
+      args: ["--profile", "black", "--filter-files"]
+
+- repo: https://github.com/psf/black
+  rev: 22.3.0
+  hooks:
+  - id: black
+    language_version: python3
+
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.1.0
+  hooks:
+    - id: codespell
+      args:
+        - --quiet-level=2
+
+- repo: https://github.com/asottile/pyupgrade
+  rev: v2.32.1
+  hooks:
+    - id: pyupgrade
+      args:
+        - --py36-plus
+
+- repo: https://github.com/asottile/add-trailing-comma
+  rev: v2.2.3
+  hooks:
+    - id: add-trailing-comma
