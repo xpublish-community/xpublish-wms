@@ -1,2 +1,4 @@
-numpy
-requests
+xarray
+cf-xarray
+rioxarray>=0.12.2
+xpublish

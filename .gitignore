@@ -8,4 +8,4 @@
 __pycache__/
 build/
 dist/
-ioos_pkg_skeleton/_version.py
+xpublish_wms/_version.py
