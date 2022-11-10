@@ -288,9 +288,9 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     else: 
         resampled_data = ds.cf.interp(X=x_coord, Y=y_coord)
 
-    x_axis = [strip_float(resampled_data.cf['X'][x])]
-    y_axis = [strip_float(resampled_data.cf['Y'][y])]
-    resampled_data = resampled_data.cf.sel({'X': x_axis, 'Y': y_axis})
+    x_axis = [strip_float(resampled_data.cf['lon'][x])]
+    y_axis = [strip_float(resampled_data.cf['lat'][y])]
+    resampled_data = resampled_data.cf.sel({'lon': x_axis, 'lat': y_axis})
 
     # When none of the parameters have data, drop it
     if any_has_time_axis and resampled_data[resampled_data.cf.axes['T'][0]].shape:
