@@ -214,9 +214,9 @@ def get_map(dataset: xr.Dataset, query: dict):
         da = ds[parameter].isel({'valid_time': 0})
 
     # Unpack the requested data and resample
-    clipped = ds.rio.clip_box(*bbox, crs=f'EPSG:{crs}')
+    clipped = ds.rio.clip_box(*bbox, crs=crs)
     resampled_data = clipped.rio.reproject(
-        crs=f'EPSG:{crs}', 
+        crs=crs, 
         shape=(width, height), 
         resampling=Resampling.nearest, 
         transform=from_bounds(*bbox, width=width, height=height),
@@ -267,6 +267,8 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
 
     # We only care about the requested subset
     ds = dataset[parameters]
+
+    # TODO: Need to reproject?? 
 
     x_coord = np.linspace(bbox[0], bbox[2], width)
     y_coord = np.linspace(bbox[1], bbox[3], height)

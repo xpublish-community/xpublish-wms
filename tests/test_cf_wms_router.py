@@ -1,4 +1,6 @@
 import pytest
+import xarray
+import dask.array
 import xpublish
 from fastapi.testclient import TestClient
 
@@ -14,7 +16,9 @@ def cf_dataset():
 
 @pytest.fixture(scope="session")
 def cf_xpublish(cf_dataset):
-    rest = xpublish.Rest({"air": cf_dataset}, routers=[cf_wms_router])
+    rest = xpublish.Rest({"air": cf_dataset}, routers=[
+        (cf_wms_router, {'prefix': '/wms'})
+    ])
 
     return rest
 
@@ -26,4 +30,8 @@ def cf_client(cf_xpublish):
 
     return client
 
-# TODO
+
+def test_cf_get_feature_info(cf_client, cf_dataset):
+    # TODO
+
+    assert 1 == 1

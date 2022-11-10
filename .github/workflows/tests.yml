@@ -35,4 +35,4 @@ jobs:
       shell: bash -l {0}
       run: >
         micromamba activate TEST
-        && python -m pytest -n 2 -rxs --cov=ioos_pkg_skeleton tests
+        && pytest -rxs --cov=xpublish_wms tests
