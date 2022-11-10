@@ -1,4 +1,6 @@
 xarray
-cf-xarray
+cf_xarray
 rioxarray>=0.12.2
 xpublish
+Pillow
+matplotlib

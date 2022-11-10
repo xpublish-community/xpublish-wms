@@ -20,3 +20,4 @@ setuptools_scm
 sphinx
 twine
 wheel
+xpublish

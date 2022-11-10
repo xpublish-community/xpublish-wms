@@ -2,7 +2,7 @@
 xpublish_wms is not a real package, just a set of best practices examples.
 """
 
-from xpublish_edr.cf_wms_router import cf_wms_router
+from xpublish_wms.cf_wms_router import cf_wms_router
 
 __all__ = ["cf_wms_router"]
 
