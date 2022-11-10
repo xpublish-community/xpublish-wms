@@ -107,8 +107,8 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
 
     service = ET.SubElement(root, 'Service')
     create_text_element(service, 'Name', 'WMS')
-    create_text_element(service, 'Title', 'IOOS XPublish WMS')
-    create_text_element(service, 'Abstract', 'IOOS XPublish WMS')
+    create_text_element(service, 'Title', 'XPublish WMS')
+    create_text_element(service, 'Abstract', 'XPublish WMS')
     service.append(ET.Element('KeywordList'))
     service.append(ET.Element('OnlineResource', attrib={
                    'xlink:type': 'simple', 'xlink:href': 'http://www.opengis.net/spec/wms_schema_1/1.3.0'}))
@@ -158,10 +158,10 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         # a given dataset probably
         bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib={
             'CRS': 'EPSG:4326',
-            'minx': f'{da.cf["X"].min().item()}',
-            'miny': f'{da.cf["Y"].min().item()}',
-            'maxx': f'{da.cf["X"].max().item()}',
-            'maxy': f'{da.cf["Y"].max().item()}'
+            'minx': f'{da.cf["lon"].min().item()}',
+            'miny': f'{da.cf["lat"].min().item()}',
+            'maxx': f'{da.cf["lon"].max().item()}',
+            'maxy': f'{da.cf["lat"].max().item()}'
         })
 
         if 'T' in da.cf.axes:
