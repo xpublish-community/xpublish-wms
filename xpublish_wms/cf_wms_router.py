@@ -61,8 +61,9 @@ def create_capability_element(root, name: str, url: str, formats: list[str]):
 
 
 def create_parameter_feature_data(parameter, ds: xr.Dataset, has_time_axis, t_axis, x_axis, y_axis, values = None, name = None, id = None):
-    name = name if name is not None else ds[parameter].cf.attrs['long_name']
-    id = id if id is not None else ds[parameter].cf.attrs['long_name']
+    # TODO Use standard and long name? 
+    name = name if name is not None else ds[parameter].cf.attrs.get('long_name', ds[parameter].cf.attrs.get('name', parameter))
+    id = id if id is not None else ds[parameter].cf.attrs.get('standard_name', parameter)
 
     info = {
         'type': 'Parameter',
@@ -146,8 +147,8 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
         create_text_element(layer, 'Name', var)
-        create_text_element(layer, 'Title', attrs['long_name'])
-        create_text_element(layer, 'Abstract', attrs['long_name'])
+        create_text_element(layer, 'Title', attrs.get('long_name', attrs.get('name', var)))
+        create_text_element(layer, 'Abstract', attrs.get('long_name', attrs.get('name', var)))
         create_text_element(layer, 'CRS', 'EPSG:4326')
         create_text_element(layer, 'CRS', 'EPSG:3857')
         create_text_element(layer, 'CRS', 'CRS:84')
@@ -158,10 +159,10 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         # a given dataset probably
         bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib={
             'CRS': 'EPSG:4326',
-            'minx': f'{da.cf["lon"].min().item()}',
-            'miny': f'{da.cf["lat"].min().item()}',
-            'maxx': f'{da.cf["lon"].max().item()}',
-            'maxy': f'{da.cf["lat"].max().item()}'
+            'minx': f'{da.cf["longitude"].min().item()}',
+            'miny': f'{da.cf["latitude"].min().item()}',
+            'maxx': f'{da.cf["longitude"].max().item()}',
+            'maxy': f'{da.cf["latitude"].max().item()}'
         })
 
         if 'T' in da.cf.axes:
@@ -288,9 +289,9 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     else: 
         resampled_data = ds.cf.interp(X=x_coord, Y=y_coord)
 
-    x_axis = [strip_float(resampled_data.cf['lon'][x])]
-    y_axis = [strip_float(resampled_data.cf['lat'][y])]
-    resampled_data = resampled_data.cf.sel({'lon': x_axis, 'lat': y_axis})
+    x_axis = [strip_float(resampled_data.cf['longitude'][x])]
+    y_axis = [strip_float(resampled_data.cf['latitude'][y])]
+    resampled_data = resampled_data.cf.sel({'longitude': x_axis, 'latitude': y_axis})
 
     # When none of the parameters have data, drop it
     if any_has_time_axis and resampled_data[resampled_data.cf.axes['T'][0]].shape:
