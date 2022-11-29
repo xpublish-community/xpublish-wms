@@ -214,9 +214,9 @@ def get_map(dataset: xr.Dataset, query: dict):
         da = ds[parameter].isel({'valid_time': 0})
 
     # Unpack the requested data and resample
-    clipped = ds.rio.clip_box(*bbox, crs=crs)
+    clipped = da.rio.clip_box(*bbox, crs=crs)
     resampled_data = clipped.rio.reproject(
-        crs=crs, 
+        dst_crs=crs, 
         shape=(width, height), 
         resampling=Resampling.nearest, 
         transform=from_bounds(*bbox, width=width, height=height),
