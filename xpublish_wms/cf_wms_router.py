@@ -288,7 +288,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
 
     if any_has_time_axis:
         if len(times) == 1:
-            resampled_data = ds.cf.interp(T=times[0], X=x_coord, Y=y_coord)
+            resampled_data = ds.cf.interp(T=times[0], latitude=x_coord, longitude=y_coord)
         elif len(times) > 1:
             resampled_data = ds.cf.interp(X=x_coord, Y=y_coord)
             resampled_data = resampled_data.cf.sel(T=slice(times[0], times[1]))
