@@ -172,13 +172,15 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         })
 
         if 'T' in da.cf.axes:
+            times = format_timestamp(da.cf['T'])
+
             time_dimension_element = ET.SubElement(layer, 'Dimension', attrib={
                 'name': 'time',
                 'units': 'ISO8601',
-                'default': format_timestamp(da.cf['T'].min()),
+                'default': times[-1],
             })
             # TODO: Add ISO duration specifier
-            time_dimension_element.text = f"{format_timestamp(da.cf['T'].min())}/{format_timestamp(da.cf['T'].max())}"
+            time_dimension_element.text = f"{','.join(times)}"
 
         style_tag = ET.SubElement(layer, 'Style')
 
@@ -306,9 +308,9 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     if not any_has_time_axis:
         t_axis = None
     elif len(times) == 1:
-        t_axis = format_timestamp(resampled_data.cf['T'])
+        t_axis = str(format_timestamp(resampled_data.cf['T']))
     else:
-        t_axis = [format_timestamp(t) for t in resampled_data.cf['T']]
+        t_axis = str(format_timestamp(resampled_data.cf['T']))
 
     parameter_info = {}
     ranges = {}

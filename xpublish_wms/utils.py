@@ -4,7 +4,7 @@ def lower_case_keys(d: dict) -> dict:
     return dict((k.lower(), v) for k, v in d.items())
 
 def format_timestamp(value):
-    return str(value.dt.strftime(date_format='%Y-%m-%dT%H:%M:%SZ').values)
+    return value.dt.strftime(date_format='%Y-%m-%dT%H:%M:%SZ').values
 
 
 def strip_float(value):
