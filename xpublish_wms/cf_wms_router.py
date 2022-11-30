@@ -154,6 +154,9 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         create_text_element(layer, 'CRS', 'CRS:84')
 
         create_text_element(layer, 'Units', attrs.get('units', ''))
+        
+        
+        create_text_element
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably
@@ -203,7 +206,7 @@ def get_map(dataset: xr.Dataset, query: dict):
     crs = query.get('crs', None) or query.get('srs')
     parameter = query['layers']
     t = query.get('time', None)
-    colorscalerange = [float(x) for x in query['colorscalerange'].split(',')]
+    colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
     autoscale = query.get('autoscale', 'false') != 'false'
     style = query['styles']
     stylename, palettename = style.split('/')
