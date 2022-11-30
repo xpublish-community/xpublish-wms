@@ -155,8 +155,11 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
 
         create_text_element(layer, 'Units', attrs.get('units', ''))
         
-        
-        create_text_element
+        # min_value = float(da.min())
+        # create_text_element(layer, 'MinMag', min_value)
+
+        # max_value = float(da.max())
+        # create_text_element(layer, 'MaxMag', max_value)
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably
