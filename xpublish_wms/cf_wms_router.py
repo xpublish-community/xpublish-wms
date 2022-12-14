@@ -8,15 +8,18 @@ import io
 import logging
 import xml.etree.ElementTree as ET
 
+import cachey
 import numpy as np
+import pandas as pd
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from xpublish.dependencies import get_dataset
+from xpublish.dependencies import get_cache, get_dataset
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
 from matplotlib import cm
+from pykdtree.kdtree import KDTree
 
 from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
 
@@ -35,6 +38,23 @@ styles = [
         'abstract': 'The default raster styling, scaled to the given range. The palette can be overriden by replacing default with a matplotlib colormap name'
     }
 ]
+
+
+def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
+    cache_key = f"dataset-kdtree-{ds.attrs['title']}"
+    kd = cache.get(cache_key)
+    if kd:
+        return kd
+
+    lng = ds.cf['longitude']
+    lat = ds.cf['latitude']
+
+    verts = np.column_stack((lng, lat))
+    kd = KDTree(verts)
+
+    cache.put(cache_key, kd, 5)
+
+    return kd
 
 
 def create_text_element(root, name: str, text: str):
@@ -202,7 +222,7 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     return Response(ET.tostring(root).decode('utf-8'), media_type='text/xml')
 
 
-def get_map(dataset: xr.Dataset, query: dict):
+def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
     """
     Return the WMS map for the dataset and given parameters
     """
@@ -223,20 +243,36 @@ def get_map(dataset: xr.Dataset, query: dict):
 
     # This is an image, so only use the timestep that was requested
     if t is not None:
-        da = ds[parameter].cf.sel({'T': t}).squeeze()
+        tstamp = pd.to_datetime(t).tz_localize(None)
+        da = ds[parameter].cf.sel({'time': tstamp}, method='nearest').squeeze()
     else:
-        da = ds[parameter].isel({'valid_time': 0})
+        da = ds[parameter].cf.isel({'time': 0})
 
-    # Unpack the requested data and resample
-    clipped = da.rio.clip_box(*bbox, crs=crs)
-    resampled_data = clipped.rio.reproject(
-        dst_crs=crs,
-        shape=(width, height),
-        resampling=Resampling.nearest,
-        transform=from_bounds(*bbox, width=width, height=height),
-    )
+    if da.cf.coords['longitude'].dims[0] == da.cf.coords['longitude'].name:
+        # Regular grid
+        # Unpack the requested data and resample
+        clipped = da.rio.clip_box(*bbox, crs=crs)
+        resampled_data = clipped.rio.reproject(
+            dst_crs=crs,
+            shape=(width, height),
+            resampling=Resampling.nearest,
+            transform=from_bounds(*bbox, width=width, height=height),
+        )
+    else:
+        # irregular grid
+        lats = np.linspace(bbox[0], bbox[2], width)
+        lngs = np.linspace(bbox[1], bbox[3], height)
+        grid_lngs, grid_lats = np.meshgrid(lngs, lats)
+        pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
+        kd = get_spatial_kdtree(ds, cache)
+        _, n = kd.query(pts)
+        ni = n.argsort()
+        pp = n[ni]
+        # This is slow because it has to pull into numpy array, can we do better? 
+        z = ds.zeta[0][pp].values
+        resampled_data = z[ni.argsort()]
 
-    # if the user has supplied a color range, use it. Otherwise autoscale
+        # if the user has supplied a color range, use it. Otherwise autoscale
     if autoscale:
         min_value = float(ds[parameter].min())
         max_value = float(ds[parameter].max())
@@ -300,7 +336,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
         else:
             raise HTTPException(500, f"Invalid time requested: {times}")
     else:
-        resampled_data = ds.cf.interp(X=x_coord, Y=y_coord)
+        resampled_data = ds.cf.interp(longitude=x_coord, latitude=y_coord)
 
     x_axis = [strip_float(resampled_data.cf['longitude'][x])]
     y_axis = [strip_float(resampled_data.cf['latitude'][y])]
@@ -448,14 +484,14 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
 
 
 @cf_wms_router.get('/')
-def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset)):
+def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
     method = query_params['request']
     logger.info(f'WMS: {method}')
     if method == 'GetCapabilities':
         return get_capabilities(dataset, request)
     elif method == 'GetMap':
-        return get_map(dataset, query_params)
+        return get_map(dataset, query_params, cache)
     elif method == 'GetFeatureInfo' or method == 'GetTimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'GetLegendGraphic':

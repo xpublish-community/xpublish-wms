@@ -4,3 +4,4 @@ rioxarray>=0.12.2
 xpublish
 Pillow
 matplotlib
+pykdtree
