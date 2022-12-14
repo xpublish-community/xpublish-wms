@@ -6,6 +6,7 @@ OGC WMS router for datasets with CF convention metadata
 from cmath import isnan
 import io
 import logging
+import time
 import xml.etree.ElementTree as ET
 
 import cachey
@@ -247,7 +248,8 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         da = ds[parameter].cf.sel({'time': tstamp}, method='nearest').squeeze()
     else:
         da = ds[parameter].cf.isel({'time': 0})
-
+    
+    start = time.time()
     if da.cf.coords['longitude'].dims[0] == da.cf.coords['longitude'].name:
         # Regular grid
         # Unpack the requested data and resample
@@ -258,6 +260,9 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
             resampling=Resampling.nearest,
             transform=from_bounds(*bbox, width=width, height=height),
         )
+        
+        reproject_time = time.time()
+        logger.info(f'clip and reproject regular: {reproject_time - start}')
     else:
         # irregular grid
         t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
@@ -269,9 +274,16 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         _, n = kd.query(pts)
         ni = n.argsort()
         pp = n[ni]
+
+        index_time = time.time()
+        logger.info(f'index and kdtree irregular: {index_time - start}')
+
         # This is slow because it has to pull into numpy array, can we do better? 
         z = ds.zeta[0][pp].values
-        z = np.flipud(z[ni.argsort()].reshape((height, width)))
+        z = z[ni.argsort()].reshape((height, width))
+
+        extraction_time = time.time()
+        logger.info(f'extract data irregular: {extraction_time - index_time}')
         
         rds = xr.Dataset(
             data_vars=dict(
@@ -282,13 +294,16 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
                 y=(["y"], lats),
             )
         )
-        rds.rio.write_crs(4326, in_place=True)
-        resampled_data = rds.rio.reproject(
+        rds.rio.write_crs(4326, inplace=True)
+        resampled_data = rds.z.rio.reproject(
             dst_crs=crs,
             shape=(width, height),
             resampling=Resampling.nearest,
             transform=from_bounds(*bbox, width=width, height=height),
         )
+
+        reproject_time = time.time()
+        logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
 
         # if the user has supplied a color range, use it. Otherwise autoscale
     if autoscale:
