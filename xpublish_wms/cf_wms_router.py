@@ -21,7 +21,7 @@ from PIL import Image
 from matplotlib import cm
 from pykdtree.kdtree import KDTree
 
-from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
+from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
 
 logger = logging.getLogger("uvicorn")
 
@@ -260,8 +260,9 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         )
     else:
         # irregular grid
-        lats = np.linspace(bbox[0], bbox[2], width)
-        lngs = np.linspace(bbox[1], bbox[3], height)
+        t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+        lats = np.linspace(t_lng[0], t_lng[1], width)
+        lngs = np.linspace(t_lat[0], t_lat[1], height)
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
         pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
         kd = get_spatial_kdtree(ds, cache)
@@ -270,7 +271,24 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         pp = n[ni]
         # This is slow because it has to pull into numpy array, can we do better? 
         z = ds.zeta[0][pp].values
-        resampled_data = z[ni.argsort()]
+        z = np.flipud(z[ni.argsort()].reshape((height, width)))
+        
+        rds = xr.Dataset(
+            data_vars=dict(
+                z=(["y", "x"], z),
+            ),
+            coords=dict(
+                x=(["x"], lngs),
+                y=(["y"], lats),
+            )
+        )
+        rds.rio.write_crs(4326, in_place=True)
+        resampled_data = rds.rio.reproject(
+            dst_crs=crs,
+            shape=(width, height),
+            resampling=Resampling.nearest,
+            transform=from_bounds(*bbox, width=width, height=height),
+        )
 
         # if the user has supplied a color range, use it. Otherwise autoscale
     if autoscale:

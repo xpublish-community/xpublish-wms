@@ -1,4 +1,5 @@
 import numpy as np
+from pyproj import Transformer
 
 
 def lower_case_keys(d: dict) -> dict:
@@ -29,3 +30,5 @@ def speed_and_dir_for_uv(u, v):
     dir = (dir_trig_deg) % 360
 
     return [speed, dir]
+
+to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
