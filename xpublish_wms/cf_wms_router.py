@@ -9,6 +9,7 @@ import logging
 import xml.etree.ElementTree as ET
 
 import numpy as np
+import cf_xarray  # noqa
 import xarray as xr
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from xpublish.dependencies import get_dataset
@@ -19,10 +20,6 @@ from matplotlib import cm
 
 from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
 
-# These will show as unused to the linter but they are necessary
-import cf_xarray
-
-
 logger = logging.getLogger("uvicorn")
 
 
@@ -30,7 +27,7 @@ cf_wms_router = APIRouter()
 
 
 # WMS Styles declaration
-# TODO: Add others beyond just simple raster 
+# TODO: Add others beyond just simple raster
 styles = [
     {
         'name': 'raster/default',
@@ -60,8 +57,8 @@ def create_capability_element(root, name: str, url: str, formats: list[str]):
     return cap
 
 
-def create_parameter_feature_data(parameter, ds: xr.Dataset, has_time_axis, t_axis, x_axis, y_axis, values = None, name = None, id = None):
-    # TODO Use standard and long name? 
+def create_parameter_feature_data(parameter, ds: xr.Dataset, has_time_axis, t_axis, x_axis, y_axis, values=None, name=None, id=None):
+    # TODO Use standard and long name?
     name = name if name is not None else ds[parameter].cf.attrs.get('long_name', ds[parameter].cf.attrs.get('name', parameter))
     id = id if id is not None else ds[parameter].cf.attrs.get('standard_name', parameter)
 
@@ -83,7 +80,7 @@ def create_parameter_feature_data(parameter, ds: xr.Dataset, has_time_axis, t_ax
     values = values if values is not None else ds[parameter]
     values = round_float_values(values.squeeze().values.tolist())
 
-    if isinstance(values, float): 
+    if isinstance(values, float):
         values = [values]
 
     range = {
@@ -97,7 +94,8 @@ def create_parameter_feature_data(parameter, ds: xr.Dataset, has_time_axis, t_ax
 
     return (info, range)
 
-def get_capabilities(dataset: xr.Dataset, request: Request):
+
+def get_capabilities(ds: xr.Dataset, request: Request):
     """
     Return the WMS capabilities for the dataset
     """
@@ -135,15 +133,28 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
 
     layer_tag = ET.SubElement(capability, 'Layer')
     create_text_element(layer_tag, 'Title',
-                        dataset.attrs.get('title', 'Untitled'))
+                        ds.attrs.get('title', 'Untitled'))
     create_text_element(layer_tag, 'Description',
-                        dataset.attrs.get('description', 'No Description'))
+                        ds.attrs.get('description', 'No Description'))
     create_text_element(layer_tag, 'CRS', 'EPSG:4326')
     create_text_element(layer_tag, 'CRS', 'EPSG:3857')
     create_text_element(layer_tag, 'CRS', 'CRS:84')
 
-    for var in dataset.data_vars:
-        da = dataset[var]
+    bounds = {
+        'CRS': 'EPSG:4326',
+        'minx': f'{ds.cf.coords["longitude"].min().values.item()}',
+        'miny': f'{ds.cf.coords["latitude"].min().values.item()}',
+        'maxx': f'{ds.cf.coords["longitude"].max().values.item()}',
+        'maxy': f'{ds.cf.coords["latitude"].max().values.item()}'
+    }
+
+    for var in ds.data_vars:
+        da = ds[var]
+
+        # If there are not spatial coords, we cant view it with this router, sorry
+        if 'longitude' not in da.cf.coords:
+            continue
+
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
         create_text_element(layer, 'Name', var)
@@ -154,7 +165,7 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         create_text_element(layer, 'CRS', 'CRS:84')
 
         create_text_element(layer, 'Units', attrs.get('units', ''))
-        
+
         # min_value = float(da.min())
         # create_text_element(layer, 'MinMag', min_value)
 
@@ -162,14 +173,8 @@ def get_capabilities(dataset: xr.Dataset, request: Request):
         # create_text_element(layer, 'MaxMag', max_value)
 
         # Not sure if this can be copied, its possible variables have different extents within
-        # a given dataset probably
-        bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib={
-            'CRS': 'EPSG:4326',
-            'minx': f'{da.cf["longitude"].min().item()}',
-            'miny': f'{da.cf["latitude"].min().item()}',
-            'maxx': f'{da.cf["longitude"].max().item()}',
-            'maxy': f'{da.cf["latitude"].max().item()}'
-        })
+        # a given dataset probably, but for now...
+        bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib=bounds)
 
         if 'T' in da.cf.axes:
             times = format_timestamp(da.cf['T'])
@@ -219,15 +224,15 @@ def get_map(dataset: xr.Dataset, query: dict):
     # This is an image, so only use the timestep that was requested
     if t is not None:
         da = ds[parameter].cf.sel({'T': t}).squeeze()
-    else: 
+    else:
         da = ds[parameter].isel({'valid_time': 0})
 
     # Unpack the requested data and resample
     clipped = da.rio.clip_box(*bbox, crs=crs)
     resampled_data = clipped.rio.reproject(
-        dst_crs=crs, 
-        shape=(width, height), 
-        resampling=Resampling.nearest, 
+        dst_crs=crs,
+        shape=(width, height),
+        resampling=Resampling.nearest,
         transform=from_bounds(*bbox, width=width, height=height),
     )
 
@@ -245,7 +250,7 @@ def get_map(dataset: xr.Dataset, query: dict):
     # Otherwise default to rainbow
     if palettename == 'default':
         palettename = 'rainbow'
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(ds_scaled)*255))
+    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(ds_scaled) * 255))
 
     image_bytes = io.BytesIO()
     im.save(image_bytes, format='PNG')
@@ -261,7 +266,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     if not dataset.rio.crs:
         dataset = dataset.rio.write_crs(4326)
 
-    if ':' in query['query_layers']: 
+    if ':' in query['query_layers']:
         parameters = query['query_layers'].split(':')
     else:
         parameters = query['query_layers'].split(',')
@@ -277,7 +282,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     # We only care about the requested subset
     ds = dataset[parameters]
 
-    # TODO: Need to reproject?? 
+    # TODO: Need to reproject??
 
     x_coord = np.linspace(bbox[0], bbox[2], width)
     y_coord = np.linspace(bbox[1], bbox[3], height)
@@ -294,7 +299,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
             resampled_data = resampled_data.cf.sel(T=slice(times[0], times[1]))
         else:
             raise HTTPException(500, f"Invalid time requested: {times}")
-    else: 
+    else:
         resampled_data = ds.cf.interp(X=x_coord, Y=y_coord)
 
     x_axis = [strip_float(resampled_data.cf['longitude'][x])]
@@ -421,8 +426,8 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
         min_value = colorscalerange[0]
         max_value = colorscalerange[1]
 
-    scaled = (np.linspace(min_value, max_value, width) -
-              min_value) / (max_value - min_value)
+    scaled = (np.linspace(min_value, max_value, width)
+              - min_value) / (max_value - min_value)
     data = np.ones((height, width)) * scaled
 
     if vertical:
@@ -433,7 +438,7 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     # Otherwise default to rainbow
     if palettename == 'default':
         palettename = 'rainbow'
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(data)*255))
+    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(data) * 255))
 
     image_bytes = io.BytesIO()
     im.save(image_bytes, format='PNG')
@@ -446,7 +451,7 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
 def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset)):
     query_params = lower_case_keys(request.query_params)
     method = query_params['request']
-    logger.warning(method)
+    logger.info(f'WMS: {method}')
     if method == 'GetCapabilities':
         return get_capabilities(dataset, request)
     elif method == 'GetMap':
