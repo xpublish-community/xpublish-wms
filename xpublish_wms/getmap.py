@@ -170,7 +170,10 @@ class OgcWmsGetMap:
         :return:
         """
         # Regular grid
-        miny, minx, maxy, maxx = self.bbox
+        minx, miny, maxx, maxy = self.bbox
+        if "4326" in self.crs:
+            # Something's strange with bbox ?
+            miny, minx, maxy, maxx = self.bbox
 
         # TBD:
         #   got issues on my dataset using rioxarray :
@@ -289,7 +292,10 @@ class OgcWmsGetMap:
         :param da:
         :return:
         """
-        stylename, palettename = self.style.split('/')
+        try:
+            stylename, palettename = self.style.split('/')
+        except:
+            palettename = "default"
 
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
         # Otherwise default to rainbow
