@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 class OgcWmsGetMap:
     TIME_CF_NAME: str = "time"
     DEFAULT_CRS: str = "4326"
+    DEFAULT_STYLE: str = "raster/default"
 
     cache: cachey.Cache
 
@@ -81,7 +82,7 @@ class OgcWmsGetMap:
         self.height = int(query['height'])
 
         # Output style
-        self.style = query.get('styles', "default")
+        self.style = query.get('styles', self.DEFAULT_STYLE)
         self.colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
         self.autoscale = query.get('autoscale', "true") == "true"
 
