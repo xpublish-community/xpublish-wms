@@ -1,6 +1,5 @@
 import io
 import time
-import logging
 from datetime import datetime
 from typing import List
 
@@ -9,6 +8,7 @@ import cf_xarray  # noqa
 import xarray as xr
 import pandas as pd
 import numpy as np
+from loguru import logger
 from fastapi.responses import StreamingResponse
 from pyproj import Transformer
 from rasterio.enums import Resampling
@@ -19,7 +19,6 @@ from pykdtree.kdtree import KDTree
 
 from xpublish_wms.utils import to_lnglat
 
-logger = logging.getLogger(__name__)
 
 
 class OgcWmsGetMap:
@@ -170,40 +169,25 @@ class OgcWmsGetMap:
         :param da:
         :return:
         """
-        # Regular grid
-        minx, miny, maxx, maxy = self.bbox
-        logger.debug(f"Original bbox : {minx} {miny} {maxx} {maxy}")
-        # WTF ?
-        (minx, maxx), (miny, maxy) = Transformer.from_crs(4326, self.crs, always_xy=True).transform(
-            [minx, maxx], [miny, maxy]
+        # TBC : need to invert lat/lon here ?
+        #minx, miny, maxx, maxy = self.bbox
+        miny, minx, maxy, maxx = self.bbox
+
+        transform = from_bounds(
+            west=minx, south=miny,
+            east=maxx, north=maxy,
+            width=self.width, height=self.height
         )
-        logger.debug(f"Converted bbox : {minx} {miny} {maxx} {maxy}")
-
-        # TBD:
-        #   got issues on my dataset using rioxarray :
-        #       The WKT could not be parsed. OGR Error code 5
-        #   use xr.sel as backup
-
-        #clipped = da.rio.clip_box(*self.bbox, crs=self.crs)
-        #resampled_data = clipped.rio.reproject(
-        #    dst_crs=self.crs,
-        #    shape=(self.width, self.height),
-        #    resampling=Resampling.nearest,
-        #    transform=from_bounds(*self.bbox, width=self.width, height=self.height),
-        #)
-        #
-
-        longitude = np.linspace(minx, maxx, self.width)
-        latitude = np.linspace(miny, maxy, self.height)
-
-        if da.longitude[0] > da.longitude[-1]:
-            longitude = np.flip(longitude)
-        if da.latitude[0] > da.latitude[-1]:
-            latitude = np.flip(latitude)
-
-        resampled_data = da.cf.interp(
-            latitude=latitude, longitude=longitude,
-            method="nearest"
+        clipped = da.rio.clip_box(
+            minx=minx, maxx=maxx,
+            miny=miny, maxy=maxy,
+            crs=self.crs
+        )
+        resampled_data = clipped.rio.reproject(
+            dst_crs=self.crs,
+            shape=(self.height, self.width),
+            resampling=Resampling.nearest,
+            transform=transform,
         )
 
         return resampled_data

@@ -1,5 +1,7 @@
+import xarray as xr
 import numpy as np
 from pyproj import Transformer
+from loguru import logger
 
 
 def lower_case_keys(d: dict) -> dict:
@@ -30,5 +32,20 @@ def speed_and_dir_for_uv(u, v):
     dir = (dir_trig_deg) % 360
 
     return [speed, dir]
+
+
+def ensure_crs(ds: xr.Dataset | xr.DataArray, default_crs: str = "EPSG:4326") -> xr.Dataset | xr.DataArray:
+    """
+    Ensure our dataset has a CRS
+    :param ds:
+    :param default_crs:
+    :return:
+    """
+    #logger.debug(f"CRS found in dataset : {ds.rio.crs}")
+    if not ds.rio.crs:
+        logger.debug(f"Settings default CRS : {default_crs}")
+        ds.rio.write_crs(default_crs, inplace=True)
+    return ds
+
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
