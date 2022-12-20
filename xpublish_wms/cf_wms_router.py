@@ -22,7 +22,7 @@ from PIL import Image
 from matplotlib import cm
 from pykdtree.kdtree import KDTree
 
-from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
+from xpublish_wms.utils import format_timestamp, lnglat_to_cartesian, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
 
 logger = logging.getLogger("uvicorn")
 
@@ -50,7 +50,7 @@ def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
     lng = ds.cf['longitude']
     lat = ds.cf['latitude']
 
-    verts = np.column_stack((lng, lat))
+    verts = lnglat_to_cartesian(lng, lat)
     kd = KDTree(verts)
 
     cache.put(cache_key, kd, 5)
@@ -282,16 +282,21 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         lats = np.linspace(t_lat[0], t_lat[1], height)
 
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
-        pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        pts_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts])
 
-        if np.any(pts_mask):
+        pts = lnglat_to_cartesian(grid_lngs.ravel(), grid_lats.ravel())
+
+        # Need ll version for masking outside dataset bounds
+        pts_ll = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
+        pts_ll_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts_ll])
+
+        if np.any(pts_ll_mask):
             kd = get_spatial_kdtree(ds, cache)
             dist, n = kd.query(pts)
 
-            d_lng = lngs[1] - lngs[0]
-            d_lat = lats[1] - lats[0]
-            max_dist = np.sqrt((2 * d_lng)**2 + (2 * d_lat)**2)
+            d_lng = pts[1][0] - pts[0][0]
+            d_lat = pts[1][1] - pts[0][1]
+            d_ele = pts[1][2] - pts[0][2]
+            max_dist = np.sqrt((2 * d_lng)**2 + (2 * d_lat)**2 + (2 * d_ele))
             dist_mask = np.where(dist > max_dist)
 
             logger.info(f'Calculated max dist: {max_dist}')
@@ -312,7 +317,7 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
             # TODO: Can we avoid pulling down fully masked chunks??? 
             z = ds.zeta[0][pp].values
             z = z[ni.argsort()]
-            z[~pts_mask] = np.nan
+            z[~pts_ll_mask] = np.nan
             z[dist_mask] = np.nan
             
             z = z.reshape((height, width))

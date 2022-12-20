@@ -31,4 +31,19 @@ def speed_and_dir_for_uv(u, v):
 
     return [speed, dir]
 
+
+def lnglat_to_cartesian(longitude, latitude):
+    '''
+    Converts latitude and longitude to cartesian coordinates
+    '''
+    lng_rad = np.deg2rad(longitude)
+    lat_rad = np.deg2rad(latitude)
+
+    R = 6371 
+    x = R * np.cos(lat_rad) * np.cos(lng_rad)
+    y = R * np.cos(lat_rad) * np.sin(lng_rad)
+    z = R * np.sin(lat_rad)
+    return np.column_stack((x, y, z))
+
+
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
