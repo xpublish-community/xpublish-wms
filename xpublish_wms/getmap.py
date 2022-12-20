@@ -217,42 +217,60 @@ class OgcWmsGetMap:
         start = time.time()
 
         # irregular grid
+        min_lng = da.cf.coords["longitude"].min().values.item()
+        min_lat = da.cf.coords["latitude"].min().values.item()
+        max_lng = da.cf.coords["longitude"].max().values.item()
+        max_lat = da.cf.coords["latitude"].max().values.item()
+
         t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
         lats = np.linspace(t_lng[0], t_lng[1], self.width)
         lngs = np.linspace(t_lat[0], t_lat[1], self.height)
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
         pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        kd = get_spatial_kdtree(da, self.cache)
-        _, n = kd.query(pts)
-        ni = n.argsort()
-        pp = n[ni]
+        pts_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts])
 
-        index_time = time.time()
-        logger.info(f'index and kdtree irregular: {index_time - start}')
+        if np.any(pts_mask):
+            kd = get_spatial_kdtree(da, self.cache)
+            _, n = kd.query(pts)
+            ni = n.argsort()
+            pp = n[ni]
 
-        # This is slow because it has to pull into numpy array, can we do better?
-        z = da.zeta[0][pp].values
-        z = z[ni.argsort()].reshape((self.height, self.width))
+            index_time = time.time()
+            logger.info(f'index and kdtree irregular: {index_time - start}')
 
-        extraction_time = time.time()
-        logger.info(f'extract data irregular: {extraction_time - index_time}')
+            # This is slow because it has to pull into numpy array, can we do better?
+            # TODO: Can we avoid pulling down fully masked chunks???
+            z = da.zeta[0][pp].values
+            z = z[ni.argsort()]
+            z[~pts_mask] = np.nan
 
-        rds = xr.Dataset(
-            data_vars=dict(
-                z=(["y", "x"], z),
-            ),
-            coords=dict(
-                x=(["x"], lngs),
-                y=(["y"], lats),
+            z = z.reshape((self.height, self.width))
+
+            extraction_time = time.time()
+            logger.info(f'extract data irregular: {extraction_time - index_time}')
+
+            rds = xr.Dataset(
+                data_vars=dict(
+                    z=(["y", "x"], z),
+                ),
+                coords=dict(
+                    x=(["x"], lngs),
+                    y=(["y"], lats),
+                )
             )
-        )
-        rds.rio.write_crs(4326, inplace=True)
-        resampled_data = rds.z.rio.reproject(
-            dst_crs=self.crs,
-            shape=(self.width, self.height),
-            resampling=Resampling.nearest,
-            transform=from_bounds(*bbox, width=self.width, height=self.height),
-        )
+            rds.rio.write_crs(4326, inplace=True)
+            resampled_data = rds.z.rio.reproject(
+                dst_crs=self.crs,
+                shape=(self.width, self.height),
+                resampling=Resampling.nearest,
+                transform=from_bounds(*bbox, width=self.width, height=self.height),
+            )
+
+            reproject_time = time.time()
+            logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
+        else:
+            resampled_data = np.empty((self.width, self.height))
+            resampled_data[:] = np.nan
 
         reproject_time = time.time()
         logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
