@@ -266,48 +266,63 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         reproject_time = time.time()
         logger.info(f'clip and reproject regular: {reproject_time - start}')
     else:
+        min_lng = ds.cf.coords["longitude"].min().values.item()
+        min_lat = ds.cf.coords["latitude"].min().values.item()
+        max_lng = ds.cf.coords["longitude"].max().values.item()
+        max_lat = ds.cf.coords["latitude"].max().values.item()
+
         # irregular grid
         t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
         lats = np.linspace(t_lng[0], t_lng[1], width)
         lngs = np.linspace(t_lat[0], t_lat[1], height)
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
         pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        kd = get_spatial_kdtree(ds, cache)
-        _, n = kd.query(pts)
-        ni = n.argsort()
-        pp = n[ni]
+        pts_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts])
 
-        index_time = time.time()
-        logger.info(f'index and kdtree irregular: {index_time - start}')
+        if np.any(pts_mask): 
+            kd = get_spatial_kdtree(ds, cache)
+            _, n = kd.query(pts)
+            ni = n.argsort()
+            pp = n[ni]
 
-        # This is slow because it has to pull into numpy array, can we do better? 
-        z = ds.zeta[0][pp].values
-        z = z[ni.argsort()].reshape((height, width))
+            index_time = time.time()
+            logger.info(f'index and kdtree irregular: {index_time - start}')
 
-        extraction_time = time.time()
-        logger.info(f'extract data irregular: {extraction_time - index_time}')
+            # This is slow because it has to pull into numpy array, can we do better? 
+            # TODO: Can we avoid pulling down fully masked chunks??? 
+            z = ds.zeta[0][pp].values
+            z = z[ni.argsort()]
+            z[~pts_mask] = np.nan
+            
+            z = z.reshape((height, width))
+
+            extraction_time = time.time()
+            logger.info(f'extract data irregular: {extraction_time - index_time}')
         
-        rds = xr.Dataset(
-            data_vars=dict(
-                z=(["y", "x"], z),
-            ),
-            coords=dict(
-                x=(["x"], lngs),
-                y=(["y"], lats),
+            rds = xr.Dataset(
+                data_vars=dict(
+                    z=(["y", "x"], z),
+                ),
+                coords=dict(
+                    x=(["x"], lngs),
+                    y=(["y"], lats),
+                )
             )
-        )
-        rds.rio.write_crs(4326, inplace=True)
-        resampled_data = rds.z.rio.reproject(
-            dst_crs=crs,
-            shape=(width, height),
-            resampling=Resampling.nearest,
-            transform=from_bounds(*bbox, width=width, height=height),
-        )
+            rds.rio.write_crs(4326, inplace=True)
+            resampled_data = rds.z.rio.reproject(
+                dst_crs=crs,
+                shape=(width, height),
+                resampling=Resampling.nearest,
+                transform=from_bounds(*bbox, width=width, height=height),
+            )
 
-        reproject_time = time.time()
-        logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
+            reproject_time = time.time()
+            logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
+        else: 
+            resampled_data = np.empty((width,height))
+            resampled_data[:] = np.nan
 
-        # if the user has supplied a color range, use it. Otherwise autoscale
+    # if the user has supplied a color range, use it. Otherwise autoscale
     if autoscale:
         min_value = float(ds[parameter].min())
         max_value = float(ds[parameter].max())
