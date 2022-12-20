@@ -18,7 +18,8 @@ from PIL import Image
 from matplotlib import cm
 
 from xpublish_wms.getmap import OgcWmsGetMap
-from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
+from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, \
+    to_lnglat, ensure_crs
 
 logger = logging.getLogger("uvicorn")
 
@@ -147,7 +148,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
         if 'longitude' not in da.cf.coords:
             continue
 
-
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
         create_text_element(layer, 'Name', var)
@@ -168,9 +168,16 @@ def get_capabilities(ds: xr.Dataset, request: Request):
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
         # Some basic check for dataset
-        if not da.rio.crs:
-            da = da.rio.write_crs("EPSG:4326")
-        west_lon, south_lat, east_lon, north_lat = [str(v) for v in da.rio.transform_bounds("EPSG:4326")]
+        da = ensure_crs(da)
+        if da.rio.crs == "EPSG:4326":
+            # Same CRS, don't need to rio.transform and prevent float round
+            west_lon = str(da.cf.coords["longitude"].min().values.item())
+            south_lat = str(da.cf.coords["latitude"].min().values.item())
+            east_lon = str(da.cf.coords["longitude"].max().values.item())
+            north_lat = str(da.cf.coords["latitude"].max().values.item())
+        else:
+            west_lon, south_lat, east_lon, north_lat = [str(round(v, 3)) for v in da.rio.transform_bounds(dst_crs="EPSG:4326", recalc=True)]
+
         ET.SubElement(layer, "EX_GeographicBoundingBox", attrib={
             "westBoundLongitude": west_lon,
             "eastBoundLongitude": east_lon,
