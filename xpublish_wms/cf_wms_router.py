@@ -147,15 +147,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
         if 'longitude' not in da.cf.coords:
             continue
 
-        bounds = {
-            'CRS': 'EPSG:4326',
-            'minx': f'{da.cf.coords["longitude"].min().values.item()}',
-            'miny': f'{da.cf.coords["latitude"].min().values.item()}',
-            'maxx': f'{da.cf.coords["longitude"].max().values.item()}',
-            'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
-        }
-
-
 
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
@@ -176,7 +167,21 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
-        bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib=bounds)
+        # Some basic check for dataset
+        if not da.rio.crs:
+            da = da.rio.write_crs("EPSG:4326")
+        west_lon, south_lat, east_lon, north_lat = [str(v) for v in da.rio.transform_bounds("EPSG:4326")]
+        ET.SubElement(layer, "EX_GeographicBoundingBox", attrib={
+            "westBoundLongitude": west_lon,
+            "eastBoundLongitude": east_lon,
+            "southBoundLatitude": south_lat,
+            "northBoundLatitude": north_lat
+        })
+        bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib={
+            "CRS": "EPSG:4326",
+            "minx": south_lat, "maxx": north_lat,
+            "miny": west_lon, "maxy": east_lon
+        })
 
         if 'T' in da.cf.axes:
             times = format_timestamp(da.cf['T'])
