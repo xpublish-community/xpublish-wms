@@ -140,20 +140,22 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     create_text_element(layer_tag, 'CRS', 'EPSG:3857')
     create_text_element(layer_tag, 'CRS', 'CRS:84')
 
-    bounds = {
-        'CRS': 'EPSG:4326',
-        'minx': f'{ds.cf.coords["longitude"].min().values.item()}',
-        'miny': f'{ds.cf.coords["latitude"].min().values.item()}',
-        'maxx': f'{ds.cf.coords["longitude"].max().values.item()}',
-        'maxy': f'{ds.cf.coords["latitude"].max().values.item()}'
-    }
-
     for var in ds.data_vars:
         da = ds[var]
 
         # If there are not spatial coords, we cant view it with this router, sorry
         if 'longitude' not in da.cf.coords:
             continue
+
+        bounds = {
+            'CRS': 'EPSG:4326',
+            'minx': f'{da.cf.coords["longitude"].min().values.item()}',
+            'miny': f'{da.cf.coords["latitude"].min().values.item()}',
+            'maxx': f'{da.cf.coords["longitude"].max().values.item()}',
+            'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
+        }
+
+
 
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
