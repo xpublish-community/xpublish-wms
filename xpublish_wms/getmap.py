@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class OgcWmsGetMap:
-    TIME_CF_NAME: str = "forecast_reference_time"
+    TIME_CF_NAME: str = "time"
     DEFAULT_CRS: str = "4326"
 
     cache: cachey.Cache
