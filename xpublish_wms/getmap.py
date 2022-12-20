@@ -10,6 +10,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 from fastapi.responses import StreamingResponse
+from pyproj import Transformer
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
@@ -171,9 +172,12 @@ class OgcWmsGetMap:
         """
         # Regular grid
         minx, miny, maxx, maxy = self.bbox
-        if "4326" in self.crs:
-            # Something's strange with bbox ?
-            miny, minx, maxy, maxx = self.bbox
+        logger.debug(f"Original bbox : {minx} {miny} {maxx} {maxy}")
+        # WTF ?
+        (minx, maxx), (miny, maxy) = Transformer.from_crs(4326, self.crs, always_xy=True).transform(
+            [minx, maxx], [miny, maxy]
+        )
+        logger.debug(f"Converted bbox : {minx} {miny} {maxx} {maxy}")
 
         # TBD:
         #   got issues on my dataset using rioxarray :
