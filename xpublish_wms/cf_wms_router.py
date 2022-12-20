@@ -6,22 +6,18 @@ OGC WMS router for datasets with CF convention metadata
 from cmath import isnan
 import io
 import logging
-import time
 import xml.etree.ElementTree as ET
 
 import cachey
 import numpy as np
-import pandas as pd
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from xpublish.dependencies import get_cache, get_dataset
-from rasterio.enums import Resampling
-from rasterio.transform import from_bounds
 from PIL import Image
 from matplotlib import cm
-from pykdtree.kdtree import KDTree
 
+from xpublish_wms.getmap import OgcWmsGetMap
 from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
 
 logger = logging.getLogger("uvicorn")
@@ -39,23 +35,6 @@ styles = [
         'abstract': 'The default raster styling, scaled to the given range. The palette can be overriden by replacing default with a matplotlib colormap name'
     }
 ]
-
-
-def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
-    cache_key = f"dataset-kdtree-{ds.attrs['title']}"
-    kd = cache.get(cache_key)
-    if kd:
-        return kd
-
-    lng = ds.cf['longitude']
-    lat = ds.cf['latitude']
-
-    verts = np.column_stack((lng, lat))
-    kd = KDTree(verts)
-
-    cache.put(cache_key, kd, 5)
-
-    return kd
 
 
 def create_text_element(root, name: str, text: str):
@@ -221,111 +200,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
     ET.indent(root, space="\t", level=0)
     return Response(ET.tostring(root).decode('utf-8'), media_type='text/xml')
-
-
-def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
-    """
-    Return the WMS map for the dataset and given parameters
-    """
-    if not dataset.rio.crs:
-        dataset = dataset.rio.write_crs(4326)
-
-    ds = dataset.squeeze()
-    bbox = [float(x) for x in query['bbox'].split(',')]
-    width = int(query['width'])
-    height = int(query['height'])
-    crs = query.get('crs', None) or query.get('srs')
-    parameter = query['layers']
-    t = query.get('time', None)
-    colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
-    autoscale = query.get('autoscale', 'false') != 'false'
-    style = query['styles']
-    stylename, palettename = style.split('/')
-
-    # This is an image, so only use the timestep that was requested
-    if t is not None:
-        tstamp = pd.to_datetime(t).tz_localize(None)
-        da = ds[parameter].cf.sel({'time': tstamp}, method='nearest').squeeze()
-    else:
-        da = ds[parameter].cf.isel({'time': 0})
-    
-    start = time.time()
-    if da.cf.coords['longitude'].dims[0] == da.cf.coords['longitude'].name:
-        # Regular grid
-        # Unpack the requested data and resample
-        clipped = da.rio.clip_box(*bbox, crs=crs)
-        resampled_data = clipped.rio.reproject(
-            dst_crs=crs,
-            shape=(width, height),
-            resampling=Resampling.nearest,
-            transform=from_bounds(*bbox, width=width, height=height),
-        )
-        
-        reproject_time = time.time()
-        logger.info(f'clip and reproject regular: {reproject_time - start}')
-    else:
-        # irregular grid
-        t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        lats = np.linspace(t_lng[0], t_lng[1], width)
-        lngs = np.linspace(t_lat[0], t_lat[1], height)
-        grid_lngs, grid_lats = np.meshgrid(lngs, lats)
-        pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        kd = get_spatial_kdtree(ds, cache)
-        _, n = kd.query(pts)
-        ni = n.argsort()
-        pp = n[ni]
-
-        index_time = time.time()
-        logger.info(f'index and kdtree irregular: {index_time - start}')
-
-        # This is slow because it has to pull into numpy array, can we do better? 
-        z = ds.zeta[0][pp].values
-        z = z[ni.argsort()].reshape((height, width))
-
-        extraction_time = time.time()
-        logger.info(f'extract data irregular: {extraction_time - index_time}')
-        
-        rds = xr.Dataset(
-            data_vars=dict(
-                z=(["y", "x"], z),
-            ),
-            coords=dict(
-                x=(["x"], lngs),
-                y=(["y"], lats),
-            )
-        )
-        rds.rio.write_crs(4326, inplace=True)
-        resampled_data = rds.z.rio.reproject(
-            dst_crs=crs,
-            shape=(width, height),
-            resampling=Resampling.nearest,
-            transform=from_bounds(*bbox, width=width, height=height),
-        )
-
-        reproject_time = time.time()
-        logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
-
-        # if the user has supplied a color range, use it. Otherwise autoscale
-    if autoscale:
-        min_value = float(ds[parameter].min())
-        max_value = float(ds[parameter].max())
-    else:
-        min_value = colorscalerange[0]
-        max_value = colorscalerange[1]
-
-    ds_scaled = (resampled_data - min_value) / (max_value - min_value)
-
-    # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
-    # Otherwise default to rainbow
-    if palettename == 'default':
-        palettename = 'rainbow'
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(ds_scaled) * 255))
-
-    image_bytes = io.BytesIO()
-    im.save(image_bytes, format='PNG')
-    image_bytes = image_bytes.getvalue()
-
-    return Response(content=image_bytes, media_type='image/png')
 
 
 def get_feature_info(dataset: xr.Dataset, query: dict):
@@ -519,12 +393,14 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
 @cf_wms_router.get('/')
 def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
-    method = query_params['request']
+    method = query_params.get('request', None)
     logger.info(f'WMS: {method}')
     if method == 'GetCapabilities':
         return get_capabilities(dataset, request)
     elif method == 'GetMap':
-        return get_map(dataset, query_params, cache)
+        getmap_service = OgcWmsGetMap()
+        getmap_service.cache = cache
+        return getmap_service.get_map(dataset, query_params)
     elif method == 'GetFeatureInfo' or method == 'GetTimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'GetLegendGraphic':
