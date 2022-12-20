@@ -269,17 +269,37 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         max_lng = ds.cf.coords["longitude"].max().values.item()
         max_lat = ds.cf.coords["latitude"].max().values.item()
 
-        # irregular grid
-        t_lat, t_lng = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        lats = np.linspace(t_lng[0], t_lng[1], width)
-        lngs = np.linspace(t_lat[0], t_lat[1], height)
+        # Check if we need to project the bounding box 
+        if crs == 'EPSG:3857':
+            t_lng, t_lat = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+        else: 
+            t_lng = [bbox[0], bbox[2]]
+            t_lat = [bbox[1], bbox[3]]
+
+        lngs = np.linspace(t_lng[0], t_lng[1], width)
+        lats = np.linspace(t_lat[0], t_lat[1], height)
+
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
         pts = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
         pts_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts])
 
-        if np.any(pts_mask): 
+        if np.any(pts_mask):
             kd = get_spatial_kdtree(ds, cache)
-            _, n = kd.query(pts)
+            dist, n = kd.query(pts)
+
+            d_lng = lngs[1] - lngs[0]
+            d_lat = lats[1] - lats[0]
+            max_dist = np.sqrt((2 * d_lng)**2 + (2 * d_lat)**2)
+            dist_mask = np.where(dist > max_dist)
+
+            logger.info(f'Calculated max dist: {max_dist}')
+            logger.info(f'max dist: {np.max(dist)}')
+            logger.info(f'min dist: {np.min(dist)}')
+            logger.info(f'mean dist: {np.mean(dist)}')
+            logger.info(f'median dist: {np.median(dist)}')
+            logger.info(f'stdev dist: {np.std(dist)}')
+            logger.info(f'-----------------')
+
             ni = n.argsort()
             pp = n[ni]
 
@@ -291,6 +311,7 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
             z = ds.zeta[0][pp].values
             z = z[ni.argsort()]
             z[~pts_mask] = np.nan
+            z[dist_mask] = np.nan
             
             z = z.reshape((height, width))
 
