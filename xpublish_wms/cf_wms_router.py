@@ -284,12 +284,12 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
         grid_lngs, grid_lats = np.meshgrid(lngs, lats)
 
         pts = lnglat_to_cartesian(grid_lngs.ravel(), grid_lats.ravel())
-        # pts = np.column_stack(grid_coords)
-        pts_ll = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        
-        pts_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts_ll])
 
-        if np.any(pts_mask):
+        # Need ll version for masking outside dataset bounds
+        pts_ll = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
+        pts_ll_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts_ll])
+
+        if np.any(pts_ll_mask):
             kd = get_spatial_kdtree(ds, cache)
             dist, n = kd.query(pts)
 
@@ -317,7 +317,7 @@ def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
             # TODO: Can we avoid pulling down fully masked chunks??? 
             z = ds.zeta[0][pp].values
             z = z[ni.argsort()]
-            z[~pts_mask] = np.nan
+            z[~pts_ll_mask] = np.nan
             z[dist_mask] = np.nan
             
             z = z.reshape((height, width))
