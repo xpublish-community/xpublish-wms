@@ -1,8 +1,9 @@
+import logging
 import xarray as xr
 import numpy as np
 from pyproj import Transformer
-from loguru import logger
 
+logger = logging.getLogger(__name__)
 
 def lower_case_keys(d: dict) -> dict:
     return dict((k.lower(), v) for k, v in d.items())
@@ -46,6 +47,21 @@ def ensure_crs(ds: xr.Dataset | xr.DataArray, default_crs: str = "EPSG:4326") ->
         logger.debug(f"Settings default CRS : {default_crs}")
         ds.rio.write_crs(default_crs, inplace=True)
     return ds
+
+
+
+def lnglat_to_cartesian(longitude, latitude):
+    '''
+    Converts latitude and longitude to cartesian coordinates
+    '''
+    lng_rad = np.deg2rad(longitude)
+    lat_rad = np.deg2rad(latitude)
+
+    R = 6371
+    x = R * np.cos(lat_rad) * np.cos(lng_rad)
+    y = R * np.cos(lat_rad) * np.sin(lng_rad)
+    z = R * np.sin(lat_rad)
+    return np.column_stack((x, y, z))
 
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
