@@ -169,9 +169,7 @@ class OgcWmsGetMap:
         :param da:
         :return:
         """
-        # TBC : need to invert lat/lon here ?
-        #minx, miny, maxx, maxy = self.bbox
-        miny, minx, maxy, maxx = self.bbox
+        minx, miny, maxx, maxy = self.bbox
 
         transform = from_bounds(
             west=minx, south=miny,
