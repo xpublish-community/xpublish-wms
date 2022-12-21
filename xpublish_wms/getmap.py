@@ -1,5 +1,6 @@
 import io
 import time
+import logging
 from datetime import datetime
 from typing import List
 
@@ -8,9 +9,7 @@ import cf_xarray  # noqa
 import xarray as xr
 import pandas as pd
 import numpy as np
-from loguru import logger
 from fastapi.responses import StreamingResponse
-from pyproj import Transformer
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
@@ -19,6 +18,7 @@ from pykdtree.kdtree import KDTree
 
 from xpublish_wms.utils import to_lnglat
 
+logger = logging.getLogger(__name__)
 
 
 class OgcWmsGetMap:
@@ -134,7 +134,7 @@ class OgcWmsGetMap:
 
         # Squeeze multiple values dimensions, by selecting the last value
         for coord_name in da.cf.coords:
-            if coord_name in ("latitude", "longitude"):
+            if coord_name in ("latitude", "longitude", "X", "Y"):
                 continue
             coord = da.cf.coords[coord_name]
             if coord.size > 1:
