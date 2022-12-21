@@ -177,13 +177,13 @@ class OgcWmsGetMap:
             width=self.width, height=self.height
         )
         clipped = da.rio.clip_box(
-            minx=minx, maxx=maxx,
-            miny=miny, maxy=maxy,
+            minx=minx, miny=miny,
+            maxx=maxx, maxy=maxy,
             crs=self.crs
         )
         resampled_data = clipped.rio.reproject(
             dst_crs=self.crs,
-            shape=(self.height, self.width),
+            shape=(self.width, self.height),
             resampling=Resampling.nearest,
             transform=transform,
         )
