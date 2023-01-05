@@ -1,8 +1,8 @@
 ## xpublish-wms
 
-[![Build Status](https://travis-ci.com/ioos/ioos-python-package-skeleton.svg?branch=master)](https://travis-ci.com/ioos/ioos-python-package-skeleton)
+[![Tests](https://github.com/asascience-open/xpublish-wms/actions/workflows/tests.yml/badge.svg)](https://github.com/asascience-open/xpublish-wms/actions/workflows/tests.yml)
 
-WMS router for xpublish
+[Xpublish](https://xpublish.readthedocs.io/en/latest/) routers for the [OGC WMS API](https://www.ogc.org/standards/wms).
 
 ### Documentation and code
 
@@ -10,22 +10,32 @@ URLs for the docs and code.
 
 ### Installation
 
-For `conda` users you can
+This package is not yet published to pypi, so install from source with pip: 
 
-```shell
-conda install --channel conda-forge xpublish_wms
 ```
-
-or, if you are a `pip` users
-
-```shell
-pip install xpublish_wms
+git+https://github.com/asascience-open/xpublish-wms@72ee989
 ```
 
 ### Example
 
-**TODO**
+```python
+import xarray as xr
+import xpublish
+from xpublish.routers import base_router, zarr_router
+from xpublish_wms import cf_wms_router
 
+
+ds = xr.open_dataset("dataset.nc")
+
+rest = xpublish.Rest(
+    datasets,
+    routers=[
+        (base_router, {"tags": ["info"]}),
+        (cf_wms_router, {"tags": ["wms"], "prefix": "/wms"}),
+        (zarr_router, {"tags": ["zarr"], "prefix": "/zarr"}),
+    ],
+)
+```
 
 ## Get in touch
 
