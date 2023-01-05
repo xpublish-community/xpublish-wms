@@ -6,6 +6,8 @@ OGC WMS router for datasets with CF convention metadata
 from cmath import isnan
 import io
 import logging
+import time
+from typing import List
 import xml.etree.ElementTree as ET
 
 import cachey
@@ -44,7 +46,7 @@ def create_text_element(root, name: str, text: str):
     return element
 
 
-def create_capability_element(root, name: str, url: str, formats: list[str]):
+def create_capability_element(root, name: str, url: str, formats: List[str]):
     cap = ET.SubElement(root, name)
     # TODO: Add more image formats
     for fmt in formats:
@@ -148,6 +150,16 @@ def get_capabilities(ds: xr.Dataset, request: Request):
         if 'longitude' not in da.cf.coords:
             continue
 
+        bounds = {
+            'CRS': 'EPSG:4326',
+            'minx': f'{da.cf.coords["longitude"].min().values.item()}',
+            'miny': f'{da.cf.coords["latitude"].min().values.item()}',
+            'maxx': f'{da.cf.coords["longitude"].max().values.item()}',
+            'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
+        }
+
+
+
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
         create_text_element(layer, 'Name', var)
@@ -167,13 +179,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
-        bounds = {
-            'CRS': 'EPSG:4326',
-            'minx': f'{da.cf.coords["longitude"].min().values.item()}',
-            'miny': f'{da.cf.coords["latitude"].min().values.item()}',
-            'maxx': f'{da.cf.coords["longitude"].max().values.item()}',
-            'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
-        }
         bounding_box_element = ET.SubElement(layer, 'BoundingBox', attrib=bounds)
 
         if 'T' in da.cf.axes:
