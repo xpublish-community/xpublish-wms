@@ -1,4 +1,5 @@
 import logging
+from typing import Union
 import xarray as xr
 import numpy as np
 from pyproj import Transformer
