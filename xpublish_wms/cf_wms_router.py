@@ -7,6 +7,7 @@ from cmath import isnan
 import io
 import logging
 import time
+from typing import List
 import xml.etree.ElementTree as ET
 
 import cachey
@@ -64,7 +65,7 @@ def create_text_element(root, name: str, text: str):
     return element
 
 
-def create_capability_element(root, name: str, url: str, formats: list[str]):
+def create_capability_element(root, name: str, url: str, formats: List[str]):
     cap = ET.SubElement(root, name)
     # TODO: Add more image formats
     for fmt in formats:
