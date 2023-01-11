@@ -12,18 +12,16 @@ import xml.etree.ElementTree as ET
 
 import cachey
 import numpy as np
-import pandas as pd
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from xpublish.dependencies import get_cache, get_dataset
-from rasterio.enums import Resampling
-from rasterio.transform import from_bounds
 from PIL import Image
 from matplotlib import cm
-from pykdtree.kdtree import KDTree
 
-from xpublish_wms.utils import format_timestamp, lnglat_to_cartesian, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, to_lnglat
+from xpublish_wms.getmap import OgcWmsGetMap
+from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, \
+    to_lnglat, ensure_crs
 
 logger = logging.getLogger("uvicorn")
 
@@ -40,23 +38,6 @@ styles = [
         'abstract': 'The default raster styling, scaled to the given range. The palette can be overriden by replacing default with a matplotlib colormap name'
     }
 ]
-
-
-def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
-    cache_key = f"dataset-kdtree-{ds.attrs['title']}"
-    kd = cache.get(cache_key)
-    if kd:
-        return kd
-
-    lng = ds.cf['longitude']
-    lat = ds.cf['latitude']
-
-    verts = lnglat_to_cartesian(lng, lat)
-    kd = KDTree(verts)
-
-    cache.put(cache_key, kd, 5)
-
-    return kd
 
 
 def create_text_element(root, name: str, text: str):
@@ -224,152 +205,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
     ET.indent(root, space="\t", level=0)
     return Response(ET.tostring(root).decode('utf-8'), media_type='text/xml')
-
-
-def get_map(dataset: xr.Dataset, query: dict, cache: cachey.Cache):
-    """
-    Return the WMS map for the dataset and given parameters
-    """
-    if not dataset.rio.crs:
-        dataset = dataset.rio.write_crs(4326)
-
-    ds = dataset.squeeze()
-    bbox = [float(x) for x in query['bbox'].split(',')]
-    width = int(query['width'])
-    height = int(query['height'])
-    crs = query.get('crs', None) or query.get('srs')
-    parameter = query['layers']
-    t = query.get('time', None)
-    colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
-    autoscale = query.get('autoscale', 'false') != 'false'
-    style = query['styles']
-    stylename, palettename = style.split('/')
-
-    # This is an image, so only use the timestep that was requested
-    if t is not None:
-        tstamp = pd.to_datetime(t).tz_localize(None)
-        da = ds[parameter].cf.sel({'time': tstamp}, method='nearest').squeeze()
-    else:
-        da = ds[parameter].cf.isel({'time': 0})
-    
-    start = time.time()
-    if da.cf.coords['longitude'].dims[0] == da.cf.coords['longitude'].name:
-        # Regular grid
-        # Unpack the requested data and resample
-        clipped = da.rio.clip_box(*bbox, crs=crs)
-        resampled_data = clipped.rio.reproject(
-            dst_crs=crs,
-            shape=(width, height),
-            resampling=Resampling.nearest,
-            transform=from_bounds(*bbox, width=width, height=height),
-        )
-        
-        reproject_time = time.time()
-        logger.info(f'clip and reproject regular: {reproject_time - start}')
-    else:
-        min_lng = ds.cf.coords["longitude"].min().values.item()
-        min_lat = ds.cf.coords["latitude"].min().values.item()
-        max_lng = ds.cf.coords["longitude"].max().values.item()
-        max_lat = ds.cf.coords["latitude"].max().values.item()
-
-        # Check if we need to project the bounding box 
-        if crs == 'EPSG:3857':
-            t_lng, t_lat = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        else: 
-            t_lng = [bbox[0], bbox[2]]
-            t_lat = [bbox[1], bbox[3]]
-
-        lngs = np.linspace(t_lng[0], t_lng[1], width)
-        lats = np.linspace(t_lat[0], t_lat[1], height)
-
-        grid_lngs, grid_lats = np.meshgrid(lngs, lats)
-
-        pts = lnglat_to_cartesian(grid_lngs.ravel(), grid_lats.ravel())
-
-        # Need ll version for masking outside dataset bounds
-        pts_ll = np.column_stack((grid_lngs.ravel(), grid_lats.ravel()))
-        pts_ll_mask = np.array([x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts_ll])
-
-        if np.any(pts_ll_mask):
-            kd = get_spatial_kdtree(ds, cache)
-            dist, n = kd.query(pts)
-
-            d_lng = pts[1][0] - pts[0][0]
-            d_lat = pts[1][1] - pts[0][1]
-            d_ele = pts[1][2] - pts[0][2]
-            max_dist = np.sqrt((2 * d_lng)**2 + (2 * d_lat)**2 + (2 * d_ele))
-            dist_mask = np.where(dist > max_dist)
-
-            logger.info(f'Calculated max dist: {max_dist}')
-            logger.info(f'max dist: {np.max(dist)}')
-            logger.info(f'min dist: {np.min(dist)}')
-            logger.info(f'mean dist: {np.mean(dist)}')
-            logger.info(f'median dist: {np.median(dist)}')
-            logger.info(f'stdev dist: {np.std(dist)}')
-            logger.info(f'-----------------')
-
-            ni = n.argsort()
-            pp = n[ni]
-
-            index_time = time.time()
-            logger.info(f'index and kdtree irregular: {index_time - start}')
-
-            # This is slow because it has to pull into numpy array, can we do better? 
-            # TODO: Can we avoid pulling down fully masked chunks??? 
-            z = ds.zeta[0][pp].values
-            z = z[ni.argsort()]
-            z[~pts_ll_mask] = np.nan
-            z[dist_mask] = np.nan
-            
-            z = z.reshape((height, width))
-
-            extraction_time = time.time()
-            logger.info(f'extract data irregular: {extraction_time - index_time}')
-        
-            rds = xr.Dataset(
-                data_vars=dict(
-                    z=(["y", "x"], z),
-                ),
-                coords=dict(
-                    x=(["x"], lngs),
-                    y=(["y"], lats),
-                )
-            )
-            rds.rio.write_crs(4326, inplace=True)
-            resampled_data = rds.z.rio.reproject(
-                dst_crs=crs,
-                shape=(width, height),
-                resampling=Resampling.nearest,
-                transform=from_bounds(*bbox, width=width, height=height),
-            )
-
-            reproject_time = time.time()
-            logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
-        else: 
-            resampled_data = np.empty((width,height))
-            resampled_data[:] = np.nan
-
-    # if the user has supplied a color range, use it. Otherwise autoscale
-    if autoscale:
-        min_value = float(ds[parameter].min())
-        max_value = float(ds[parameter].max())
-    else:
-        min_value = colorscalerange[0]
-        max_value = colorscalerange[1]
-
-    ds_scaled = (resampled_data - min_value) / (max_value - min_value)
-
-    # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
-    # Otherwise default to rainbow
-    if palettename == 'default':
-        palettename = 'rainbow'
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(ds_scaled) * 255))
-
-    image_bytes = io.BytesIO()
-    im.save(image_bytes, format='PNG')
-    image_bytes = image_bytes.getvalue()
-
-    return Response(content=image_bytes, media_type='image/png')
 
 
 def get_feature_info(dataset: xr.Dataset, query: dict):
@@ -563,12 +398,14 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
 @cf_wms_router.get('/')
 def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
-    method = query_params['request']
+    method = query_params.get('request', None)
     logger.info(f'WMS: {method}')
     if method == 'GetCapabilities':
         return get_capabilities(dataset, request)
     elif method == 'GetMap':
-        return get_map(dataset, query_params, cache)
+        getmap_service = OgcWmsGetMap()
+        getmap_service.cache = cache
+        return getmap_service.get_map(dataset, query_params)
     elif method == 'GetFeatureInfo' or method == 'GetTimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'GetLegendGraphic':
