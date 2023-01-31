@@ -4,19 +4,18 @@ import logging
 from datetime import datetime
 from typing import List
 
-import cachey
 import cf_xarray  # noqa
 import xarray as xr
 import pandas as pd
 import numpy as np
-from fastapi.responses import StreamingResponse
+# from fastapi.responses import StreamingResponse
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
 from matplotlib import cm
 from pykdtree.kdtree import KDTree
 
-from xpublish_wms.utils import to_lnglat, lnglat_to_cartesian
+from utils import to_lnglat, lnglat_to_cartesian
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ class OgcWmsGetMap:
     DEFAULT_CRS: str = "4326"
     DEFAULT_STYLE: str = "raster/default"
 
-    cache: cachey.Cache
+    #cache: cachey.Cache
 
     # Data selection
     parameter : str
@@ -60,7 +59,8 @@ class OgcWmsGetMap:
         # Generate output
         image_bytes = self.draw(da, da_bbox)
 
-        return StreamingResponse(image_bytes, media_type="image/png")
+        return image_bytes.getvalue()
+        #return StreamingResponse(image_bytes, media_type="image/png")
 
     def ensure_query_types(self, query: dict):
         """
@@ -285,8 +285,6 @@ class OgcWmsGetMap:
             resampled_data = np.empty((width, height))
             resampled_data[:] = np.nan
 
-        reproject_time = time.time()
-        logger.info(f'clip and reproject irregular: {reproject_time - extraction_time}')
         return resampled_data
 
     def draw(self, da: xr.DataArray, da_bbox: xr.DataArray) -> io.BytesIO:
@@ -341,11 +339,11 @@ class OgcWmsGetMap:
         return image_bytes
 
 
-def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
+def get_spatial_kdtree(ds: xr.Dataset) -> KDTree:
     cache_key = f"dataset-kdtree-{ds.attrs['title']}"
-    kd = cache.get(cache_key)
-    if kd:
-        return kd
+    #kd = cache.get(cache_key)
+    #if kd:
+    #    return kd
 
     lng = ds.cf['longitude']
     lat = ds.cf['latitude']
@@ -353,6 +351,6 @@ def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
     verts = lnglat_to_cartesian(lng, lat)
     kd = KDTree(verts)
 
-    cache.put(cache_key, kd, 5)
+    #cache.put(cache_key, kd, 5)
 
     return kd
