@@ -15,7 +15,7 @@ from PIL import Image
 from matplotlib import cm
 from pykdtree.kdtree import KDTree
 
-from utils import to_lnglat, lnglat_to_cartesian
+from xpublish_wms.utils import to_lnglat, lnglat_to_cartesian
 
 logger = logging.getLogger(__name__)
 
