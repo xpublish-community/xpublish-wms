@@ -23,5 +23,5 @@ setuptools_scm
 sphinx
 twine
 wheel
-xpublish
+git+https://github.com/xarray-contrib/xpublish.git@f2171bb2376e928dff823656fb3dfac78f9f6ec8
 importlib-metadata
