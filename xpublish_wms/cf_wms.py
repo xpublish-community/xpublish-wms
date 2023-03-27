@@ -6,7 +6,6 @@ OGC WMS router for datasets with CF convention metadata
 from cmath import isnan
 import io
 import logging
-import time
 from typing import List
 import xml.etree.ElementTree as ET
 
@@ -14,7 +13,7 @@ import cachey
 import numpy as np
 import cf_xarray  # noqa
 import xarray as xr
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 from xpublish.dependencies import get_cache, get_dataset
 from PIL import Image
 from matplotlib import cm
@@ -24,9 +23,6 @@ from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_va
     to_lnglat, ensure_crs
 
 logger = logging.getLogger("uvicorn")
-
-
-cf_wms_router = APIRouter()
 
 
 # WMS Styles declaration
@@ -395,7 +391,6 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     return Response(content=image_bytes, media_type='image/png')
 
 
-@cf_wms_router.get('/')
 def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
     method = query_params.get('request', None)

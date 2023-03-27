@@ -2,9 +2,9 @@
 xpublish_wms is not a real package, just a set of best practices examples.
 """
 
-from xpublish_wms.cf_wms_router import cf_wms_router
+from .plugin import CfWmsPlugin
 
-__all__ = ["cf_wms_router"]
+__all__ = ["CfWmsPlugin"]
 
 try:
     from ._version import __version__

@@ -2,6 +2,41 @@
 requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "xpublish_wms"
+description = "WMS plugin for xpublish"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["xarray", "xpublish", "wms"]
+license = { file = "LICENSE.txt" }
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering",
+]
+
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools]
+packages = ["xpublish_wms"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools_scm]
+write_to = "xpublish_wms/_version.py"
+
+[project.entry-points."xpublish.plugin"]
+cf_wms = "xpublish_wms.plugin:CfWmsPlugin"
+
 [tool.interrogate]
 ignore-init-method = true
 ignore-init-module = false
