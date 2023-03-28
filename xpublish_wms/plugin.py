@@ -32,3 +32,5 @@ class CfWmsPlugin(Plugin):
         @router.get('/')
         def wms_root(request: Request, dataset: xr.Dataset = Depends(deps.dataset), cache: cachey.Cache = Depends(deps.cache)):
             cf_wms.wms_root(request, dataset, cache)
+
+        return router
