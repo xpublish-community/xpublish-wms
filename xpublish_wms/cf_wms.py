@@ -19,6 +19,7 @@ from PIL import Image
 from matplotlib import cm
 
 from xpublish_wms.getmap import OgcWmsGetMap
+from xpublish_wms.mpl_getmap import get_map
 from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, \
     to_lnglat, ensure_crs
 
@@ -381,7 +382,7 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
     # Otherwise default to rainbow
     if palettename == 'default':
-        palettename = 'rainbow'
+        palettename = 'jet'
     im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(data) * 255))
 
     image_bytes = io.BytesIO()
@@ -391,16 +392,17 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     return Response(content=image_bytes, media_type='image/png')
 
 
-def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
+async def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
     method = query_params.get('request', '').lower()
     logger.info(f'WMS: {method}')
     if method == 'getcapabilities':
         return get_capabilities(dataset, request)
     elif method == 'getmap':
-        getmap_service = OgcWmsGetMap()
-        getmap_service.cache = cache
-        return getmap_service.get_map(dataset, query_params)
+        return get_map(dataset, query_params)
+        # getmap_service = OgcWmsGetMap()
+        # getmap_service.cache = cache
+        # return getmap_service.get_map(dataset, query_params)
     elif method == 'getfeatureinfo' or method == 'gettimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'getlegendgraphic':

@@ -58,6 +58,8 @@ def lnglat_to_cartesian(longitude, latitude):
     lng_rad = np.deg2rad(longitude)
     lat_rad = np.deg2rad(latitude)
 
+    logger.warning(lng_rad)
+
     R = 6371
     x = R * np.cos(lat_rad) * np.cos(lng_rad)
     y = R * np.cos(lat_rad) * np.sin(lng_rad)

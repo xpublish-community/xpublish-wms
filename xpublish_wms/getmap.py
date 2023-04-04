@@ -134,12 +134,13 @@ class OgcWmsGetMap:
         # TODO: Filter dimension from custom query, if any
 
         # Squeeze multiple values dimensions, by selecting the last value
-        for coord_name in da.cf.coords:
-            if coord_name in ("latitude", "longitude", "X", "Y"):
+        for key in da.cf.coordinates.keys():
+            if key in ("latitude", "longitude", "X", "Y"):
                 continue
-            coord = da.cf.coords[coord_name]
+
+            coord = da.cf.coords[key]
             if coord.size > 1:
-                da = da.cf.isel({coord_name: -1})
+                da = da.cf.isel({key: -1})
 
         return da
 
@@ -199,14 +200,13 @@ class OgcWmsGetMap:
         :param da:
         :return:
         """
-        ds = da
         bbox, width, height = self.bbox, self.width, self.height
 
         start = time.time()
-        min_lng = ds.cf.coords["longitude"].min().values.item()
-        min_lat = ds.cf.coords["latitude"].min().values.item()
-        max_lng = ds.cf.coords["longitude"].max().values.item()
-        max_lat = ds.cf.coords["latitude"].max().values.item()
+        min_lng = da.cf.coords["longitude"].min().values.item()
+        min_lat = da.cf.coords["latitude"].min().values.item()
+        max_lng = da.cf.coords["longitude"].max().values.item()
+        max_lat = da.cf.coords["latitude"].max().values.item()
 
         # Check if we need to project the bounding box
         if self.crs == 'EPSG:3857':
@@ -228,7 +228,7 @@ class OgcWmsGetMap:
             [x[0] >= min_lng and x[0] <= max_lng and x[1] >= min_lat and x[1] <= max_lat for x in pts_ll])
 
         if np.any(pts_ll_mask):
-            kd = get_spatial_kdtree(ds, self.cache)
+            kd = get_spatial_kdtree(da, self.cache)
             dist, n = kd.query(pts)
 
             d_lng = pts[1][0] - pts[0][0]
@@ -342,14 +342,14 @@ class OgcWmsGetMap:
         return image_bytes
 
 
-def get_spatial_kdtree(ds: xr.Dataset, cache: cachey.Cache) -> KDTree:
-    cache_key = f"dataset-kdtree-{ds.attrs['title']}"
+def get_spatial_kdtree(da: xr.DataArray, cache: cachey.Cache) -> KDTree:
+    cache_key = f"dataset-kdtree-{da.cf.attrs['standard_name']}"
     kd = cache.get(cache_key)
     if kd:
         return kd
 
-    lng = ds.cf['longitude']
-    lat = ds.cf['latitude']
+    lng = da.cf['longitude'].values
+    lat = da.cf['latitude'].values
 
     verts = lnglat_to_cartesian(lng, lat)
     kd = KDTree(verts)

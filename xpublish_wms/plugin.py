@@ -30,7 +30,7 @@ class CfWmsPlugin(Plugin):
         router = APIRouter(prefix=self.dataset_router_prefix, tags=self.dataset_router_tags)
 
         @router.get('/')
-        def wms_root(request: Request, dataset: xr.Dataset = Depends(deps.dataset), cache: cachey.Cache = Depends(deps.cache)):
-            return cf_wms.wms_root(request, dataset, cache)
+        async def wms_root(request: Request, dataset: xr.Dataset = Depends(deps.dataset), cache: cachey.Cache = Depends(deps.cache)):
+            return await cf_wms.wms_root(request, dataset, cache)
 
         return router
