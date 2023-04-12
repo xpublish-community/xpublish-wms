@@ -399,7 +399,7 @@ async def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset),
     if method == 'getcapabilities':
         return get_capabilities(dataset, request)
     elif method == 'getmap':
-        return get_map(dataset, query_params)
+        return get_map(dataset, query_params, cache)
         # getmap_service = OgcWmsGetMap()
         # getmap_service.cache = cache
         # return getmap_service.get_map(dataset, query_params)
