@@ -6,7 +6,6 @@ OGC WMS router for datasets with CF convention metadata
 from cmath import isnan
 import io
 import logging
-import time
 from typing import List
 import xml.etree.ElementTree as ET
 
@@ -14,7 +13,7 @@ import cachey
 import numpy as np
 import cf_xarray  # noqa
 import xarray as xr
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 from xpublish.dependencies import get_cache, get_dataset
 from PIL import Image
 from matplotlib import cm
@@ -24,9 +23,6 @@ from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_va
     to_lnglat, ensure_crs
 
 logger = logging.getLogger("uvicorn")
-
-
-cf_wms_router = APIRouter()
 
 
 # WMS Styles declaration
@@ -158,8 +154,6 @@ def get_capabilities(ds: xr.Dataset, request: Request):
             'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
         }
 
-
-
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
         create_text_element(layer, 'Name', var)
@@ -204,7 +198,9 @@ def get_capabilities(ds: xr.Dataset, request: Request):
             create_text_element(style_element, 'LegendURL', legend_url)
 
     ET.indent(root, space="\t", level=0)
-    return Response(ET.tostring(root).decode('utf-8'), media_type='text/xml')
+    get_caps_xml = ET.tostring(root).decode('utf-8')
+
+    return Response(get_caps_xml, media_type='text/xml')
 
 
 def get_feature_info(dataset: xr.Dataset, query: dict):
@@ -395,20 +391,19 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     return Response(content=image_bytes, media_type='image/png')
 
 
-@cf_wms_router.get('/')
 def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset), cache: cachey.Cache = Depends(get_cache)):
     query_params = lower_case_keys(request.query_params)
-    method = query_params.get('request', None)
+    method = query_params.get('request', '').lower()
     logger.info(f'WMS: {method}')
-    if method == 'GetCapabilities':
+    if method == 'getcapabilities':
         return get_capabilities(dataset, request)
-    elif method == 'GetMap':
+    elif method == 'getmap':
         getmap_service = OgcWmsGetMap()
         getmap_service.cache = cache
         return getmap_service.get_map(dataset, query_params)
-    elif method == 'GetFeatureInfo' or method == 'GetTimeseries':
+    elif method == 'getfeatureinfo' or method == 'gettimeseries':
         return get_feature_info(dataset, query_params)
-    elif method == 'GetLegendGraphic':
+    elif method == 'getlegendgraphic':
         return get_legend_info(dataset, query_params)
     else:
         raise HTTPException(

@@ -17,6 +17,7 @@ from pykdtree.kdtree import KDTree
 
 from xpublish_wms.utils import to_lnglat, lnglat_to_cartesian
 
+
 logger = logging.getLogger(__name__)
 
 
