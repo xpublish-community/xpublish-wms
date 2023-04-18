@@ -15,7 +15,7 @@ from PIL import Image
 from matplotlib import cm
 from pykdtree.kdtree import KDTree
 
-from xpublish_wms.utils import to_lnglat, lnglat_to_cartesian
+from utils import to_lnglat, lnglat_to_cartesian
 
 
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ class OgcWmsGetMap:
         :return:
         """
         minx, miny, maxx, maxy = self.bbox
-
+        da.compute()
         transform = from_bounds(
             west=minx, south=miny,
             east=maxx, north=maxy,

@@ -43,7 +43,8 @@ def load_data_s3(path: str, options: dict) -> xr.Dataset:
     fs = fsspec.filesystem("reference", fo=path, remote_protocol='s3', remote_options=options,
                            target_options=options)
     m = fs.get_mapper("")
-    ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False), chunks={},
+        
+    ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False), chunks={'valid_time':1},
                          drop_variables='orderedSequenceData')
 
     if ds.cf.coords['longitude'].dims[0] == 'longitude':

@@ -1,6 +1,6 @@
 import xarray as xr
 import numpy as np
-from xpublish_wms.utils import strip_float, format_timestamp, speed_and_dir_for_uv, round_float_values
+from utils import strip_float, format_timestamp, speed_and_dir_for_uv, round_float_values
 from fastapi import HTTPException
 
 
@@ -186,5 +186,3 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
         'parameters': parameter_info,
         'ranges': ranges
     }
-
-
