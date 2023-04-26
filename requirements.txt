@@ -6,3 +6,5 @@ Pillow
 matplotlib
 pykdtree
 dask-gateway
+cartopy
+cachey
