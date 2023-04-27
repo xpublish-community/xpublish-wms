@@ -5,6 +5,7 @@ xpublish
 Pillow
 matplotlib
 pykdtree
-dask-gateway
 cartopy
 cachey
+datashader
+scipy

@@ -19,9 +19,7 @@ from PIL import Image
 from matplotlib import cm
 
 from xpublish_wms.getmap import OgcWmsGetMap
-from xpublish_wms.mpl_getmap import get_map
-from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, \
-    to_lnglat, ensure_crs
+from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
 
 logger = logging.getLogger("uvicorn")
 
@@ -399,10 +397,8 @@ async def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset),
     if method == 'getcapabilities':
         return get_capabilities(dataset, request)
     elif method == 'getmap':
-        return get_map(dataset, query_params, cache)
-        # getmap_service = OgcWmsGetMap()
-        # getmap_service.cache = cache
-        # return getmap_service.get_map(dataset, query_params)
+        getmap_service = OgcWmsGetMap(cache=cache)
+        return getmap_service.get_map(dataset, query_params)
     elif method == 'getfeatureinfo' or method == 'gettimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'getlegendgraphic':
