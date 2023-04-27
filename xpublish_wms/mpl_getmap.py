@@ -145,8 +145,8 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
     ax.set_position([0, 0, 1, 1])
 
     try:
-        ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-        #ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax, levels=50)
+        #ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
+        ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax, levels=50)
         #ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
     except Exception as e:
         print(e)

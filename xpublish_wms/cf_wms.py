@@ -399,10 +399,8 @@ async def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset),
     if method == 'getcapabilities':
         return get_capabilities(dataset, request)
     elif method == 'getmap':
-        return get_map(dataset, query_params, cache)
-        # getmap_service = OgcWmsGetMap()
-        # getmap_service.cache = cache
-        # return getmap_service.get_map(dataset, query_params)
+        getmap_service = OgcWmsGetMap(cache=cache)
+        return getmap_service.get_map(dataset, query_params)
     elif method == 'getfeatureinfo' or method == 'gettimeseries':
         return get_feature_info(dataset, query_params)
     elif method == 'getlegendgraphic':
