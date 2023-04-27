@@ -19,9 +19,7 @@ from PIL import Image
 from matplotlib import cm
 
 from xpublish_wms.getmap import OgcWmsGetMap
-from xpublish_wms.mpl_getmap import get_map
-from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float, \
-    to_lnglat, ensure_crs
+from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
 
 logger = logging.getLogger("uvicorn")
 
