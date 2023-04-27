@@ -47,8 +47,8 @@ def load_data_s3(path: str, options: dict) -> xr.Dataset:
     ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False), chunks={'valid_time':1},
                          drop_variables='orderedSequenceData')
 
-    if ds.cf.coords['longitude'].dims[0] == 'longitude':
-        ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180)).sortby('longitude')
+    #if ds.cf.coords['longitude'].dims[0] == 'longitude':
+    #    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180)).sortby('longitude')
         # TODO: Yeah this should not be assumed... but for regular grids we will viz with rioxarray so for now we will assume
-        ds = ds.rio.write_crs(4326)
+    #    ds = ds.rio.write_crs(4326)
     return ds

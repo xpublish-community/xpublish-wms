@@ -18,7 +18,7 @@ from xpublish_wms.utils import to_lnglat
 matplotlib.use('Agg')
 
 
-def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
+def get_map(ds: xr.Dataset, query: dict): #, cache: cachey.Cache):
     start = time.time()
 
     # Decode request params
@@ -99,20 +99,20 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
     select_data_checkpoint = time.time()
     print(f'Select data: {select_data_checkpoint - unpack_query_checkpoint}s')
 
-    data = cache.get(data_cache_key, None)
-    if data is None:
-        data = np.array(da.values)
-        cache.put(data_cache_key, data, cost=50)
+    #data = cache.get(data_cache_key, None)
+    #if data is None:
+    data = np.array(da.values)
+        #cache.put(data_cache_key, data, cost=50)
 
-    x = cache.get(x_cache_key, None)
-    if x is None:
-        x = np.array(da.cf['longitude'].values)
-        cache.put(x_cache_key, x, cost=50)
+    #x = cache.get(x_cache_key, None)
+    #if x is None:
+    x = np.array(da.cf['longitude'].values)
+    #    cache.put(x_cache_key, x, cost=50)
     
-    y = cache.get(y_cache_key, None)
-    if y is None:
-        y = np.array(da.cf['latitude'].values)
-        cache.put(y_cache_key, y, cost=50)
+    #y = cache.get(y_cache_key, None)
+    #if y is None:
+    y = np.array(da.cf['latitude'].values)
+    #    cache.put(y_cache_key, y, cost=50)
 
     download_data_checkpoint = time.time()
     print(f'Download data: {download_data_checkpoint - select_data_checkpoint}s')
