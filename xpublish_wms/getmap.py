@@ -124,7 +124,7 @@ class OgcWmsGetMap:
                 self.palettename = self.DEFAULT_PALETTE
 
         self.colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
-        self.autoscale = query.get('autoscale', "true") == "true"
+        self.autoscale = query.get('autoscale', "false") == "true"
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
@@ -275,9 +275,9 @@ class OgcWmsGetMap:
         """
         # TODO: Make this based on the actual chunks of the dataset, for now brute forcing to time and variable
         if self.has_time:
-            cache_key = f"{self.parameter}"
+            cache_key = f"{self.parameter}_{self.time_str}"
         else:
-            cache_key = f"{self.parameter}_{self.time}"
+            cache_key = f"{self.parameter}"
         cache_coord_key = f"{self.parameter}_coords"
 
         data_cache_key = f"{cache_key}_data"
@@ -285,10 +285,10 @@ class OgcWmsGetMap:
         y_cache_key = f"{cache_coord_key}_y"
 
         if self.crs == 'EPSG:3857':
-            bbox_lng, bbox_lat = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox_lng, bbox_lat = to_lnglat.transform([self.bbox[0], self.bbox[2]], [self.bbox[1], self.bbox[3]])
             bbox = [*bbox_lng, *bbox_lat]
         else:
-            bbox = [bbox[0], bbox[2], bbox[1], bbox[3]]
+            bbox = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
 
         data = self.cache.get(data_cache_key, None)
         if data is None:
@@ -336,7 +336,7 @@ class OgcWmsGetMap:
 
         try:
             #ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-            ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=self.palettename, vmin=vmin, vmax=vmax, levels=50)
+            ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=self.palettename, vmin=vmin, vmax=vmax, levels=80)
             #ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
         except Exception as e:
             print(e)
