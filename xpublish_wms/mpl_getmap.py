@@ -8,9 +8,11 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 import cartopy.crs as ccrs
 import matplotlib
 import time
+from scipy.spatial import Delaunay
 
 
 from xpublish_wms.utils import to_lnglat
@@ -24,11 +26,11 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
     # Decode request params
     parameter = query['layers']
     da = ds[parameter]
-    
+
     time_str = query.get('time', None)
     if time_str:
         time_ = pd.to_datetime(time_str).tz_localize(None)
-    else: 
+    else:
         time_ = None
     has_time = 'time' in da.cf.coordinates
 
@@ -44,10 +46,11 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
         cache_key = f"{parameter}"
     else:
         cache_key = f"{parameter}_{time_str}"
-    
+    cache_coord_key = f"{parameter}_coords"
+
     data_cache_key = f"{cache_key}_data"
-    x_cache_key = f"{cache_key}_x"
-    y_cache_key = f"{cache_key}_y"
+    x_cache_key = f"{cache_coord_key}_x"
+    y_cache_key = f"{cache_coord_key}_y"
 
     # Grid
     crs = query.get('crs', None) or query.get('srs')
@@ -68,9 +71,9 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
         cmap = "jet"
 
     autoscale = query.get('autoscale', "false") == "true"
-    if not autoscale: 
+    if not autoscale:
         vmin, vmax = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
-    else: 
+    else:
         vmin = vmax = None
 
     unpack_query_checkpoint = time.time()
@@ -108,17 +111,28 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
     if x is None:
         x = np.array(da.cf['longitude'].values)
         cache.put(x_cache_key, x, cost=50)
-    
+
     y = cache.get(y_cache_key, None)
     if y is None:
         y = np.array(da.cf['latitude'].values)
         cache.put(y_cache_key, y, cost=50)
 
+    inds = np.where((x >= (bbox[0] - 0.18)) & (x <= (bbox[1] + 0.18)) & (y >= (bbox[2] - 0.18)) & (y <= (bbox[3] + 0.18)))
+    x_sel = x[inds]
+    y_sel = y[inds]
+    data_sel = data[inds]
+    tris = tri.Triangulation(x_sel, y_sel)
+
+    data_tris = data_sel[tris.triangles]
+    mask = np.where(np.isnan(data_tris), [True], [False])
+    triangle_mask = np.any(mask, axis=1)
+    tris.set_mask(triangle_mask)
+
     download_data_checkpoint = time.time()
     print(f'Download data: {download_data_checkpoint - select_data_checkpoint}s')
 
     projection = ccrs.Mercator() if crs == "EPSG:3857" else ccrs.PlateCarree()
-    
+
     dpi = 80
     fig = Figure(dpi=dpi, facecolor='none', edgecolor='none')
     fig.set_alpha(0)
@@ -131,7 +145,9 @@ def get_map(ds: xr.Dataset, query: dict, cache: cachey.Cache):
     ax.set_position([0, 0, 1, 1])
 
     try:
-        ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
+        ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
+        #ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax, levels=50)
+        #ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
     except Exception as e:
         print(e)
         print(bbox)

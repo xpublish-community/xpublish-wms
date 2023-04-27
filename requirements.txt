@@ -7,3 +7,5 @@ matplotlib
 pykdtree
 cartopy
 cachey
+datashader
+scipy
