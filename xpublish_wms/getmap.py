@@ -108,6 +108,8 @@ class OgcWmsGetMap:
 
         # Grid
         self.crs = query.get('crs', None) or query.get('srs')
+        if self.crs:
+            self.crs = self.crs.upper()
         self.bbox = [float(x) for x in query['bbox'].split(',')]
         self.width = int(query['width'])
         self.height = int(query['height'])

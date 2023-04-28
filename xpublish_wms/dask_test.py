@@ -8,7 +8,7 @@ from getmap import OgcWmsGetMap
 from io import BytesIO
 from PIL import Image
 import dask_wms
-import mpl_getmap
+from cachey import Cache
 
 
 def loaddata():
@@ -22,7 +22,8 @@ def loaddata():
 
 
 def getmap(ds):
-    #wms = OgcWmsGetMap()
+    c = Cache(1e9, 1)
+    wms = OgcWmsGetMap(c)
 
     # 40 year calls
     #query_params = "service=WMS&version=1.3.0&request=GetMap&layers=zeta&crs=EPSG:3857&bbox=-10018754.171394622,5009377.085697312,-5009377.085697312,10018754.17139462&width=512&height=512&styles=raster/default&colorscalerange=0,10&time=1982-01-02T00:00:00Z&autoscale=false"
@@ -32,8 +33,8 @@ def getmap(ds):
 
     query_params = query_params.split('&')
     query_params = dict(i.lower().split('=') for i in query_params)
-    return mpl_getmap.get_map(ds, query_params)
-    #return wms.get_map(ds, query_params)
+    #return mpl_getmap.get_map(ds, query_params)
+    return wms.get_map(ds, query_params)
 
 #ds = loaddata()
 
