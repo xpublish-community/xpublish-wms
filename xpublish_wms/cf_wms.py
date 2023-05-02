@@ -18,8 +18,9 @@ from xpublish.dependencies import get_cache, get_dataset
 from PIL import Image
 from matplotlib import cm
 
-from xpublish_wms.getmap import OgcWmsGetMap
+from xpublish_wms.getmap import OgcWms
 from xpublish_wms.utils import format_timestamp, lower_case_keys, round_float_values, speed_and_dir_for_uv, strip_float
+from xpublish_wms.grid import GridType, sel2d
 
 logger = logging.getLogger("uvicorn")
 
@@ -138,20 +139,32 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     create_text_element(layer_tag, 'CRS', 'EPSG:3857')
     create_text_element(layer_tag, 'CRS', 'CRS:84')
 
+    grid_type = GridType.from_ds(ds)
+    if grid_type == GridType.REGULAR:
+        bounds = {
+            'CRS': 'EPSG:4326',
+            'minx': f'{ds.cf.coords["longitude"].min().values.item()}',
+            'miny': f'{ds.cf.coords["latitude"].min().values.item()}',
+            'maxx': f'{ds.cf.coords["longitude"].max().values.item()}',
+            'maxy': f'{ds.cf.coords["latitude"].max().values.item()}'
+        }
+    elif grid_type == GridType.SGRID:
+        topology = ds.cf['grid_topology']
+        lng_coord, lat_coord = topology.attrs['face_coordinates'].split(' ')
+        bounds = {
+            'CRS': 'EPSG:4326',
+            'minx': f'{ds[lng_coord].min().values.item()}',
+            'miny': f'{ds[lat_coord].min().values.item()}',
+            'maxx': f'{ds[lng_coord].max().values.item()}',
+            'maxy': f'{ds[lat_coord].max().values.item()}'
+        }
+
     for var in ds.data_vars:
         da = ds[var]
 
         # If there are not spatial coords, we cant view it with this router, sorry
         if 'longitude' not in da.cf.coords:
             continue
-
-        bounds = {
-            'CRS': 'EPSG:4326',
-            'minx': f'{da.cf.coords["longitude"].min().values.item()}',
-            'miny': f'{da.cf.coords["latitude"].min().values.item()}',
-            'maxx': f'{da.cf.coords["longitude"].max().values.item()}',
-            'maxy': f'{da.cf.coords["latitude"].max().values.item()}'
-        }
 
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, 'Layer', attrib={'queryable': '1'})
@@ -202,18 +215,35 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     return Response(get_caps_xml, media_type='text/xml')
 
 
-def get_feature_info(dataset: xr.Dataset, query: dict):
+def get_feature_info(ds: xr.Dataset, query: dict):
     """
     Return the WMS feature info for the dataset and given parameters
     """
-    if not dataset.rio.crs:
-        dataset = dataset.rio.write_crs(4326)
+    grid_type = GridType.from_ds(ds)
 
+    # Data selection
     if ':' in query['query_layers']:
         parameters = query['query_layers'].split(':')
     else:
         parameters = query['query_layers'].split(',')
-    times = list(dict.fromkeys([t.replace('Z', '') for t in query['time'].split('/')]))
+    time_str = query.get('time', None)
+    if time_str:
+        times = list(dict.fromkeys([t.replace('Z', '') for t in time_str.split('/')]))
+    else:
+        times = []
+    has_time_axis = ['time' in ds[parameter].cf.coordinates for parameter in parameters]
+    any_has_time_axis = True in has_time_axis
+
+    elevation_str = query.get('elevation', None)
+    if elevation_str:
+        elevation = list([float(e) for e in elevation_str.split('/')])
+    else: 
+        elevation = None
+    has_vertical_axis = [ds[parameter].cf.axes.get(
+        'T') is not None for parameter in parameters]
+    has_vertical_axis = ['vertical' in ds[parameter].cf.coordinates for parameter in parameters]
+    any_has_vertical_axis = True in has_vertical_axis
+
     crs = query.get('crs', None) or query.get('srs')
     bbox = [float(x) for x in query['bbox'].split(',')]
     width = int(query['width'])
@@ -223,60 +253,66 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     format = query['info_format']
 
     # We only care about the requested subset
-    ds = dataset[parameters]
+    selected_ds = ds[parameters]
 
     # TODO: Need to reproject??
-
     x_coord = np.linspace(bbox[0], bbox[2], width)
     y_coord = np.linspace(bbox[1], bbox[3], height)
 
-    has_time_axis = [ds[parameter].cf.axes.get(
-        'T') is not None for parameter in parameters]
-    any_has_time_axis = True in has_time_axis
-
     if any_has_time_axis:
         if len(times) == 1:
-            resampled_data = ds.cf.interp(T=times[0], longitude=x_coord, latitude=y_coord)
+            selected_ds = ds.cf.interp(time=times[0])
         elif len(times) > 1:
-            resampled_data = ds.cf.interp(longitude=x_coord, latitude=y_coord)
-            resampled_data = resampled_data.cf.sel(T=slice(times[0], times[1]))
+            selected_ds = ds.cf.sel(time=slice(times[0], times[1]))
         else:
-            raise HTTPException(500, f"Invalid time requested: {times}")
+            selected_ds = ds.cf.isel(time=0)
+        
+    if any_has_vertical_axis:
+        if elevation is not None:
+            selected_ds = selected_ds.cf.interp(vertical=elevation)
+        else: 
+            selected_ds = selected_ds.cf.isel(vertical=0)
+        
+    if grid_type == GridType.REGULAR:
+        selected_ds = selected_ds.cf.interp(longitude=x_coord, latitude=y_coord)
+        selected_ds = selected_ds.cf.isel(longitude=x, latitude=y)
+    elif grid_type == GridType.SGRID:
+        selected_ds = sel2d(selected_ds, lons=selected_ds.cf['longitude'], lats=selected_ds.cf['latitude'], lon0=x_coord, lat0=y_coord)
     else:
-        resampled_data = ds.cf.interp(longitude=x_coord, latitude=y_coord)
+        raise HTTPException(500, f"Unsupported grid type: {grid_type}")
 
-    x_axis = [strip_float(resampled_data.cf['longitude'][x])]
-    y_axis = [strip_float(resampled_data.cf['latitude'][y])]
-    resampled_data = resampled_data.cf.sel({'longitude': x_axis, 'latitude': y_axis})
+    x_axis = [strip_float(selected_ds.cf['longitude'])]
+    y_axis = [strip_float(selected_ds.cf['latitude'])]
 
     # When none of the parameters have data, drop it
-    if any_has_time_axis and resampled_data[resampled_data.cf.axes['T'][0]].shape:
-        resampled_data = resampled_data.dropna(resampled_data.cf.axes['T'][0], how='all')
+    time_coord_name = selected_ds.cf.coordinates['time'][0]
+    if any_has_time_axis and selected_ds[time_coord_name].shape:
+        selected_ds = selected_ds.dropna(time_coord_name, how='all')
 
     if not any_has_time_axis:
         t_axis = None
     elif len(times) == 1:
-        t_axis = str(format_timestamp(resampled_data.cf['T']))
+        t_axis = str(format_timestamp(selected_ds.cf['time']))
     else:
-        t_axis = str(format_timestamp(resampled_data.cf['T']))
+        t_axis = str(format_timestamp(selected_ds.cf['time']))
 
     parameter_info = {}
     ranges = {}
 
     for i_parameter, parameter in enumerate(parameters):
-        info, range = create_parameter_feature_data(parameter, resampled_data, has_time_axis[i_parameter], t_axis, x_axis, y_axis)
+        info, range = create_parameter_feature_data(parameter, selected_ds, has_time_axis[i_parameter], t_axis, x_axis, y_axis)
         parameter_info[parameter] = info
         ranges[parameter] = range
 
     # For now, harcoding uv parameter grouping
     if len(parameters) == 2 and ('u_eastward' in parameters or 'u_eastward_max' in parameters):
-        speed, direction = speed_and_dir_for_uv(resampled_data[parameters[0]], resampled_data[parameters[1]])
-        speed_info, speed_range = create_parameter_feature_data(parameter, resampled_data, has_time_axis[i_parameter], t_axis, x_axis, y_axis, speed, 'Magnitude of velocity', 'magnitude_of_velocity')
+        speed, direction = speed_and_dir_for_uv(selected_ds[parameters[0]], selected_ds[parameters[1]])
+        speed_info, speed_range = create_parameter_feature_data(parameter, selected_ds, has_time_axis[i_parameter], t_axis, x_axis, y_axis, speed, 'Magnitude of velocity', 'magnitude_of_velocity')
         speed_parameter_name = f'{parameters[0]}:{parameters[1]}-mag'
         parameter_info[speed_parameter_name] = speed_info
         ranges[speed_parameter_name] = speed_range
 
-        direction_info, direction_range = create_parameter_feature_data(parameter, resampled_data, has_time_axis[i_parameter], t_axis, x_axis, y_axis, direction, 'Direction of velocity', 'direction_of_velocity')
+        direction_info, direction_range = create_parameter_feature_data(parameter, selected_ds, has_time_axis[i_parameter], t_axis, x_axis, y_axis, direction, 'Direction of velocity', 'direction_of_velocity')
         direction_parameter_name = f'{parameters[0]}:{parameters[1]}-dir'
         parameter_info[direction_parameter_name] = direction_info
         ranges[direction_parameter_name] = direction_range
@@ -397,7 +433,7 @@ async def wms_root(request: Request, dataset: xr.Dataset = Depends(get_dataset),
     if method == 'getcapabilities':
         return get_capabilities(dataset, request)
     elif method == 'getmap':
-        getmap_service = OgcWmsGetMap(cache=cache)
+        getmap_service = OgcWms(cache=cache)
         return getmap_service.get_map(dataset, query_params)
     elif method == 'getfeatureinfo' or method == 'gettimeseries':
         return get_feature_info(dataset, query_params)

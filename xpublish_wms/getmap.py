@@ -24,7 +24,7 @@ from xpublish_wms.utils import to_lnglat
 logger = logging.getLogger(__name__)
 
 
-class OgcWmsGetMap:
+class OgcWms:
     TIME_CF_NAME: str = "time"
     ELEVATION_CF_NAME: str = "vertical"
     DEFAULT_CRS: str = "EPSG:3857"
