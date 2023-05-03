@@ -28,7 +28,7 @@ def getmap(ds):
     # 40 year calls
     #query_params = "service=WMS&version=1.3.0&request=GetMap&layers=zeta&crs=EPSG:3857&bbox=-10018754.171394622,5009377.085697312,-5009377.085697312,10018754.17139462&width=512&height=512&styles=raster/default&colorscalerange=0,10&time=1982-01-02T00:00:00Z&autoscale=false"
     #query_params = "service=WMS&version=1.3.0&request=GetMap&layers=zeta&crs=EPSG:3857&bbox=-10018754.171394622,0,-5009377.085697312,5009377.085697312&width=512&height=512&styles=raster/default&colorscalerange=0,10&time=1982-01-02T00:00:00Z&autoscale=false"
-    # GFS calls
+    # DBOFS call
     query_params = "service=WMS&version=1.3.0&request=GetMap&layers=temp&crs=EPSG:3857&bbox=-8335916.556668181,4696291.017841227,-8296780.798186172,4735426.77632324&width=512&height=512&styles=raster/default&colorscalerange=10,18&time=2023-04-30T12:00:00Z"
 
     query_params = query_params.split('&')

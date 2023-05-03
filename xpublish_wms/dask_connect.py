@@ -2,8 +2,11 @@ import cf_xarray
 import rioxarray
 import xarray as xr
 import fsspec
+import time
+from perflog import PerfLog, PerfTimer
 from dask_gateway import Gateway, BasicAuth
 
+perflog = PerfLog.getLogger("getmap_performance.csv", "OgcWmsGetMap baseline")
 
 class DaskConnect:
     def __init__(self, newcluster: bool = False, scale: int = 4):
@@ -40,6 +43,8 @@ class DaskConnect:
 
 
 def load_data_s3(path: str, options: dict) -> xr.Dataset:
+    timer = PerfTimer(perflog)
+    timer.start('Load data')
     fs = fsspec.filesystem("reference", fo=path, remote_protocol='s3', remote_options=options,
                            target_options=options)
     m = fs.get_mapper("")
@@ -47,6 +52,7 @@ def load_data_s3(path: str, options: dict) -> xr.Dataset:
     ds = xr.open_dataset(m, engine="zarr", backend_kwargs=dict(consolidated=False), chunks={'valid_time':1},
                          drop_variables='orderedSequenceData')
 
+    timer.log('xr.open_dataset')
     #if ds.cf.coords['longitude'].dims[0] == 'longitude':
     #    ds = ds.assign_coords(longitude=(((ds.longitude + 180) % 360) - 180)).sortby('longitude')
         # TODO: Yeah this should not be assumed... but for regular grids we will viz with rioxarray so for now we will assume

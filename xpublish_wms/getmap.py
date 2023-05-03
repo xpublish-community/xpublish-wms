@@ -20,9 +20,12 @@ from xpublish_wms.grid import GridType
 
 from xpublish_wms.utils import to_lnglat
 
+import time
+from perflog import PerfTimer, PerfLog
+
 
 logger = logging.getLogger(__name__)
-
+perflog = PerfLog.getLogger("getmap_performance.csv", "OgcWmsGetMap baseline")
 
 class OgcWmsGetMap:
     TIME_CF_NAME: str = "time"
@@ -60,6 +63,8 @@ class OgcWmsGetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
+        t = PerfTimer(perflog)
+        t.start()
         self.ensure_query_types(ds, query)
 
         # Select data according to request
@@ -67,6 +72,8 @@ class OgcWmsGetMap:
         da = self.select_time(da)
         da = self.select_elevation(da)
         da = self.select_custom_dim(da)
+        t.log('Data selection')       
+
        
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -277,6 +284,9 @@ class OgcWmsGetMap:
         :param da:
         :return:
         """
+
+        perftimer = PerfTimer(perflog)
+        perftimer.start('render_sgrid')
         # TODO: Make this based on the actual chunks of the dataset, for now brute forcing to time and variable
         if self.has_time:
             cache_key = f"{self.parameter}_{self.time_str}"
@@ -322,6 +332,8 @@ class OgcWmsGetMap:
 
         projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
 
+        perftimer.log('completed preloading')
+
         dpi = 80
         fig = Figure(dpi=dpi, facecolor='none', edgecolor='none')
         fig.set_alpha(0)
@@ -350,4 +362,6 @@ class OgcWmsGetMap:
         ax.axis('off')
 
         fig.savefig(buffer, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
+
+        perftimer.log('Completed')
         return True
