@@ -10,8 +10,8 @@ httpx
 interrogate
 isort
 myst-parser
-netCDF4
 nbsphinx
+netCDF4
 pooch
 pre-commit
 pylint
@@ -23,4 +23,3 @@ setuptools_scm
 sphinx
 twine
 wheel
-git+https://github.com/xarray-contrib/xpublish.git@f2171bb2376e928dff823656fb3dfac78f9f6ec8
