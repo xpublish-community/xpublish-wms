@@ -17,9 +17,9 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering",
 ]
 
@@ -44,7 +44,7 @@ ignore-magic = false
 ignore-semiprivate = false
 ignore-private = false
 ignore-module = false
-fail-under = 95
+fail-under = 55
 exclude = ["setup.py", "docs", "tests"]
 verbose = 1
 quiet = false

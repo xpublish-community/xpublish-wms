@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
 
 import xpublish_wms.cf_wms as cf_wms
-from xpublish_wms.utils import lower_case_keys
 
 logger = logging.getLogger("cf_wms")
 
@@ -27,7 +26,8 @@ class CfWmsPlugin(Plugin):
         """Register dataset level router for WMS endpoints"""
 
         router = APIRouter(
-            prefix=self.dataset_router_prefix, tags=self.dataset_router_tags,
+            prefix=self.dataset_router_prefix,
+            tags=self.dataset_router_tags,
         )
 
         @router.get("/")

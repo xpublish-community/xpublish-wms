@@ -177,7 +177,11 @@ class OgcWmsGetMap:
             height=self.height,
         )
         clipped = da.rio.clip_box(
-            minx=minx, miny=miny, maxx=maxx, maxy=maxy, crs=self.crs,
+            minx=minx,
+            miny=miny,
+            maxx=maxx,
+            maxy=maxy,
+            crs=self.crs,
         )
         resampled_data = clipped.rio.reproject(
             dst_crs=self.crs,
@@ -247,7 +251,7 @@ class OgcWmsGetMap:
             logger.info(f"mean dist: {np.mean(dist)}")
             logger.info(f"median dist: {np.median(dist)}")
             logger.info(f"stdev dist: {np.std(dist)}")
-            logger.info(f"-----------------")
+            logger.info("-----------------")
 
             ni = n.argsort()
             pp = n[ni]
@@ -298,7 +302,7 @@ class OgcWmsGetMap:
 
     def draw(self, da: xr.DataArray, da_bbox: xr.DataArray) -> io.BytesIO:
         """
-        Generate drawing, could be easily overriden
+        Generate drawing, could be easily overridden
 
         :param da:
         :param da_bbox:
@@ -308,7 +312,9 @@ class OgcWmsGetMap:
         return self.draw_pil_generate_map(da_scaled)
 
     def draw_pil_get_colormap_scaled_data(
-        self, da: xr.DataArray, da_bbox: xr.DataArray,
+        self,
+        da: xr.DataArray,
+        da_bbox: xr.DataArray,
     ) -> xr.DataArray:
         """
         Generate numpy array from our datasset, ensuring colormap is computed from the
@@ -334,7 +340,7 @@ class OgcWmsGetMap:
         """
         try:
             stylename, palettename = self.style.split("/")
-        except:
+        except:  # noqa: E722
             palettename = "default"
 
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py

@@ -40,7 +40,8 @@ def speed_and_dir_for_uv(u, v):
 
 
 def ensure_crs(
-    ds: Union[xr.Dataset, xr.DataArray], default_crs: str = "EPSG:4326",
+    ds: Union[xr.Dataset, xr.DataArray],
+    default_crs: str = "EPSG:4326",
 ) -> Union[xr.Dataset, xr.DataArray]:
     """
     Ensure our dataset has a CRS

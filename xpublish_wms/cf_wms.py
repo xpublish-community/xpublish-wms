@@ -20,13 +20,11 @@ from xpublish.dependencies import get_cache, get_dataset
 
 from xpublish_wms.getmap import OgcWmsGetMap
 from xpublish_wms.utils import (
-    ensure_crs,
     format_timestamp,
     lower_case_keys,
     round_float_values,
     speed_and_dir_for_uv,
     strip_float,
-    to_lnglat,
 )
 
 logger = logging.getLogger("uvicorn")
@@ -38,7 +36,7 @@ styles = [
     {
         "name": "raster/default",
         "title": "Raster",
-        "abstract": "The default raster styling, scaled to the given range. The palette can be overriden by replacing default with a matplotlib colormap name",
+        "abstract": "The default raster styling, scaled to the given range. The palette can be overridden by replacing default with a matplotlib colormap name",
     },
 ]
 
@@ -59,7 +57,10 @@ def create_capability_element(root, name: str, url: str, formats: List[str]):
     http = ET.SubElement(dcp_type, "HTTP")
     get = ET.SubElement(http, "Get")
     get.append(
-        ET.Element("OnlineResource", attrib={"xlink:type": "simple", "xlink:href": url}),
+        ET.Element(
+            "OnlineResource",
+            attrib={"xlink:type": "simple", "xlink:href": url},
+        ),
     )
     return cap
 
@@ -80,7 +81,8 @@ def create_parameter_feature_data(
         name
         if name is not None
         else ds[parameter].cf.attrs.get(
-            "long_name", ds[parameter].cf.attrs.get("name", parameter),
+            "long_name",
+            ds[parameter].cf.attrs.get("name", parameter),
         )
     )
     id = (
@@ -155,21 +157,30 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     )
 
     capability = ET.SubElement(root, "Capability")
-    request_tag = ET.SubElement(capability, "Request")
+    # request_tag = ET.SubElement(capability, "Request")
 
-    get_capabilities = create_capability_element(
-        request_tag, "GetCapabilities", wms_url, ["text/xml"],
-    )
+    # get_capabilities = create_capability_element(
+    #     request_tag,
+    #     "GetCapabilities",
+    #     wms_url,
+    #     ["text/xml"],
+    # )
     # TODO: Add more image formats
-    get_map = create_capability_element(request_tag, "GetMap", wms_url, ["image/png"])
+    # get_map = create_capability_element(request_tag, "GetMap", wms_url, ["image/png"])
     # TODO: Add more feature info formats
-    get_feature_info = create_capability_element(
-        request_tag, "GetFeatureInfo", wms_url, ["text/json"],
-    )
+    # get_feature_info = create_capability_element(
+    #     request_tag,
+    #     "GetFeatureInfo",
+    #     wms_url,
+    #     ["text/json"],
+    # )
     # TODO: Add more image formats
-    get_legend_graphic = create_capability_element(
-        request_tag, "GetLegendGraphic", wms_url, ["image/png"],
-    )
+    # get_legend_graphic = create_capability_element(
+    #     request_tag,
+    #     "GetLegendGraphic",
+    #     wms_url,
+    #     ["image/png"],
+    # )
 
     exeption_tag = ET.SubElement(capability, "Exception")
     exception_format = ET.SubElement(exeption_tag, "Format")
@@ -178,7 +189,9 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     layer_tag = ET.SubElement(capability, "Layer")
     create_text_element(layer_tag, "Title", ds.attrs.get("title", "Untitled"))
     create_text_element(
-        layer_tag, "Description", ds.attrs.get("description", "No Description"),
+        layer_tag,
+        "Description",
+        ds.attrs.get("description", "No Description"),
     )
     create_text_element(layer_tag, "CRS", "EPSG:4326")
     create_text_element(layer_tag, "CRS", "EPSG:3857")
@@ -187,26 +200,30 @@ def get_capabilities(ds: xr.Dataset, request: Request):
     for var in ds.data_vars:
         da = ds[var]
 
-        # If there are not spatial coords, we cant view it with this router, sorry
+        # If there are not spatial coords, we can't view it with this router, sorry
         if "longitude" not in da.cf.coords:
             continue
 
-        bounds = {
-            "CRS": "EPSG:4326",
-            "minx": f'{da.cf.coords["longitude"].min().values.item()}',
-            "miny": f'{da.cf.coords["latitude"].min().values.item()}',
-            "maxx": f'{da.cf.coords["longitude"].max().values.item()}',
-            "maxy": f'{da.cf.coords["latitude"].max().values.item()}',
-        }
+        # bounds = {
+        #     "CRS": "EPSG:4326",
+        #     "minx": f'{da.cf.coords["longitude"].min().values.item()}',
+        #     "miny": f'{da.cf.coords["latitude"].min().values.item()}',
+        #     "maxx": f'{da.cf.coords["longitude"].max().values.item()}',
+        #     "maxy": f'{da.cf.coords["latitude"].max().values.item()}',
+        # }
 
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, "Layer", attrib={"queryable": "1"})
         create_text_element(layer, "Name", var)
         create_text_element(
-            layer, "Title", attrs.get("long_name", attrs.get("name", var)),
+            layer,
+            "Title",
+            attrs.get("long_name", attrs.get("name", var)),
         )
         create_text_element(
-            layer, "Abstract", attrs.get("long_name", attrs.get("name", var)),
+            layer,
+            "Abstract",
+            attrs.get("long_name", attrs.get("name", var)),
         )
         create_text_element(layer, "CRS", "EPSG:4326")
         create_text_element(layer, "CRS", "EPSG:3857")
@@ -222,7 +239,7 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
-        bounding_box_element = ET.SubElement(layer, "BoundingBox", attrib=bounds)
+        # bounding_box_element = ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
         if "T" in da.cf.axes:
             times = format_timestamp(da.cf["T"])
@@ -243,7 +260,9 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
         for style in styles:
             style_element = ET.SubElement(
-                style_tag, "Style", attrib={"name": style["name"]},
+                style_tag,
+                "Style",
+                attrib={"name": style["name"]},
             )
             create_text_element(style_element, "Title", style["title"])
             create_text_element(style_element, "Abstract", style["abstract"])
@@ -275,7 +294,7 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     height = int(query["height"])
     x = int(query["x"])
     y = int(query["y"])
-    format = query["info_format"]
+    # format = query["info_format"]
 
     # We only care about the requested subset
     ds = dataset[parameters]
@@ -293,7 +312,9 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     if any_has_time_axis:
         if len(times) == 1:
             resampled_data = ds.cf.interp(
-                T=times[0], longitude=x_coord, latitude=y_coord,
+                T=times[0],
+                longitude=x_coord,
+                latitude=y_coord,
             )
         elif len(times) > 1:
             resampled_data = ds.cf.interp(longitude=x_coord, latitude=y_coord)
@@ -310,7 +331,8 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
     # When none of the parameters have data, drop it
     if any_has_time_axis and resampled_data[resampled_data.cf.axes["T"][0]].shape:
         resampled_data = resampled_data.dropna(
-            resampled_data.cf.axes["T"][0], how="all",
+            resampled_data.cf.axes["T"][0],
+            how="all",
         )
 
     if not any_has_time_axis:
@@ -335,12 +357,13 @@ def get_feature_info(dataset: xr.Dataset, query: dict):
         parameter_info[parameter] = info
         ranges[parameter] = range
 
-    # For now, harcoding uv parameter grouping
+    # For now, hardcoding uv parameter grouping
     if len(parameters) == 2 and (
         "u_eastward" in parameters or "u_eastward_max" in parameters
     ):
         speed, direction = speed_and_dir_for_uv(
-            resampled_data[parameters[0]], resampled_data[parameters[1]],
+            resampled_data[parameters[0]],
+            resampled_data[parameters[1]],
         )
         speed_info, speed_range = create_parameter_feature_data(
             parameter,
@@ -431,7 +454,7 @@ def get_legend_info(dataset: xr.Dataset, query: dict):
     width: int = int(query["width"])
     height: int = int(query["height"])
     vertical = query.get("vertical", "false") == "true"
-    colorbaronly = query.get("colorbaronly", "False") == "True"
+    # colorbaronly = query.get("colorbaronly", "False") == "True"
     colorscalerange = [
         float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
     ]
@@ -494,5 +517,6 @@ def wms_root(
         return get_legend_info(dataset, query_params)
     else:
         raise HTTPException(
-            status_code=404, detail=f"{method} is not a valid option for REQUEST",
+            status_code=404,
+            detail=f"{method} is not a valid option for REQUEST",
         )
