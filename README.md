@@ -10,7 +10,7 @@ URLs for the docs and code.
 
 ### Installation
 
-This package is not yet published to pypi, so install from source with pip: 
+This package is not yet published to pypi, so install from source with pip:
 
 ```
 git+https://github.com/asascience-open/xpublish-wms@72ee989

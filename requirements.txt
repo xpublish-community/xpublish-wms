@@ -1,7 +1,7 @@
-xarray
 cf_xarray
-rioxarray>=0.12.2
-xpublish>=0.3.0,<0.4.0
-Pillow
 matplotlib
+Pillow
 pykdtree
+rioxarray>=0.12.2
+xarray
+xpublish>=0.3.0,<0.4.0

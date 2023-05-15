@@ -10,8 +10,8 @@ httpx
 interrogate
 isort
 myst-parser
-netCDF4
 nbsphinx
+netCDF4
 pooch
 pre-commit
 pylint

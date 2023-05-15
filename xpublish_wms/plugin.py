@@ -1,36 +1,41 @@
 import logging
-import xarray as xr
-import cachey
-
 from typing import List
+
+import cachey
+import xarray as xr
 from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
 
-from xpublish_wms.utils import lower_case_keys
 import xpublish_wms.cf_wms as cf_wms
-
+from xpublish_wms.utils import lower_case_keys
 
 logger = logging.getLogger("cf_wms")
 
 
 class CfWmsPlugin(Plugin):
-    '''
+    """
     OGC WMS plugin for xpublish
-    '''
+    """
 
-    name = 'cf_wms'
+    name = "cf_wms"
 
     dataset_router_prefix: str = "/wms"
     dataset_router_tags: List[str] = ["wms"]
 
     @hookimpl
     def dataset_router(self, deps: Dependencies) -> APIRouter:
-        '''Register dataset level router for WMS endpoints'''
+        """Register dataset level router for WMS endpoints"""
 
-        router = APIRouter(prefix=self.dataset_router_prefix, tags=self.dataset_router_tags)
+        router = APIRouter(
+            prefix=self.dataset_router_prefix, tags=self.dataset_router_tags,
+        )
 
-        @router.get('/')
-        def wms_root(request: Request, dataset: xr.Dataset = Depends(deps.dataset), cache: cachey.Cache = Depends(deps.cache)):
+        @router.get("/")
+        def wms_root(
+            request: Request,
+            dataset: xr.Dataset = Depends(deps.dataset),
+            cache: cachey.Cache = Depends(deps.cache),
+        ):
             return cf_wms.wms_root(request, dataset, cache)
 
         return router
