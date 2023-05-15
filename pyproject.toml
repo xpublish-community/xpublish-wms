@@ -1,12 +1,13 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "xpublish_wms"
+authors = [{ name = "Matthew Iannucci", email = "matt.iannucci@rpsgroup.com" }]
 description = "WMS plugin for xpublish"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 keywords = ["xarray", "xpublish", "wms"]
 license = { file = "LICENSE.txt" }
 
@@ -25,6 +26,12 @@ classifiers = [
 
 dynamic = ["version", "dependencies"]
 
+[project.urls]
+"Homepage" = "https://github.com/xpublish-community/xpublish-wms"
+
+[project.entry-points."xpublish.plugin"]
+cf_wms = "xpublish_wms.plugin:CfWmsPlugin"
+
 [tool.setuptools]
 packages = ["xpublish_wms"]
 
@@ -34,8 +41,20 @@ dependencies = { file = ["requirements.txt"] }
 [tool.setuptools_scm]
 write_to = "xpublish_wms/_version.py"
 
-[project.entry-points."xpublish.plugin"]
-cf_wms = "xpublish_wms.plugin:CfWmsPlugin"
+[tool.check-manifest]
+ignore = [
+    "*.yml",
+    "*.yaml",
+    ".coveragerc",
+    "docs",
+    "docs/*",
+    "*.enc",
+    "notebooks",
+    "notebooks/*",
+    "tests",
+    "tests/*",
+    "xpublish_wms/_version.py",
+]
 
 [tool.interrogate]
 ignore-init-method = true
