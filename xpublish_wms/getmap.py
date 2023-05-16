@@ -282,7 +282,8 @@ class OgcWms:
 
         if self.crs == "EPSG:3857":
             bbox_lng, bbox_lat = to_lnglat.transform(
-                [self.bbox[0], self.bbox[2]], [self.bbox[1], self.bbox[3]],
+                [self.bbox[0], self.bbox[2]],
+                [self.bbox[1], self.bbox[3]],
             )
             bbox = [*bbox_lng, *bbox_lat]
         else:
@@ -327,7 +328,10 @@ class OgcWms:
         fig.set_figheight(self.height / dpi)
         fig.set_figwidth(self.width / dpi)
         ax = fig.add_axes(
-            [0.0, 0.0, 1.0, 1.0], xticks=[], yticks=[], projection=projection,
+            [0.0, 0.0, 1.0, 1.0],
+            xticks=[],
+            yticks=[],
+            projection=projection,
         )
         ax.set_axis_off()
         ax.set_frame_on(False)
@@ -359,6 +363,10 @@ class OgcWms:
         ax.axis("off")
 
         fig.savefig(
-            buffer, format="png", transparent=True, pad_inches=0, bbox_inches="tight",
+            buffer,
+            format="png",
+            transparent=True,
+            pad_inches=0,
+            bbox_inches="tight",
         )
         return True
