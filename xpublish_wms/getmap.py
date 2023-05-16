@@ -5,7 +5,7 @@ from typing import List
 
 import cachey
 import cartopy.crs as ccrs
-import cf_xarray # noqa
+import cf_xarray  # noqa
 import matplotlib.tri as tri
 import numpy as np
 import pandas as pd

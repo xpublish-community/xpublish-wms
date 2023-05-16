@@ -327,7 +327,7 @@ def get_feature_info(ds: xr.Dataset, query: dict):
     height = int(query["height"])
     x = int(query["x"])
     y = int(query["y"])
-    #format = query["info_format"]
+    # format = query["info_format"]
 
     # We only care about the requested subset
     selected_ds = ds[parameters]
