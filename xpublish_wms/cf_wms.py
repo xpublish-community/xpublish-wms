@@ -252,7 +252,7 @@ def get_capabilities(ds: xr.Dataset, request: Request):
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
-        bounding_box_element = ET.SubElement(layer, "BoundingBox", attrib=bounds)
+        ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
         if "T" in da.cf.axes:
             times = format_timestamp(da.cf["T"])
@@ -327,7 +327,7 @@ def get_feature_info(ds: xr.Dataset, query: dict):
     height = int(query["height"])
     x = int(query["x"])
     y = int(query["y"])
-    format = query["info_format"]
+    #format = query["info_format"]
 
     # We only care about the requested subset
     selected_ds = ds[parameters]
@@ -392,7 +392,7 @@ def get_feature_info(ds: xr.Dataset, query: dict):
         parameter_info[parameter] = info
         ranges[parameter] = range
 
-    # For now, harcoding uv parameter grouping
+    # For now, hardcoding uv parameter grouping
     if len(parameters) == 2 and (
         "u_eastward" in parameters or "u_eastward_max" in parameters
     ):

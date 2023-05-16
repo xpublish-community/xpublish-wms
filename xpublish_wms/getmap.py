@@ -1,12 +1,11 @@
 import io
 import logging
-import time
 from datetime import datetime
 from typing import List
 
 import cachey
 import cartopy.crs as ccrs
-import cf_xarray
+import cf_xarray # noqa
 import matplotlib.tri as tri
 import numpy as np
 import pandas as pd
@@ -19,7 +18,7 @@ from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 
 from xpublish_wms.grid import GridType
-from xpublish_wms.utils import lnglat_to_cartesian, to_lnglat
+from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +115,7 @@ class OgcWms:
         # Otherwise default to rainbow
         try:
             self.stylename, self.palettename = self.style.split("/")
-        except:
+        except Exception:
             self.stylename = "raster"
             self.palettename = "default"
         finally:
