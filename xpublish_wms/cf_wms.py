@@ -276,13 +276,16 @@ def get_feature_info(ds: xr.Dataset, query: dict):
     if grid_type == GridType.REGULAR:
         selected_ds = selected_ds.cf.interp(longitude=x_coord, latitude=y_coord)
         selected_ds = selected_ds.cf.isel(longitude=x, latitude=y)
+        x_axis = [strip_float(selected_ds.cf['longitude'])]
+        y_axis = [strip_float(selected_ds.cf['latitude'])]
     elif grid_type == GridType.SGRID:
-        selected_ds = sel2d(selected_ds, lons=selected_ds.cf['longitude'], lats=selected_ds.cf['latitude'], lon0=x_coord, lat0=y_coord)
+        topology = ds.cf['grid_topology']
+        lng_coord, lat_coord = topology.attrs['face_coordinates'].split(' ')
+        selected_ds = sel2d(selected_ds, lons=selected_ds.cf[lng_coord], lats=selected_ds.cf[lat_coord], lon0=x_coord[x], lat0=y_coord[y])
+        x_axis = [strip_float(selected_ds.cf[lng_coord])]
+        y_axis = [strip_float(selected_ds.cf[lat_coord])]
     else:
         raise HTTPException(500, f"Unsupported grid type: {grid_type}")
-
-    x_axis = [strip_float(selected_ds.cf['longitude'])]
-    y_axis = [strip_float(selected_ds.cf['latitude'])]
 
     # When none of the parameters have data, drop it
     time_coord_name = selected_ds.cf.coordinates['time'][0]
