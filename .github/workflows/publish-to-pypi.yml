@@ -26,6 +26,10 @@ jobs:
 
       # - name: Get tags
       #   run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgeos-dev
 
       - name: Install build tools
         run: |

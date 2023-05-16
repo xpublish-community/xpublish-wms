@@ -13,7 +13,6 @@ from matplotlib.figure import Figure
 from fastapi.responses import StreamingResponse
 from matplotlib import cm
 from PIL import Image
-from pykdtree.kdtree import KDTree
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
