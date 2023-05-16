@@ -51,7 +51,7 @@ Development occurs on GitHub at <https://github.com/xpublish-community/xpublish-
 
 ## Support
 
-Work on this plugin is sponsored by: 
+Work on this plugin is sponsored by:
 
 ![IOOS](https://cdn.ioos.noaa.gov/media/2017/12/IOOS_logo.png)
 
