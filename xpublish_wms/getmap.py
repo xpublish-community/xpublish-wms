@@ -5,24 +5,20 @@ from datetime import datetime
 from typing import List
 
 import cachey
+import cartopy.crs as ccrs
 import cf_xarray
-import xarray as xr
-import pandas as pd
+import matplotlib.tri as tri
 import numpy as np
-from matplotlib.figure import Figure
+import pandas as pd
+import xarray as xr
 from fastapi.responses import StreamingResponse
 from matplotlib import cm
+from matplotlib.figure import Figure
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
-from PIL import Image
-from matplotlib import cm
-import matplotlib.tri as tri
-import cartopy.crs as ccrs
+
 from xpublish_wms.grid import GridType
-
-from xpublish_wms.utils import to_lnglat
-
 from xpublish_wms.utils import lnglat_to_cartesian, to_lnglat
 
 logger = logging.getLogger(__name__)
@@ -71,7 +67,7 @@ class OgcWms:
         da = self.select_time(da)
         da = self.select_elevation(da)
         da = self.select_custom_dim(da)
-       
+
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
         # The grid type for now. This can be revisited if we choose to interpolate or
@@ -93,20 +89,20 @@ class OgcWms:
         self.grid_type = GridType.from_ds(ds)
 
         # Data selection
-        self.parameter = query['layers']
-        self.time_str = query.get('time', None)
+        self.parameter = query["layers"]
+        self.time_str = query.get("time", None)
         if self.time_str:
             self.time = pd.to_datetime(self.time_str).tz_localize(None)
         else:
             self.time = None
-        self.has_time = 'time' in ds[self.parameter].cf.coordinates
+        self.has_time = "time" in ds[self.parameter].cf.coordinates
 
-        self.elevation_str = query.get('elevation', None)
+        self.elevation_str = query.get("elevation", None)
         if self.elevation_str:
             self.elevation = float(self.elevation_str)
-        else: 
+        else:
             self.elevation = None
-        self.has_elevation = 'vertical' in ds[self.parameter].cf.coordinates
+        self.has_elevation = "vertical" in ds[self.parameter].cf.coordinates
 
         # Grid
         self.crs = query.get("crs", None) or query.get("srs")
@@ -115,20 +111,22 @@ class OgcWms:
         self.height = int(query["height"])
 
         # Output style
-        self.style = query.get('styles', self.DEFAULT_STYLE)
+        self.style = query.get("styles", self.DEFAULT_STYLE)
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
         # Otherwise default to rainbow
         try:
-            self.stylename, self.palettename = self.style.split('/')
+            self.stylename, self.palettename = self.style.split("/")
         except:
             self.stylename = "raster"
-            self.palettename = 'default'
-        finally: 
-            if self.palettename == 'default': 
+            self.palettename = "default"
+        finally:
+            if self.palettename == "default":
                 self.palettename = self.DEFAULT_PALETTE
 
-        self.colorscalerange = [float(x) for x in query.get('colorscalerange', 'nan,nan').split(',')]
-        self.autoscale = query.get('autoscale', "false") == "true"
+        self.colorscalerange = [
+            float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
+        ]
+        self.autoscale = query.get("autoscale", "false") == "true"
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
@@ -161,7 +159,7 @@ class OgcWms:
         return da
 
     def select_elevation(self, da: xr.DataArray) -> xr.DataArray:
-        '''
+        """
         Ensure elevation selection
 
         If elevation is provided :
@@ -174,17 +172,12 @@ class OgcWms:
 
         :param da:
         :return:
-        '''
+        """
         if self.elevation is not None and self.has_elevation:
-            da = da.cf.sel(
-                {self.ELEVATION_CF_NAME: self.elevation},
-                method="nearest"
-            )
+            da = da.cf.sel({self.ELEVATION_CF_NAME: self.elevation}, method="nearest")
         elif self.has_elevation:
-            da = da.cf.isel({
-                'vertical': 0
-            })
-        
+            da = da.cf.isel({"vertical": 0})
+
         return da
 
     def select_custom_dim(self, da: xr.DataArray) -> xr.DataArray:
@@ -208,7 +201,7 @@ class OgcWms:
                 da = da.cf.isel({key: -1})
 
         return da
-    
+
     def render(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
         """
         Render the data array into an image buffer
@@ -219,12 +212,12 @@ class OgcWms:
             return self.render_regular_grid(da, buffer)
         elif self.grid_type == GridType.SGRID:
             return self.render_sgrid(da, buffer)
-        else: 
+        else:
             return False
 
     def render_regular_grid(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
         """
-        Render the data array into an image buffer when the dataset is using a 
+        Render the data array into an image buffer when the dataset is using a
         regularly spaced rectangular grid
         :param da:
         :return:
@@ -256,7 +249,7 @@ class OgcWms:
             resampling=Resampling.nearest,
             transform=transform,
         )
-        
+
         if self.autoscale:
             min_value = float(da.min())
             max_value = float(da.max())
@@ -266,13 +259,13 @@ class OgcWms:
 
         da_scaled = (resampled_data - min_value) / (max_value - min_value)
         im = Image.fromarray(np.uint8(cm.get_cmap(self.palettename)(da_scaled) * 255))
-        im.save(buffer, format='PNG')
+        im.save(buffer, format="PNG")
 
         return True
 
     def render_sgrid(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
         """
-        Render the data array into an image buffer when the dataset is using a 
+        Render the data array into an image buffer when the dataset is using a
         staggered (ala ROMS) grid
         :param da:
         :return:
@@ -288,8 +281,10 @@ class OgcWms:
         x_cache_key = f"{cache_coord_key}_x"
         y_cache_key = f"{cache_coord_key}_y"
 
-        if self.crs == 'EPSG:3857':
-            bbox_lng, bbox_lat = to_lnglat.transform([self.bbox[0], self.bbox[2]], [self.bbox[1], self.bbox[3]])
+        if self.crs == "EPSG:3857":
+            bbox_lng, bbox_lat = to_lnglat.transform(
+                [self.bbox[0], self.bbox[2]], [self.bbox[1], self.bbox[3]],
+            )
             bbox = [*bbox_lng, *bbox_lat]
         else:
             bbox = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
@@ -301,15 +296,20 @@ class OgcWms:
 
         x = self.cache.get(x_cache_key, None)
         if x is None:
-            x = np.array(da.cf['longitude'].values)
+            x = np.array(da.cf["longitude"].values)
             self.cache.put(x_cache_key, x, cost=50)
 
         y = self.cache.get(y_cache_key, None)
         if y is None:
-            y = np.array(da.cf['latitude'].values)
+            y = np.array(da.cf["latitude"].values)
             self.cache.put(y_cache_key, y, cost=50)
 
-        inds = np.where((x >= (bbox[0] - 0.18)) & (x <= (bbox[1] + 0.18)) & (y >= (bbox[2] - 0.18)) & (y <= (bbox[3] + 0.18)))
+        inds = np.where(
+            (x >= (bbox[0] - 0.18))
+            & (x <= (bbox[1] + 0.18))
+            & (y >= (bbox[2] - 0.18))
+            & (y <= (bbox[3] + 0.18)),
+        )
         x_sel = x[inds]
         y_sel = y[inds]
         data_sel = data[inds]
@@ -323,31 +323,43 @@ class OgcWms:
         projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
 
         dpi = 80
-        fig = Figure(dpi=dpi, facecolor='none', edgecolor='none')
+        fig = Figure(dpi=dpi, facecolor="none", edgecolor="none")
         fig.set_alpha(0)
         fig.set_figheight(self.height / dpi)
         fig.set_figwidth(self.width / dpi)
-        ax = fig.add_axes([0., 0., 1., 1.], xticks=[], yticks=[], projection=projection)
+        ax = fig.add_axes(
+            [0.0, 0.0, 1.0, 1.0], xticks=[], yticks=[], projection=projection,
+        )
         ax.set_axis_off()
         ax.set_frame_on(False)
         ax.set_clip_on(False)
         ax.set_position([0, 0, 1, 1])
 
-        if not self.autoscale: 
+        if not self.autoscale:
             vmin, vmax = self.colorscalerange
         else:
             vmin, vmax = [None, None]
 
         try:
-            #ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-            ax.tricontourf(tris, data_sel, transform=ccrs.PlateCarree(), cmap=self.palettename, vmin=vmin, vmax=vmax, levels=80)
-            #ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
+            # ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
+            ax.tricontourf(
+                tris,
+                data_sel,
+                transform=ccrs.PlateCarree(),
+                cmap=self.palettename,
+                vmin=vmin,
+                vmax=vmax,
+                levels=80,
+            )
+            # ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
         except Exception as e:
             print(e)
             print(bbox)
 
         ax.set_extent(bbox, crs=ccrs.PlateCarree())
-        ax.axis('off')
+        ax.axis("off")
 
-        fig.savefig(buffer, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
+        fig.savefig(
+            buffer, format="png", transparent=True, pad_inches=0, bbox_inches="tight",
+        )
         return True

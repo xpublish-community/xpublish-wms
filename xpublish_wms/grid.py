@@ -1,8 +1,8 @@
 from enum import Enum
 
-import xarray as xr
 import cartopy.geodesic
 import numpy as np
+import xarray as xr
 
 
 class GridType(Enum):
@@ -12,22 +12,22 @@ class GridType(Enum):
 
     @classmethod
     def from_ds(cls, ds: xr.Dataset):
-        if f'{ds.cf}'.startswith('SGRID'):
+        if f"{ds.cf}".startswith("SGRID"):
             return cls.SGRID
-        
-        try: 
-            if 'latitude' in ds.cf['latitude'].dims:
+
+        try:
+            if "latitude" in ds.cf["latitude"].dims:
                 return cls.REGULAR
         except Exception:
             return cls.UNSUPPORTED
-        
+
         return cls.UNSUPPORTED
 
 
 def argsel2d(lons, lats, lon0, lat0):
     """Find the indices of coordinate pair closest to another point.
-    Adapted from https://github.com/xoceanmodel/xroms/blob/main/xroms/utilities.py which is failing to run for some reason 
-    
+    Adapted from https://github.com/xoceanmodel/xroms/blob/main/xroms/utilities.py which is failing to run for some reason
+
     Inputs
     ------
     lons: DataArray, ndarray, list
@@ -71,12 +71,12 @@ def argsel2d(lons, lats, lon0, lat0):
 
 def sel2d(ds, lons, lats, lon0, lat0):
     """Find the value of the var at closest location to lon0,lat0.
-    Adapted from https://github.com/xoceanmodel/xroms/blob/main/xroms/utilities.py which is failing to run for some reason 
+    Adapted from https://github.com/xoceanmodel/xroms/blob/main/xroms/utilities.py which is failing to run for some reason
 
     Inputs
     ------
-    ds: DataArray, ndarray, or DataSet 
-        Dataset to operate of 
+    ds: DataArray, ndarray, or DataSet
+        Dataset to operate of
     lons: DataArray, ndarray, list
         Longitudes of points to search through for closest point.
     lats: DataArray, ndarray, list
