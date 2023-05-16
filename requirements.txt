@@ -1,7 +1,8 @@
+cachey
+cartopy
 cf_xarray
 matplotlib
 Pillow
-pykdtree
 rioxarray>=0.12.2
 xarray
 xpublish>=0.3.0,<0.4.0
