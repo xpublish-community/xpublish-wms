@@ -1,5 +1,6 @@
 import io
 import logging
+import time
 from datetime import datetime
 from typing import List
 
@@ -10,6 +11,9 @@ import pandas as pd
 import numpy as np
 from matplotlib.figure import Figure
 from fastapi.responses import StreamingResponse
+from matplotlib import cm
+from PIL import Image
+from pykdtree.kdtree import KDTree
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from PIL import Image
@@ -20,6 +24,7 @@ from xpublish_wms.grid import GridType
 
 from xpublish_wms.utils import to_lnglat
 
+from xpublish_wms.utils import lnglat_to_cartesian, to_lnglat
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +39,7 @@ class OgcWms:
     cache: cachey.Cache
 
     # Data selection
-    parameter : str
+    parameter: str
     time: datetime = None
     has_time: bool
     elevation: float = None
@@ -105,10 +110,10 @@ class OgcWms:
         self.has_elevation = 'vertical' in ds[self.parameter].cf.coordinates
 
         # Grid
-        self.crs = query.get('crs', None) or query.get('srs')
-        self.bbox = [float(x) for x in query['bbox'].split(',')]
-        self.width = int(query['width'])
-        self.height = int(query['height'])
+        self.crs = query.get("crs", None) or query.get("srs")
+        self.bbox = [float(x) for x in query["bbox"].split(",")]
+        self.width = int(query["width"])
+        self.height = int(query["height"])
 
         # Output style
         self.style = query.get('styles', self.DEFAULT_STYLE)
@@ -150,14 +155,9 @@ class OgcWms:
         :return:
         """
         if self.time is not None:
-            da = da.cf.sel(
-                {self.TIME_CF_NAME: self.time},
-                method="nearest"
-            )
+            da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
         else:
-            da = da.cf.isel({
-                self.TIME_CF_NAME: -1
-            })
+            da = da.cf.isel({self.TIME_CF_NAME: -1})
 
         return da
 
@@ -237,14 +237,19 @@ class OgcWms:
         minx, miny, maxx, maxy = self.bbox
 
         transform = from_bounds(
-            west=minx, south=miny,
-            east=maxx, north=maxy,
-            width=self.width, height=self.height
+            west=minx,
+            south=miny,
+            east=maxx,
+            north=maxy,
+            width=self.width,
+            height=self.height,
         )
         clipped = da.rio.clip_box(
-            minx=minx, miny=miny,
-            maxx=maxx, maxy=maxy,
-            crs=self.crs
+            minx=minx,
+            miny=miny,
+            maxx=maxx,
+            maxy=maxy,
+            crs=self.crs,
         )
         resampled_data = clipped.rio.reproject(
             dst_crs=self.crs,
