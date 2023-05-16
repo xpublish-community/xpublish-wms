@@ -387,7 +387,12 @@ def get_feature_info(ds: xr.Dataset, query: dict):
 
     for i_parameter, parameter in enumerate(parameters):
         info, range = create_parameter_feature_data(
-            parameter, selected_ds, has_time_axis[i_parameter], t_axis, x_axis, y_axis,
+            parameter,
+            selected_ds,
+            has_time_axis[i_parameter],
+            t_axis,
+            x_axis,
+            y_axis,
         )
         parameter_info[parameter] = info
         ranges[parameter] = range
@@ -397,7 +402,8 @@ def get_feature_info(ds: xr.Dataset, query: dict):
         "u_eastward" in parameters or "u_eastward_max" in parameters
     ):
         speed, direction = speed_and_dir_for_uv(
-            selected_ds[parameters[0]], selected_ds[parameters[1]],
+            selected_ds[parameters[0]],
+            selected_ds[parameters[1]],
         )
         speed_info, speed_range = create_parameter_feature_data(
             parameter,
