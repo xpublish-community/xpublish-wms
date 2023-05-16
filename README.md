@@ -34,7 +34,7 @@ At this time, only a subset of xarray datasets will work out of the box with thi
 
 - CF Compliant `latitude` and `longitude` coordinates
 - One of:
-    - `latitude` and `longitude` dimensions that coorespond to the CF compliant coordinates
+    - `latitude` and `longitude` dimensions that correspond to the CF compliant coordinates
     - CF compliant SGRID metadata (`topology`)
 
 Currently only regularly spaced lat/lng grids and SGRID grids are supported. If a datasets meets these requirements and does not work, please file an [issue](https://github.com/xpublish-community/xpublish-wms/issues). Pull requests to support other grid systems are encouraged!
