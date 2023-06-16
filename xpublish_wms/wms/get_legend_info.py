@@ -1,10 +1,11 @@
 import io
 from math import isnan
-from fastapi import Response
-import xarray as xr
+
 import numpy as np
-from PIL import Image
+import xarray as xr
+from fastapi import Response
 from matplotlib import cm
+from PIL import Image
 
 
 def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:

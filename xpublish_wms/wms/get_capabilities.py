@@ -1,10 +1,10 @@
 import xml.etree.ElementTree as ET
 from typing import List
+
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import Request, Response
 from xpublish_wms.utils import ds_bbox, format_timestamp
-
 
 # WMS Styles declaration
 # TODO: Add others beyond just simple raster
@@ -23,7 +23,9 @@ def create_text_element(root, name: str, text: str) -> ET.Element:
     return element
 
 
-def create_capability_element(root, name: str, url: str, formats: List[str]) -> ET.Element:
+def create_capability_element(
+    root, name: str, url: str, formats: List[str],
+) -> ET.Element:
     cap = ET.SubElement(root, name)
     # TODO: Add more image formats
     for fmt in formats:
@@ -112,14 +114,13 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
     create_text_element(layer_tag, "CRS", "EPSG:3857")
     create_text_element(layer_tag, "CRS", "CRS:84")
 
-
     bbox = ds_bbox(ds)
     bounds = {
         "CRS": "EPSG:4326",
-        "minx": f'{bbox[0]}',
-        "miny": f'{bbox[1]}',
-        "maxx": f'{bbox[2]}',
-        "maxy": f'{bbox[3]}',
+        "minx": f"{bbox[0]}",
+        "miny": f"{bbox[1]}",
+        "maxx": f"{bbox[2]}",
+        "maxy": f"{bbox[3]}",
     }
 
     for var in ds.data_vars:
