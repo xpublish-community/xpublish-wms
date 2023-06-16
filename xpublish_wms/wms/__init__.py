@@ -4,7 +4,6 @@ OGC WMS router for datasets with CF convention metadata
 import logging
 import cachey
 import cf_xarray  # noqa
-import numpy as np
 import xarray as xr
 from fastapi import Depends, HTTPException, Request, Response
 

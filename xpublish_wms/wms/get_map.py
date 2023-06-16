@@ -16,19 +16,11 @@ from matplotlib.figure import Figure
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
-from pydantic import BaseModel, Field
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger(__name__)
-
-
-class GetMapQuery(BaseModel):
-    """
-    Capture query parameters for GetMap requests
-    """
-    pass
 
 
 class GetMap:

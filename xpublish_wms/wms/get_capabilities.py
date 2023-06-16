@@ -3,7 +3,6 @@ from typing import List
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import Request, Response
-from xpublish_wms.grid import GridType, sel2d
 from xpublish_wms.utils import ds_bbox, format_timestamp
 
 
