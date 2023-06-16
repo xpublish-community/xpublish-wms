@@ -1,9 +1,11 @@
 import logging
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 from pyproj import Transformer
+
+from xpublish_wms.grid import GridType
 
 logger = logging.getLogger(__name__)
 
@@ -73,3 +75,31 @@ def lnglat_to_cartesian(longitude, latitude):
 
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
+
+
+def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
+    """
+    Return the bounding box of the dataset
+    :param ds:
+    :return:
+    """
+    grid_type = GridType.from_ds(ds)
+
+    if grid_type == GridType.REGULAR:
+        bbox = [
+            ds.cf.coords["longitude"].min().values.item(),
+            ds.cf.coords["latitude"].min().values.item(),
+            ds.cf.coords["longitude"].max().values.item(),
+            ds.cf.coords["latitude"].max().values.item(),
+        ]
+    elif grid_type == GridType.SGRID:
+        topology = ds.cf["grid_topology"]
+        lng_coord, lat_coord = topology.attrs["face_coordinates"].split(" ")
+        bbox = [
+            ds[lng_coord].min().values.item(),
+            ds[lat_coord].min().values.item(),
+            ds[lng_coord].max().values.item(),
+            ds[lat_coord].max().values.item(),
+        ]
+
+    return bbox

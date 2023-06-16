@@ -6,7 +6,7 @@ import xarray as xr
 from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
 
-import xpublish_wms.cf_wms as cf_wms
+from .wms import wms_handler
 
 logger = logging.getLogger("cf_wms")
 
@@ -36,6 +36,6 @@ class CfWmsPlugin(Plugin):
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
-            return await cf_wms.wms_root(request, dataset, cache)
+            return await wms_handler(request, dataset, cache)
 
         return router
