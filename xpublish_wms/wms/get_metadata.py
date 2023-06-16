@@ -5,7 +5,7 @@ import xarray as xr
 import datetime as dt
 import cachey
 
-from xpublish_wms.utils import format_timestamp
+from xpublish_wms.utils import ds_bbox, format_timestamp
 from .get_map import GetMap
 
 def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response: 
@@ -15,7 +15,7 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     This is compliant subset of ncwms2's GetMetadata handler. Specifically, timesteps and minmax are supported.
     """
     layer_name = params.get("layername", None)
-    metadata_type = params.get("item", "minmax")
+    metadata_type = params.get("item", "layerdetails")
     
     if not layer_name and metadata_type != 'minmax':
         raise HTTPException(
@@ -28,7 +28,9 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
             detail=f"layerName {layer_name} not found in dataset",
         )
 
-    if metadata_type == "timesteps":
+    if metadata_type == "layerdetails":
+        payload = get_layer_details(ds, layer_name)
+    elif metadata_type == "timesteps":
         da = ds[layer_name]
         payload = get_timesteps(da, params)
     elif metadata_type == 'minmax':
@@ -46,6 +48,12 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
     '''
     Returns the timesteps for a given layer
     '''
+    if "time" not in da.cf:
+        raise HTTPException(
+            status_code=400,
+            detail=f"layer {da.name} does not have a time dimension",
+        )
+
     day = params.get("day", None)
     if day: 
         day_start = dt.datetime.strptime(day, "%Y-%m-%d")
@@ -74,3 +82,38 @@ def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
     '''
     getmap = GetMap(cache=cache)
     return getmap.get_minmax(ds, params)
+
+
+def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
+    '''
+    Returns a subset of layer details for the requested layer
+    '''
+    da = ds[layer_name]
+    units = da.attrs.get("units", "")
+    supported_styles = "raster" # TODO: more styles
+    bbox = ds_bbox(ds)
+    if "vertical" in da.cf:
+        elevation = da.cf["vertical"].values.tolist()
+        elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
+    else:
+        elevation = None
+        elevation_positive = None
+
+    if "time" in da.cf:
+        timesteps = format_timestamp(da.cf["time"]).tolist()
+    else:
+        timesteps = None
+
+    return {
+        "layerName": da.name,
+        "standard_name": da.cf.attrs.get("standard_name", da.name),
+        "long_name": da.cf.attrs.get("long_name", da.name),
+        "bbox": bbox,
+        "units": units,
+        "supportedStyles": [
+            supported_styles
+        ],
+        "elevation": elevation,
+        "elevation_positive": elevation_positive,
+        "timesteps": timesteps,
+    }

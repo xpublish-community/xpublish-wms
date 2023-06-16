@@ -83,7 +83,7 @@ class GetMap:
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
-        render_result = self.render(da, image_buffer)
+        render_result = self.render(da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
 
@@ -217,7 +217,7 @@ class GetMap:
         if self.elevation is not None and self.has_elevation:
             da = da.cf.sel({self.ELEVATION_CF_NAME: self.elevation}, method="nearest")
         elif self.has_elevation:
-            da = da.cf.isel({"vertical": 0})
+            da = da.cf.isel({self.ELEVATION_CF_NAME: 0})
 
         return da
 

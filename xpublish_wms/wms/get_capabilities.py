@@ -4,7 +4,7 @@ import cf_xarray  # noqa
 import xarray as xr
 from fastapi import Request, Response
 from xpublish_wms.grid import GridType, sel2d
-from xpublish_wms.utils import format_timestamp
+from xpublish_wms.utils import ds_bbox, format_timestamp
 
 
 # WMS Styles declaration
@@ -113,25 +113,15 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
     create_text_element(layer_tag, "CRS", "EPSG:3857")
     create_text_element(layer_tag, "CRS", "CRS:84")
 
-    grid_type = GridType.from_ds(ds)
-    if grid_type == GridType.REGULAR:
-        bounds = {
-            "CRS": "EPSG:4326",
-            "minx": f'{ds.cf.coords["longitude"].min().values.item()}',
-            "miny": f'{ds.cf.coords["latitude"].min().values.item()}',
-            "maxx": f'{ds.cf.coords["longitude"].max().values.item()}',
-            "maxy": f'{ds.cf.coords["latitude"].max().values.item()}',
-        }
-    elif grid_type == GridType.SGRID:
-        topology = ds.cf["grid_topology"]
-        lng_coord, lat_coord = topology.attrs["face_coordinates"].split(" ")
-        bounds = {
-            "CRS": "EPSG:4326",
-            "minx": f"{ds[lng_coord].min().values.item()}",
-            "miny": f"{ds[lat_coord].min().values.item()}",
-            "maxx": f"{ds[lng_coord].max().values.item()}",
-            "maxy": f"{ds[lat_coord].max().values.item()}",
-        }
+
+    bbox = ds_bbox(ds)
+    bounds = {
+        "CRS": "EPSG:4326",
+        "minx": f'{bbox[0]}',
+        "miny": f'{bbox[1]}',
+        "maxx": f'{bbox[2]}',
+        "maxy": f'{bbox[3]}',
+    }
 
     for var in ds.data_vars:
         da = ds[var]
