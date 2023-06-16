@@ -1,7 +1,7 @@
 import io
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Union
 
 import cachey
 import cartopy.crs as ccrs
@@ -235,7 +235,7 @@ class GetMap:
 
     def render(
         self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
-    ) -> bool | dict:
+    ) -> Union[bool, dict]:
         """
         Render the data array into an image buffer
         :param da:
@@ -250,7 +250,7 @@ class GetMap:
 
     def render_regular_grid(
         self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
-    ) -> bool | dict:
+    ) -> Union[bool, dict]:
         """
         Render the data array into an image buffer when the dataset is using a
         regularly spaced rectangular grid
@@ -306,7 +306,7 @@ class GetMap:
 
     def render_sgrid(
         self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
-    ) -> bool | dict:
+    ) -> Union[bool, dict]:
         """
         Render the data array into an image buffer when the dataset is using a
         staggered (ala ROMS) grid
