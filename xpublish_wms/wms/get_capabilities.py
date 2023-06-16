@@ -4,6 +4,7 @@ from typing import List
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import Request, Response
+
 from xpublish_wms.utils import ds_bbox, format_timestamp
 
 # WMS Styles declaration
@@ -24,7 +25,10 @@ def create_text_element(root, name: str, text: str) -> ET.Element:
 
 
 def create_capability_element(
-    root, name: str, url: str, formats: List[str],
+    root,
+    name: str,
+    url: str,
+    formats: List[str],
 ) -> ET.Element:
     cap = ET.SubElement(root, name)
     # TODO: Add more image formats
