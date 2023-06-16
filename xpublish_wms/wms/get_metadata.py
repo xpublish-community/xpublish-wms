@@ -12,10 +12,10 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     """
     Return the WMS metadata for the dataset
 
-    This is compliant subset of ncwms2's GetMetadata handler
+    This is compliant subset of ncwms2's GetMetadata handler. Specifically, timesteps and minmax are supported.
     """
     layer_name = params.get("layername", None)
-    metadata_type = params.get("item", "layerDetails")
+    metadata_type = params.get("item", "minmax")
     
     if not layer_name and metadata_type != 'minmax':
         raise HTTPException(
