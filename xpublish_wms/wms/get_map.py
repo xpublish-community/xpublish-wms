@@ -234,7 +234,10 @@ class GetMap:
         return da
 
     def render(
-        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+        self,
+        da: xr.DataArray,
+        buffer: io.BytesIO,
+        minmax_only: bool,
     ) -> bool | dict:
         """
         Render the data array into an image buffer
@@ -249,7 +252,10 @@ class GetMap:
             return False
 
     def render_regular_grid(
-        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+        self,
+        da: xr.DataArray,
+        buffer: io.BytesIO,
+        minmax_only: bool,
     ) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
@@ -305,7 +311,10 @@ class GetMap:
         return True
 
     def render_sgrid(
-        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+        self,
+        da: xr.DataArray,
+        buffer: io.BytesIO,
+        minmax_only: bool,
     ) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
