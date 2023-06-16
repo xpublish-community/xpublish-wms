@@ -12,29 +12,32 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     """
     Return the WMS metadata for the dataset
 
-    This is compliant with ncwms2's GetMetadata handler
+    This is compliant subset of ncwms2's GetMetadata handler
     """
     layer_name = params.get("layername", None)
-    if not layer_name:
+    metadata_type = params.get("item", "layerDetails")
+    
+    if not layer_name and metadata_type != 'minmax':
         raise HTTPException(
             status_code=400,
             detail="layerName must be specified",
         )
-    elif layer_name not in ds:
+    elif layer_name not in ds and metadata_type != 'minmax':
         raise HTTPException(
             status_code=400,
             detail=f"layerName {layer_name} not found in dataset",
         )
 
-    da = ds[layer_name]
-
-    metadata_type = params.get("item", "layerDetails")
-    if metadata_type == "layerDetails":
-        payload = {}
-    elif metadata_type == "timesteps":
+    if metadata_type == "timesteps":
+        da = ds[layer_name]
         payload = get_timesteps(da, params)
     elif metadata_type == 'minmax':
-        payload = get_minmax(da, cache, params)
+        payload = get_minmax(ds, cache, params)
+    else: 
+        raise HTTPException(
+            status_code=400,
+            detail=f"item {metadata_type} not supported",
+        )
 
     return JSONResponse(content=payload)
 
@@ -63,9 +66,11 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
     }
 
 
-def get_minmax(da: xr.DataArray, cache: cachey.Cache, params: dict) -> dict:
+def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
     '''
     Returns the min and max range of values for a given layer in a given area
+
+    If BBOX is not specified, the entire selected temporal and elevation range is used. 
     '''
     getmap = GetMap(cache=cache)
-    return getmap.get_minmax(da, params)
+    return getmap.get_minmax(ds, params)

@@ -16,11 +16,19 @@ from matplotlib.figure import Figure
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
+from pydantic import BaseModel, Field
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger(__name__)
+
+
+class GetMapQuery(BaseModel):
+    """
+    Capture query parameters for GetMap requests
+    """
+    pass
 
 
 class GetMap:
@@ -90,7 +98,9 @@ class GetMap:
             # When BBOX is not specified, we are just going to slice the layer in time and elevation
             # and return the min and max values for the entire layer so bbox can just be the whoel world
             entire_layer = True
-            query['bbox'] = '-180,-90,180,90'   
+            query['bbox'] = '-180,-90,180,90'
+            query['width'] = 1
+            query['height'] = 1
 
         # Decode request params
         self.ensure_query_types(ds, query)
