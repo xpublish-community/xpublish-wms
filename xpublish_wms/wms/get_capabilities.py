@@ -18,13 +18,13 @@ styles = [
 ]
 
 
-def create_text_element(root, name: str, text: str):
+def create_text_element(root, name: str, text: str) -> ET.Element:
     element = ET.SubElement(root, name)
     element.text = text
     return element
 
 
-def create_capability_element(root, name: str, url: str, formats: List[str]):
+def create_capability_element(root, name: str, url: str, formats: List[str]) -> ET.Element:
     cap = ET.SubElement(root, name)
     # TODO: Add more image formats
     for fmt in formats:
@@ -42,7 +42,7 @@ def create_capability_element(root, name: str, url: str, formats: List[str]):
     return cap
 
 
-def get_capabilities(ds: xr.Dataset, request: Request):
+def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
     """
     Return the WMS capabilities for the dataset
     """

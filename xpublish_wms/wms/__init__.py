@@ -6,12 +6,13 @@ import cachey
 import cf_xarray  # noqa
 import numpy as np
 import xarray as xr
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 
 from xpublish.dependencies import get_cache, get_dataset
 
 from .get_capabilities import get_capabilities
 from .get_feature_info import get_feature_info
+from .get_metadata import get_metadata
 from .get_legend_info import get_legend_info
 
 from xpublish_wms.wms.get_map import GetMap
@@ -26,7 +27,7 @@ async def wms_handler(
     request: Request,
     dataset: xr.Dataset = Depends(get_dataset),
     cache: cachey.Cache = Depends(get_cache),
-):
+) -> Response:
     query_params = lower_case_keys(request.query_params)
     method = query_params.get("request", "").lower()
     logger.info(f"WMS: {method}")
@@ -37,6 +38,8 @@ async def wms_handler(
         return getmap_service.get_map(dataset, query_params)
     elif method == "getfeatureinfo" or method == "gettimeseries":
         return get_feature_info(dataset, query_params)
+    elif method == "getmetadata":
+        return get_metadata(dataset, cache, query_params)
     elif method == "getlegendgraphic":
         return get_legend_info(dataset, query_params)
     else:

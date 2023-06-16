@@ -80,6 +80,35 @@ class GetMap:
             image_buffer.seek(0)
 
         return StreamingResponse(image_buffer, media_type="image/png")
+    
+    def get_minmax(self, ds: xr.Dataset, query: dict) -> dict:
+        """
+        Return the range of values for the dataset and given parameters
+        """
+        entire_layer = False
+        if 'bbox' not in query:
+            # When BBOX is not specified, we are just going to slice the layer in time and elevation
+            # and return the min and max values for the entire layer so bbox can just be the whoel world
+            entire_layer = True
+            query['bbox'] = '-180,-90,180,90'   
+
+        # Decode request params
+        self.ensure_query_types(ds, query)
+
+        # Select data according to request
+        da = self.select_layer(ds)
+        da = self.select_time(da)
+        da = self.select_elevation(da)
+
+        # Prepare the data as if we are going to render it, but instead grab the min and max 
+        # values from the data to represent the range of values in the given area
+        if entire_layer:
+            return {
+                'min': float(da.min()),
+                'max': float(da.max())
+            }
+        else: 
+            return self.render(da, None, minmax_only=True)
 
     def ensure_query_types(self, ds: xr.Dataset, query: dict):
         """
@@ -204,20 +233,20 @@ class GetMap:
 
         return da
 
-    def render(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
+    def render(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
         """
         Render the data array into an image buffer
         :param da:
         :return:
         """
         if self.grid_type == GridType.REGULAR:
-            return self.render_regular_grid(da, buffer)
+            return self.render_regular_grid(da, buffer, minmax_only)
         elif self.grid_type == GridType.SGRID:
-            return self.render_sgrid(da, buffer)
+            return self.render_sgrid(da, buffer, minmax_only)
         else:
             return False
 
-    def render_regular_grid(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
+    def render_regular_grid(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
         regularly spaced rectangular grid
@@ -252,9 +281,15 @@ class GetMap:
             transform=transform,
         )
 
+        if minmax_only:
+            return {
+                "min": float(resampled_data.min()),
+                "max": float(resampled_data.max()),
+            }
+
         if self.autoscale:
-            min_value = float(da.min())
-            max_value = float(da.max())
+            min_value = float(resampled_data.min())
+            max_value = float(resampled_data.max())
         else:
             min_value = self.colorscalerange[0]
             max_value = self.colorscalerange[1]
@@ -265,7 +300,7 @@ class GetMap:
 
         return True
 
-    def render_sgrid(self, da: xr.DataArray, buffer: io.BytesIO) -> bool:
+    def render_sgrid(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
         staggered (ala ROMS) grid
@@ -316,8 +351,13 @@ class GetMap:
         x_sel = x[inds]
         y_sel = y[inds]
         data_sel = data[inds]
-        tris = tri.Triangulation(x_sel, y_sel)
+        if minmax_only:
+            return {
+                "min": float(data_sel.min()),
+                "max": float(data_sel.max()),
+            }
 
+        tris = tri.Triangulation(x_sel, y_sel)
         data_tris = data_sel[tris.triangles]
         mask = np.where(np.isnan(data_tris), [True], [False])
         triangle_mask = np.any(mask, axis=1)

@@ -7,7 +7,7 @@ from PIL import Image
 from matplotlib import cm
 
 
-def get_legend_info(dataset: xr.Dataset, query: dict):
+def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
     """
     Return the WMS legend graphic for the dataset and given parameters
     """
