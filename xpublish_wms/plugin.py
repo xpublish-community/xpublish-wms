@@ -5,6 +5,7 @@ import cachey
 import xarray as xr
 from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
+
 from .wms import wms_handler
 
 logger = logging.getLogger("cf_wms")

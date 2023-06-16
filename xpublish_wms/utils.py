@@ -87,7 +87,7 @@ def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
 
     if grid_type == GridType.REGULAR:
         bbox = [
-            ds.cf.coords["longitude"].min().values.item(), 
+            ds.cf.coords["longitude"].min().values.item(),
             ds.cf.coords["latitude"].min().values.item(),
             ds.cf.coords["longitude"].max().values.item(),
             ds.cf.coords["latitude"].max().values.item(),
@@ -96,10 +96,10 @@ def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
         topology = ds.cf["grid_topology"]
         lng_coord, lat_coord = topology.attrs["face_coordinates"].split(" ")
         bbox = [
-            ds[lng_coord].min().values.item(), 
+            ds[lng_coord].min().values.item(),
             ds[lat_coord].min().values.item(),
             ds[lng_coord].max().values.item(),
-            ds[lat_coord].max().values.item()
+            ds[lat_coord].max().values.item(),
         ]
-    
+
     return bbox

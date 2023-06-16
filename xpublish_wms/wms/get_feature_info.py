@@ -1,11 +1,18 @@
 from typing import Tuple
+
 import cf_xarray  # noqa
 import numpy as np
 import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
+
 from xpublish_wms.grid import GridType, sel2d
-from xpublish_wms.utils import format_timestamp, round_float_values, speed_and_dir_for_uv, strip_float
+from xpublish_wms.utils import (
+    format_timestamp,
+    round_float_values,
+    speed_and_dir_for_uv,
+    strip_float,
+)
 
 
 def create_parameter_feature_data(
@@ -250,17 +257,19 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         ]
     )
 
-    return JSONResponse(content={
-        "type": "Coverage",
-        "title": {
-            "en": "Extracted Profile Feature",
+    return JSONResponse(
+        content={
+            "type": "Coverage",
+            "title": {
+                "en": "Extracted Profile Feature",
+            },
+            "domain": {
+                "type": "Domain",
+                "domainType": "PointSeries",
+                "axes": axis,
+                "referencing": referencing,
+            },
+            "parameters": parameter_info,
+            "ranges": ranges,
         },
-        "domain": {
-            "type": "Domain",
-            "domainType": "PointSeries",
-            "axes": axis,
-            "referencing": referencing,
-        },
-        "parameters": parameter_info,
-        "ranges": ranges,
-    })
+    )

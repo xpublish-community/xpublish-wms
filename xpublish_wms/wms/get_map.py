@@ -14,9 +14,9 @@ from fastapi.responses import StreamingResponse
 from matplotlib import cm
 from matplotlib.figure import Figure
 from PIL import Image
+from pydantic import BaseModel, Field
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
-from pydantic import BaseModel, Field
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
@@ -28,13 +28,15 @@ class GetMapQuery(BaseModel):
     """
     Capture query parameters for GetMap requests
     """
+
     pass
 
 
 class GetMap:
-    '''
+    """
     TODO - Add docstring
-    '''
+    """
+
     TIME_CF_NAME: str = "time"
     ELEVATION_CF_NAME: str = "vertical"
     DEFAULT_CRS: str = "EPSG:3857"
@@ -88,19 +90,19 @@ class GetMap:
             image_buffer.seek(0)
 
         return StreamingResponse(image_buffer, media_type="image/png")
-    
+
     def get_minmax(self, ds: xr.Dataset, query: dict) -> dict:
         """
         Return the range of values for the dataset and given parameters
         """
         entire_layer = False
-        if 'bbox' not in query:
+        if "bbox" not in query:
             # When BBOX is not specified, we are just going to slice the layer in time and elevation
             # and return the min and max values for the entire layer so bbox can just be the whoel world
             entire_layer = True
-            query['bbox'] = '-180,-90,180,90'
-            query['width'] = 1
-            query['height'] = 1
+            query["bbox"] = "-180,-90,180,90"
+            query["width"] = 1
+            query["height"] = 1
 
         # Decode request params
         self.ensure_query_types(ds, query)
@@ -110,14 +112,11 @@ class GetMap:
         da = self.select_time(da)
         da = self.select_elevation(da)
 
-        # Prepare the data as if we are going to render it, but instead grab the min and max 
+        # Prepare the data as if we are going to render it, but instead grab the min and max
         # values from the data to represent the range of values in the given area
         if entire_layer:
-            return {
-                'min': float(da.min()),
-                'max': float(da.max())
-            }
-        else: 
+            return {"min": float(da.min()), "max": float(da.max())}
+        else:
             return self.render(da, None, minmax_only=True)
 
     def ensure_query_types(self, ds: xr.Dataset, query: dict):
@@ -243,7 +242,9 @@ class GetMap:
 
         return da
 
-    def render(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
+    def render(
+        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+    ) -> bool | dict:
         """
         Render the data array into an image buffer
         :param da:
@@ -256,7 +257,9 @@ class GetMap:
         else:
             return False
 
-    def render_regular_grid(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
+    def render_regular_grid(
+        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+    ) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
         regularly spaced rectangular grid
@@ -310,7 +313,9 @@ class GetMap:
 
         return True
 
-    def render_sgrid(self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool) -> bool | dict:
+    def render_sgrid(
+        self, da: xr.DataArray, buffer: io.BytesIO, minmax_only: bool,
+    ) -> bool | dict:
         """
         Render the data array into an image buffer when the dataset is using a
         staggered (ala ROMS) grid
