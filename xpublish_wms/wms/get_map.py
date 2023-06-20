@@ -368,8 +368,8 @@ class GetMap:
         data_sel = data[inds]
         if minmax_only:
             return {
-                "min": float(data_sel.min()),
-                "max": float(data_sel.max()),
+                "min": float(np.nanmin(data_sel)),
+                "max": float(np.nanmax(data_sel)),
             }
 
         tris = tri.Triangulation(x_sel, y_sel)
