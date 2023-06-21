@@ -15,7 +15,6 @@ from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 
-matplotlib.use("Agg")
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 
@@ -23,6 +22,7 @@ from xpublish_wms.grid import GridType
 from xpublish_wms.utils import figure_context, to_lnglat
 
 logger = logging.getLogger("uvicorn")
+matplotlib.use("Agg")
 
 
 class GetMap:
