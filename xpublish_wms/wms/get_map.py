@@ -22,9 +22,9 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 from xpublish_wms.grid import GridType
-from xpublish_wms.utils import to_lnglat
+from xpublish_wms.utils import figure_context, to_lnglat
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('uvicorn')
 
 
 class GetMap:
@@ -385,53 +385,53 @@ class GetMap:
         projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
 
         dpi = 80
-        fig = plt.figure(dpi=dpi, facecolor="none", edgecolor="none")
-        fig.set_alpha(0)
-        fig.set_figheight(self.height / dpi)
-        fig.set_figwidth(self.width / dpi)
-        ax = fig.add_axes(
-            [0.0, 0.0, 1.0, 1.0],
-            xticks=[],
-            yticks=[],
-            projection=projection,
-        )
-        ax.set_axis_off()
-        ax.set_frame_on(False)
-        ax.set_clip_on(False)
-        ax.set_position([0, 0, 1, 1])
-
-        if not self.autoscale:
-            vmin, vmax = self.colorscalerange
-        else:
-            vmin, vmax = [None, None]
-
-        try:
-            # ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-            ax.tricontourf(
-                tris,
-                data_sel,
-                transform=ccrs.PlateCarree(),
-                cmap=self.palettename,
-                vmin=vmin,
-                vmax=vmax,
-                levels=80,
+        with figure_context(dpi=dpi, facecolor="none", edgecolor="none") as fig:
+            fig.set_alpha(0)
+            fig.set_figheight(self.height / dpi)
+            fig.set_figwidth(self.width / dpi)
+            ax = fig.add_axes(
+                [0.0, 0.0, 1.0, 1.0],
+                xticks=[],
+                yticks=[],
+                projection=projection,
             )
-            # ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
-        except Exception as e:
-            print(e)
-            print(bbox)
+            ax.set_axis_off()
+            ax.set_frame_on(False)
+            ax.set_clip_on(False)
+            ax.set_position([0, 0, 1, 1])
 
-        ax.set_extent(bbox, crs=ccrs.PlateCarree())
-        ax.axis("off")
+            if not self.autoscale:
+                vmin, vmax = self.colorscalerange
+            else:
+                vmin, vmax = [None, None]
 
-        fig.savefig(
-            buffer,
-            format="png",
-            transparent=True,
-            pad_inches=0,
-            bbox_inches="tight",
-        )
+            try:
+                # ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
+                ax.tricontourf(
+                    tris,
+                    data_sel,
+                    transform=ccrs.PlateCarree(),
+                    cmap=self.palettename,
+                    vmin=vmin,
+                    vmax=vmax,
+                    levels=80,
+                )
+                # ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
+            except Exception as e:
+                print(e)
+                print(bbox)
 
-        plt.close(fig)
+            ax.set_extent(bbox, crs=ccrs.PlateCarree())
+            ax.axis("off")
+
+            fig.savefig(
+                buffer,
+                format="png",
+                transparent=True,
+                pad_inches=0,
+                bbox_inches="tight",
+            )
+
+            plt.close(fig)
 
         return True

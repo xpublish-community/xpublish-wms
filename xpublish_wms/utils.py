@@ -1,13 +1,18 @@
 import logging
+import contextlib
 from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 from pyproj import Transformer
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 from xpublish_wms.grid import GridType
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('uvicorn')
 
 
 def lower_case_keys(d: dict) -> dict:
@@ -103,3 +108,9 @@ def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
         ]
 
     return bbox
+
+@contextlib.contextmanager
+def figure_context(*args, **kwargs):
+    fig = plt.figure(*args, **kwargs)
+    yield fig
+    plt.close(fig)
