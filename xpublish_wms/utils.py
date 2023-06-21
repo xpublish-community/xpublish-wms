@@ -3,15 +3,16 @@ import logging
 from typing import Tuple, Union
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from pyproj import Transformer
 
-import matplotlib.pyplot as plt
 from xpublish_wms.grid import GridType
 
 logger = logging.getLogger("uvicorn")
 matplotlib.use("Agg")
+
 
 def lower_case_keys(d: dict) -> dict:
     return {k.lower(): v for k, v in d.items()}

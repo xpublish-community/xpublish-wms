@@ -7,6 +7,8 @@ import cachey
 import cartopy.crs as ccrs
 import cf_xarray  # noqa
 import matplotlib
+import matplotlib.cm as cm
+import matplotlib.tri as tri
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -14,9 +16,6 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
-
-import matplotlib.cm as cm
-import matplotlib.tri as tri
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import figure_context, to_lnglat
