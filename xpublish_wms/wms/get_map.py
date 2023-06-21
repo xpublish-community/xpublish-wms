@@ -3,17 +3,20 @@ import logging
 from datetime import datetime
 from typing import List, Union
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.tri as tri
+from matplotlib import cm
+from matplotlib.figure import Figure
+
 import cachey
 import cartopy.crs as ccrs
 import cf_xarray  # noqa
-import matplotlib.tri as tri
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 from fastapi.responses import StreamingResponse
-import matplotlib
-from matplotlib import cm
-from matplotlib.figure import Figure
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
@@ -22,7 +25,6 @@ from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger(__name__)
-matplotlib.use('Agg')
 
 
 class GetMap:
