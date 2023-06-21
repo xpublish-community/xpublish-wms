@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from fastapi.responses import StreamingResponse
+import matplotlib
 from matplotlib import cm
 from matplotlib.figure import Figure
 from PIL import Image
@@ -21,6 +22,7 @@ from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger(__name__)
+matplotlib.use('Agg')
 
 
 class GetMap:
