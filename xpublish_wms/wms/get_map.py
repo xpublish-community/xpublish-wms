@@ -3,12 +3,6 @@ import logging
 from datetime import datetime
 from typing import List, Union
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.tri as tri
-from matplotlib import cm
-from matplotlib.figure import Figure
-
 import cachey
 import cartopy.crs as ccrs
 import cf_xarray  # noqa
@@ -20,6 +14,12 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.tri as tri
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
@@ -385,7 +385,7 @@ class GetMap:
         projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
 
         dpi = 80
-        fig = Figure(dpi=dpi, facecolor="none", edgecolor="none")
+        fig = plt.figure(dpi=dpi, facecolor="none", edgecolor="none")
         fig.set_alpha(0)
         fig.set_figheight(self.height / dpi)
         fig.set_figwidth(self.width / dpi)
@@ -431,4 +431,7 @@ class GetMap:
             pad_inches=0,
             bbox_inches="tight",
         )
+
+        plt.close(fig)
+
         return True
