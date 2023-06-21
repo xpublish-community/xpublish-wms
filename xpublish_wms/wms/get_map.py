@@ -19,7 +19,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.tri as tri
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import figure_context, to_lnglat
@@ -431,7 +430,5 @@ class GetMap:
                 pad_inches=0,
                 bbox_inches="tight",
             )
-
-            plt.close(fig)
 
         return True
