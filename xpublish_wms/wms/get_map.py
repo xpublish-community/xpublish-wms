@@ -6,7 +6,7 @@ from typing import List, Union
 import cachey
 import cartopy.crs as ccrs
 import cf_xarray  # noqa
-
+import matplotlib
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,15 +15,14 @@ from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.tri as tri
+matplotlib.use("Agg")
 import matplotlib.cm as cm
+import matplotlib.tri as tri
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import figure_context, to_lnglat
 
-logger = logging.getLogger('uvicorn')
+logger = logging.getLogger("uvicorn")
 
 
 class GetMap:
