@@ -6,9 +6,7 @@ from typing import List, Union
 import cachey
 import cartopy.crs as ccrs
 import cf_xarray  # noqa
-import matplotlib
 import matplotlib.cm as cm
-import matplotlib.tri as tri
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -24,10 +22,9 @@ import datashader.transfer_functions as tf
 import datashader.utils as dshu
 
 from xpublish_wms.grid import GridType
-from xpublish_wms.utils import figure_context, to_lnglat, to_mercator
+from xpublish_wms.utils import to_lnglat, to_mercator
 
 logger = logging.getLogger("uvicorn")
-matplotlib.use("Agg")
 
 
 class GetMap:
@@ -393,7 +390,7 @@ class GetMap:
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
-            x_range=(self.bbox[0], self.bbox[2]), 
+            x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3])
         )
 
@@ -403,61 +400,5 @@ class GetMap:
             clim=(vmin, vmax)
         ).to_pil()
         im.save(buffer, format="PNG")
-
-        # tris = tri.Triangulation(x_sel, y_sel)
-        # data_tris = data_sel[tris.triangles]
-        # mask = np.where(np.isnan(data_tris), [True], [False])
-        # triangle_mask = np.any(mask, axis=1)
-        # tris.set_mask(triangle_mask)
-
-        # projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
-
-        # dpi = 80
-        # with figure_context(dpi=dpi, facecolor="none", edgecolor="none") as fig:
-        #     fig.set_alpha(0)
-        #     fig.set_figheight(self.height / dpi)
-        #     fig.set_figwidth(self.width / dpi)
-        #     ax = fig.add_axes(
-        #         [0.0, 0.0, 1.0, 1.0],
-        #         xticks=[],
-        #         yticks=[],
-        #         projection=projection,
-        #     )
-        #     ax.set_axis_off()
-        #     ax.set_frame_on(False)
-        #     ax.set_clip_on(False)
-        #     ax.set_position([0, 0, 1, 1])
-
-        #     if not self.autoscale:
-        #         vmin, vmax = self.colorscalerange
-        #     else:
-        #         vmin, vmax = [None, None]
-
-        #     try:
-        #         # ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-        #         ax.tricontourf(
-        #             tris,
-        #             data_sel,
-        #             transform=ccrs.PlateCarree(),
-        #             cmap=self.palettename,
-        #             vmin=vmin,
-        #             vmax=vmax,
-        #             levels=80,
-        #         )
-        #         # ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
-        #     except Exception as e:
-        #         print(e)
-        #         print(bbox)
-
-        #     ax.set_extent(bbox, crs=ccrs.PlateCarree())
-        #     ax.axis("off")
-
-        #     fig.savefig(
-        #         buffer,
-        #         format="png",
-        #         transparent=True,
-        #         pad_inches=0,
-        #         bbox_inches="tight",
-        #     )
 
         return True
