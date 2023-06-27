@@ -324,15 +324,15 @@ class GetMap:
         :return:
         """
         # TODO: Make this based on the actual chunks of the dataset, for now brute forcing to time and variable
-        if self.has_time:
-            cache_key = f"{self.parameter}_{self.time_str}"
-        else:
-            cache_key = f"{self.parameter}"
-        cache_coord_key = f"{self.parameter}_coords"
+        # if self.has_time:
+        #     cache_key = f"{self.parameter}_{self.time_str}"
+        # else:
+        #     cache_key = f"{self.parameter}"
+        # cache_coord_key = f"{self.parameter}_coords"
 
-        data_cache_key = f"{cache_key}_data"
-        x_cache_key = f"{cache_coord_key}_x"
-        y_cache_key = f"{cache_coord_key}_y"
+        # data_cache_key = f"{cache_key}_data"
+        # x_cache_key = f"{cache_coord_key}_x"
+        # y_cache_key = f"{cache_coord_key}_y"
 
         if self.crs == "EPSG:3857":
             bbox_lng, bbox_lat = to_lnglat.transform(
@@ -343,50 +343,44 @@ class GetMap:
         else:
             bbox_ll = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
 
-        data = self.cache.get(data_cache_key, None)
-        if data is None:
-            data = np.array(da.values)
-            self.cache.put(data_cache_key, data, cost=50)
+        # data = self.cache.get(data_cache_key, None)
+        # if data is None:
+        #     data = np.array(da.values)
+        #     self.cache.put(data_cache_key, data, cost=50)
 
-        x = self.cache.get(x_cache_key, None)
-        if x is None:
-            x = np.array(da.cf["longitude"].values)
-            self.cache.put(x_cache_key, x, cost=50)
+        # x = self.cache.get(x_cache_key, None)
+        # if x is None:
+        #     x = np.array(da.cf["longitude"].values)
+        #     self.cache.put(x_cache_key, x, cost=50)
 
-        y = self.cache.get(y_cache_key, None)
-        if y is None:
-            y = np.array(da.cf["latitude"].values)
-            self.cache.put(y_cache_key, y, cost=50)
+        # y = self.cache.get(y_cache_key, None)
+        # if y is None:
+        #     y = np.array(da.cf["latitude"].values)
+        #     self.cache.put(y_cache_key, y, cost=50)
 
-        inds = np.where(
-            (x >= (bbox_ll[0] - 0.18))
-            & (x <= (bbox_ll[1] + 0.18))
-            & (y >= (bbox_ll[2] - 0.18))
-            & (y <= (bbox_ll[3] + 0.18)),
-        )
-        x_sel = x[inds].flatten()
-        y_sel = y[inds].flatten()
-        data_sel = data[inds].flatten()
         if minmax_only:
+            x = np.array(da.cf["longitude"].values)
+            y = np.array(da.cf["latitude"].values)
+            data = np.array(da.values)
+            inds = np.where(
+                (x >= (bbox_ll[0] - 0.18))
+                & (x <= (bbox_ll[1] + 0.18))
+                & (y >= (bbox_ll[2] - 0.18))
+                & (y <= (bbox_ll[3] + 0.18)),
+            )
+            # x_sel = x[inds].flatten()
+            # y_sel = y[inds].flatten()
+            data_sel = data[inds].flatten()
             return {
                 "min": float(np.nanmin(data_sel)),
                 "max": float(np.nanmax(data_sel)),
             }
-        x_sel, y_sel = to_mercator.transform(x_sel, y_sel)
-
-        verts = pd.DataFrame(
-            np.stack((x_sel, y_sel, data_sel)).T,
-            columns=["x", "y", "z"],
-        )
-        triang = Delaunay(verts[["x", "y"]].values)
-        tris = pd.DataFrame(triang.simplices, columns=["v0", "v1", "v2"])
-        mesh = dshu.mesh(verts, tris)
 
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
-            x_range=(self.bbox[0], self.bbox[2]),
-            y_range=(self.bbox[1], self.bbox[3]),
+            x_range=(bbox_ll[0], bbox_ll[1]),
+            y_range=(bbox_ll[2], bbox_ll[3]),
         )
 
         if not self.autoscale:
@@ -395,7 +389,7 @@ class GetMap:
             vmin, vmax = [None, None]
 
         im = tf.shade(
-            cvs.trimesh(verts, tris, mesh=mesh, interp=True),
+            cvs.quadmesh(da, x=da.cf.coords['longitude'].name, y=da.cf.coords['latitude'].name),
             cmap=cm.get_cmap(self.palettename),
             how="linear",
             span=(vmin, vmax),
