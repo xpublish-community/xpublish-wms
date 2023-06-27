@@ -245,14 +245,11 @@ class GetMap:
         :param da:
         :return:
         """
-        if self.grid_type == GridType.REGULAR:
-            return self.render_regular_grid(da, buffer, minmax_only)
-        elif self.grid_type == GridType.SGRID:
-            return self.render_sgrid(da, buffer, minmax_only)
-        else:
-            return False
+        # For now, try to render everything as a quad grid
+        # TODO: FVCOM and other grids
+        return self.render_quad_grid(da, buffer, minmax_only)
 
-    def render_regular_grid(
+    def render_quad_grid(
         self,
         da: xr.DataArray,
         buffer: io.BytesIO,
@@ -260,80 +257,10 @@ class GetMap:
     ) -> Union[bool, dict]:
         """
         Render the data array into an image buffer when the dataset is using a
-        regularly spaced rectangular grid
+        regular or staggered (ala ROMS) grid
         :param da:
         :return:
         """
-        # Some basic check for dataset
-        if not da.rio.crs:
-            da = da.rio.write_crs(self.DEFAULT_CRS)
-
-        minx, miny, maxx, maxy = self.bbox
-
-        transform = from_bounds(
-            west=minx,
-            south=miny,
-            east=maxx,
-            north=maxy,
-            width=self.width,
-            height=self.height,
-        )
-        clipped = da.rio.clip_box(
-            minx=minx,
-            miny=miny,
-            maxx=maxx,
-            maxy=maxy,
-            crs=self.crs,
-        )
-        resampled_data = clipped.rio.reproject(
-            dst_crs=self.crs,
-            shape=(self.width, self.height),
-            resampling=Resampling.nearest,
-            transform=transform,
-        )
-
-        if minmax_only:
-            return {
-                "min": float(resampled_data.min()),
-                "max": float(resampled_data.max()),
-            }
-
-        if self.autoscale:
-            min_value = float(resampled_data.min())
-            max_value = float(resampled_data.max())
-        else:
-            min_value = self.colorscalerange[0]
-            max_value = self.colorscalerange[1]
-
-        da_scaled = (resampled_data - min_value) / (max_value - min_value)
-        im = Image.fromarray(np.uint8(cm.get_cmap(self.palettename)(da_scaled) * 255))
-        im.save(buffer, format="PNG")
-
-        return True
-
-    def render_sgrid(
-        self,
-        da: xr.DataArray,
-        buffer: io.BytesIO,
-        minmax_only: bool,
-    ) -> Union[bool, dict]:
-        """
-        Render the data array into an image buffer when the dataset is using a
-        staggered (ala ROMS) grid
-        :param da:
-        :return:
-        """
-        # TODO: Make this based on the actual chunks of the dataset, for now brute forcing to time and variable
-        # if self.has_time:
-        #     cache_key = f"{self.parameter}_{self.time_str}"
-        # else:
-        #     cache_key = f"{self.parameter}"
-        # cache_coord_key = f"{self.parameter}_coords"
-
-        # data_cache_key = f"{cache_key}_data"
-        # x_cache_key = f"{cache_coord_key}_x"
-        # y_cache_key = f"{cache_coord_key}_y"
-
         if self.crs == "EPSG:3857":
             bbox_lng, bbox_lat = to_lnglat.transform(
                 [self.bbox[0], self.bbox[2]],
@@ -342,21 +269,6 @@ class GetMap:
             bbox_ll = [*bbox_lng, *bbox_lat]
         else:
             bbox_ll = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
-
-        # data = self.cache.get(data_cache_key, None)
-        # if data is None:
-        #     data = np.array(da.values)
-        #     self.cache.put(data_cache_key, data, cost=50)
-
-        # x = self.cache.get(x_cache_key, None)
-        # if x is None:
-        #     x = np.array(da.cf["longitude"].values)
-        #     self.cache.put(x_cache_key, x, cost=50)
-
-        # y = self.cache.get(y_cache_key, None)
-        # if y is None:
-        #     y = np.array(da.cf["latitude"].values)
-        #     self.cache.put(y_cache_key, y, cost=50)
 
         if minmax_only:
             x = np.array(da.cf["longitude"].values)
