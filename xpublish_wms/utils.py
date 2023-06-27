@@ -81,6 +81,9 @@ def lnglat_to_cartesian(longitude, latitude):
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
 
 
+to_mercator = Transformer.from_crs(4326, 3857, always_xy=True)
+
+
 def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
     """
     Return the bounding box of the dataset
