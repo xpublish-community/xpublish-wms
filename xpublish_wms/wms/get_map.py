@@ -297,7 +297,9 @@ class GetMap:
 
         im = tf.shade(
             cvs.quadmesh(
-                da, x=da.cf.coords["longitude"].name, y=da.cf.coords["latitude"].name,
+                da,
+                x=da.cf.coords["longitude"].name,
+                y=da.cf.coords["latitude"].name,
             ),
             cmap=cm.get_cmap(self.palettename),
             how="linear",
