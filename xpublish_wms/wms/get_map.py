@@ -7,19 +7,14 @@ import cachey
 import cf_xarray  # noqa
 import datashader as dsh
 import datashader.transfer_functions as tf
-import datashader.utils as dshu
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 import xarray as xr
 from fastapi.responses import StreamingResponse
-from PIL import Image
-from rasterio.enums import Resampling
-from rasterio.transform import from_bounds
-from scipy.spatial import Delaunay
 
 from xpublish_wms.grid import GridType
-from xpublish_wms.utils import to_lnglat, to_mercator
+from xpublish_wms.utils import to_lnglat
 
 logger = logging.getLogger("uvicorn")
 
