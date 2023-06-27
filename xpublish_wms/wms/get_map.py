@@ -375,7 +375,8 @@ class GetMap:
         x_sel, y_sel = to_mercator.transform(x_sel, y_sel)
 
         verts = pd.DataFrame(
-            np.stack((x_sel, y_sel, data_sel)).T, columns=["x", "y", "z"],
+            np.stack((x_sel, y_sel, data_sel)).T,
+            columns=["x", "y", "z"],
         )
         triang = Delaunay(verts[["x", "y"]].values)
         tris = pd.DataFrame(triang.simplices, columns=["v0", "v1", "v2"])
