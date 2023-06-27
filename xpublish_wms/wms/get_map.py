@@ -4,11 +4,11 @@ from datetime import datetime
 from typing import List, Union
 
 import cachey
-import cartopy.crs as ccrs
 import cf_xarray  # noqa
-import matplotlib
+import datashader as dsh
+import datashader.transfer_functions as tf
+import datashader.utils as dshu
 import matplotlib.cm as cm
-import matplotlib.tri as tri
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -16,12 +16,12 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
+from scipy.spatial import Delaunay
 
 from xpublish_wms.grid import GridType
-from xpublish_wms.utils import figure_context, to_lnglat
+from xpublish_wms.utils import to_lnglat, to_mercator
 
 logger = logging.getLogger("uvicorn")
-matplotlib.use("Agg")
 
 
 class GetMap:
@@ -339,9 +339,9 @@ class GetMap:
                 [self.bbox[0], self.bbox[2]],
                 [self.bbox[1], self.bbox[3]],
             )
-            bbox = [*bbox_lng, *bbox_lat]
+            bbox_ll = [*bbox_lng, *bbox_lat]
         else:
-            bbox = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
+            bbox_ll = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
 
         data = self.cache.get(data_cache_key, None)
         if data is None:
@@ -359,74 +359,47 @@ class GetMap:
             self.cache.put(y_cache_key, y, cost=50)
 
         inds = np.where(
-            (x >= (bbox[0] - 0.18))
-            & (x <= (bbox[1] + 0.18))
-            & (y >= (bbox[2] - 0.18))
-            & (y <= (bbox[3] + 0.18)),
+            (x >= (bbox_ll[0] - 0.18))
+            & (x <= (bbox_ll[1] + 0.18))
+            & (y >= (bbox_ll[2] - 0.18))
+            & (y <= (bbox_ll[3] + 0.18)),
         )
-        x_sel = x[inds]
-        y_sel = y[inds]
-        data_sel = data[inds]
+        x_sel = x[inds].flatten()
+        y_sel = y[inds].flatten()
+        data_sel = data[inds].flatten()
         if minmax_only:
             return {
                 "min": float(np.nanmin(data_sel)),
                 "max": float(np.nanmax(data_sel)),
             }
+        x_sel, y_sel = to_mercator.transform(x_sel, y_sel)
 
-        tris = tri.Triangulation(x_sel, y_sel)
-        data_tris = data_sel[tris.triangles]
-        mask = np.where(np.isnan(data_tris), [True], [False])
-        triangle_mask = np.any(mask, axis=1)
-        tris.set_mask(triangle_mask)
+        verts = pd.DataFrame(
+            np.stack((x_sel, y_sel, data_sel)).T,
+            columns=["x", "y", "z"],
+        )
+        triang = Delaunay(verts[["x", "y"]].values)
+        tris = pd.DataFrame(triang.simplices, columns=["v0", "v1", "v2"])
+        mesh = dshu.mesh(verts, tris)
 
-        projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
+        cvs = dsh.Canvas(
+            plot_height=self.height,
+            plot_width=self.width,
+            x_range=(self.bbox[0], self.bbox[2]),
+            y_range=(self.bbox[1], self.bbox[3]),
+        )
 
-        dpi = 80
-        with figure_context(dpi=dpi, facecolor="none", edgecolor="none") as fig:
-            fig.set_alpha(0)
-            fig.set_figheight(self.height / dpi)
-            fig.set_figwidth(self.width / dpi)
-            ax = fig.add_axes(
-                [0.0, 0.0, 1.0, 1.0],
-                xticks=[],
-                yticks=[],
-                projection=projection,
-            )
-            ax.set_axis_off()
-            ax.set_frame_on(False)
-            ax.set_clip_on(False)
-            ax.set_position([0, 0, 1, 1])
+        if not self.autoscale:
+            vmin, vmax = self.colorscalerange
+        else:
+            vmin, vmax = [None, None]
 
-            if not self.autoscale:
-                vmin, vmax = self.colorscalerange
-            else:
-                vmin, vmax = [None, None]
-
-            try:
-                # ax.tripcolor(tris, data_sel, transform=ccrs.PlateCarree(), cmap=cmap, shading='flat', vmin=vmin, vmax=vmax)
-                ax.tricontourf(
-                    tris,
-                    data_sel,
-                    transform=ccrs.PlateCarree(),
-                    cmap=self.palettename,
-                    vmin=vmin,
-                    vmax=vmax,
-                    levels=80,
-                )
-                # ax.pcolormesh(x, y, data, transform=ccrs.PlateCarree(), cmap=cmap, vmin=vmin, vmax=vmax)
-            except Exception as e:
-                print(e)
-                print(bbox)
-
-            ax.set_extent(bbox, crs=ccrs.PlateCarree())
-            ax.axis("off")
-
-            fig.savefig(
-                buffer,
-                format="png",
-                transparent=True,
-                pad_inches=0,
-                bbox_inches="tight",
-            )
+        im = tf.shade(
+            cvs.trimesh(verts, tris, mesh=mesh, interp=True),
+            cmap=cm.get_cmap(self.palettename),
+            how="linear",
+            span=(vmin, vmax),
+        ).to_pil()
+        im.save(buffer, format="PNG")
 
         return True

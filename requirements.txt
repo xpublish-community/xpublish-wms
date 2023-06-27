@@ -1,6 +1,7 @@
 cachey
 cartopy
 cf_xarray
+datashader
 matplotlib
 Pillow
 rioxarray>=0.12.2
