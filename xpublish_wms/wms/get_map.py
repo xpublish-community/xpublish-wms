@@ -326,11 +326,6 @@ class GetMap:
         :param da:
         :return:
         """
-        if not self.autoscale:
-            vmin, vmax = self.colorscalerange
-        else:
-            vmin, vmax = [None, None]
-
         # TODO: Make this based on the actual chunks of the dataset, for now brute forcing to time and variable
         if self.has_time:
             cache_key = f"{self.parameter}_{self.time_str}"
@@ -374,7 +369,7 @@ class GetMap:
         )
         x_sel = x[inds].flatten()
         y_sel = y[inds].flatten()
-        data_sel = np.interp(data[inds].flatten(), (vmin, vmax), (0, 1))
+        data_sel = data[inds].flatten()
         if minmax_only:
             return {
                 "min": float(np.nanmin(data_sel)),
@@ -394,10 +389,16 @@ class GetMap:
             y_range=(self.bbox[1], self.bbox[3])
         )
 
+        if not self.autoscale:
+            vmin, vmax = self.colorscalerange
+        else:
+            vmin, vmax = [None, None]
+
         im = tf.shade(
             cvs.trimesh(verts, tris, mesh=mesh, interp=True), 
-            cmap=cm.get_cmap(self.palettename), 
-            clim=(vmin, vmax)
+            cmap=cm.get_cmap(self.palettename),
+            how='linear',
+            span=(vmin,vmax),
         ).to_pil()
         im.save(buffer, format="PNG")
 
