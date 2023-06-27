@@ -182,8 +182,8 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
             style_element = ET.SubElement(
                 layer,
                 "Style",
-                attrib={"name": style["name"]},
             )
+            create_text_element(style_element, "Name", style["name"])
             create_text_element(style_element, "Title", style["title"])
             create_text_element(style_element, "Abstract", style["abstract"])
 
