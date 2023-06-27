@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import List, Union
 
 import cachey
-import cartopy.crs as ccrs
 import cf_xarray  # noqa
 import matplotlib.cm as cm
 import numpy as np

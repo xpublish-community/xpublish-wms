@@ -1,5 +1,4 @@
 cachey
-cartopy
 cf_xarray
 datashader
 matplotlib
