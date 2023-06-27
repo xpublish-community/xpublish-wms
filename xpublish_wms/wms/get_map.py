@@ -301,7 +301,9 @@ class GetMap:
             vmin, vmax = [None, None]
 
         im = tf.shade(
-            cvs.quadmesh(da, x=da.cf.coords['longitude'].name, y=da.cf.coords['latitude'].name),
+            cvs.quadmesh(
+                da, x=da.cf.coords["longitude"].name, y=da.cf.coords["latitude"].name,
+            ),
             cmap=cm.get_cmap(self.palettename),
             how="linear",
             span=(vmin, vmax),
