@@ -5,6 +5,9 @@ from typing import List, Union
 
 import cachey
 import cf_xarray  # noqa
+import datashader as dsh
+import datashader.transfer_functions as tf
+import datashader.utils as dshu
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
@@ -14,11 +17,6 @@ from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from scipy.spatial import Delaunay
-
-import pandas as pd
-import datashader as dsh
-import datashader.transfer_functions as tf
-import datashader.utils as dshu
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat, to_mercator
@@ -376,16 +374,18 @@ class GetMap:
             }
         x_sel, y_sel = to_mercator.transform(x_sel, y_sel)
 
-        verts = pd.DataFrame(np.stack((x_sel, y_sel, data_sel)).T, columns=['x', 'y', 'z'])
-        triang = Delaunay(verts[['x','y']].values)
-        tris = pd.DataFrame(triang.simplices, columns=['v0', 'v1', 'v2'])
-        mesh = dshu.mesh(verts,tris)
+        verts = pd.DataFrame(
+            np.stack((x_sel, y_sel, data_sel)).T, columns=["x", "y", "z"],
+        )
+        triang = Delaunay(verts[["x", "y"]].values)
+        tris = pd.DataFrame(triang.simplices, columns=["v0", "v1", "v2"])
+        mesh = dshu.mesh(verts, tris)
 
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
             x_range=(self.bbox[0], self.bbox[2]),
-            y_range=(self.bbox[1], self.bbox[3])
+            y_range=(self.bbox[1], self.bbox[3]),
         )
 
         if not self.autoscale:
@@ -394,10 +394,10 @@ class GetMap:
             vmin, vmax = [None, None]
 
         im = tf.shade(
-            cvs.trimesh(verts, tris, mesh=mesh, interp=True), 
+            cvs.trimesh(verts, tris, mesh=mesh, interp=True),
             cmap=cm.get_cmap(self.palettename),
-            how='linear',
-            span=(vmin,vmax),
+            how="linear",
+            span=(vmin, vmax),
         ).to_pil()
         im.save(buffer, format="PNG")
 
