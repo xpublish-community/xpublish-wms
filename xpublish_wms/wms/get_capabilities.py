@@ -178,11 +178,9 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
             # TODO: Add ISO duration specifier
             time_dimension_element.text = f"{','.join(times)}"
 
-        style_tag = ET.SubElement(layer, "Style")
-
         for style in styles:
             style_element = ET.SubElement(
-                style_tag,
+                layer,
                 "Style",
                 attrib={"name": style["name"]},
             )

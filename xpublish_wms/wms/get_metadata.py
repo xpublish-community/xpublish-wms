@@ -98,10 +98,11 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     if "vertical" in da.cf:
         elevation = da.cf["vertical"].values.tolist()
         elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
+        elevation_units = da.cf["vertical"].attrs.get("units", "")
     else:
         elevation = None
         elevation_positive = None
-
+        elevation_units = None
     if "time" in da.cf:
         timesteps = format_timestamp(da.cf["time"]).tolist()
     else:
@@ -116,5 +117,6 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
         "supportedStyles": [supported_styles],
         "elevation": elevation,
         "elevation_positive": elevation_positive,
+        "elevation_units": elevation_units,
         "timesteps": timesteps,
     }
