@@ -21,7 +21,7 @@ from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
 
 import time
-from perflog import PerfTimer, PerfLog
+from xpublish_wms.perflog import PerfTimer, PerfLog
 
 
 logger = logging.getLogger(__name__)
@@ -332,7 +332,7 @@ class OgcWmsGetMap:
 
         projection = ccrs.Mercator() if self.crs == "EPSG:3857" else ccrs.PlateCarree()
 
-        perftimer.log('completed preloading')
+        perftimer.log('preloading')
 
         dpi = 80
         fig = Figure(dpi=dpi, facecolor='none', edgecolor='none')

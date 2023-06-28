@@ -38,5 +38,5 @@ class PerfTimer:
 
     def log(self, msg: str=""):
         elapsedMs = (time.time_ns() - self.start) / 1000000        
-        self.plog.log(self.section + ' -' + msg, elapsedMs)           
+        self.plog.log(self.section + ': ' + msg, elapsedMs)           
         return elapsedMs
