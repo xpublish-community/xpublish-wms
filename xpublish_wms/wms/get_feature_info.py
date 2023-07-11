@@ -158,7 +158,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     elif grid_type == GridType.SGRID:
         topology = ds.cf["grid_topology"]
 
-        # TODO: ASSUMES HEAVILY THAT ALL PARAMETRS HAVE THE SAME GRID LOCATION
+        # TODO: ASSUMES HEAVILY THAT ALL PARAMETERS HAVE THE SAME GRID LOCATION
         grid_location = ds[parameters[0]].attrs["location"]
         lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(" ")
         selected_ds = sel2d(
