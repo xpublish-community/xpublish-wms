@@ -83,7 +83,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         )
 
     service = ET.SubElement(root, "Service")
-    create_text_element(service, "Name", "WMS")
+    create_text_element(service, "Name", name)
     create_text_element(service, "Title", "XPublish WMS")
     create_text_element(service, "Abstract", "XPublish WMS")
     service.append(ET.Element("KeywordList"))
@@ -192,7 +192,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         # a given dataset probably, but for now...
         if version == "1.1.1":
             ET.SubElement(layer, "LatLonBoundingBox", attrib=ll_bounds)
-            
+
         ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
         if "T" in da.cf.axes:
