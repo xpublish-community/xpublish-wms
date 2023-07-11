@@ -3,7 +3,7 @@ from typing import List
 
 import cf_xarray  # noqa
 import xarray as xr
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 
 from xpublish_wms.utils import ds_bbox, format_timestamp
 
@@ -41,26 +41,46 @@ def create_capability_element(
     get.append(
         ET.Element(
             "OnlineResource",
-            attrib={"xlink:type": "simple", "xlink:href": url},
+            attrib={
+                "xmlns:xlink": "http://www.w3.org/1999/xlink",
+                "xlink:type": "simple",
+                "xlink:href": url
+            },
         ),
     )
     return cap
 
 
-def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
+def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Response:
     """
     Return the WMS capabilities for the dataset
     """
     wms_url = f'{request.base_url}{request.url.path.removeprefix("/")}'
+    version = query_params.get("version", "1.3.0")
 
-    root = ET.Element(
-        "WMS_Capabilities",
-        version="1.3.0",
-        attrib={
-            "xmlns": "http://www.opengis.net/wms",
-            "xmlns:xlink": "http://www.w3.org/1999/xlink",
-        },
-    )
+    if version == "1.1.1":
+        root = ET.Element(
+            "WMT_MS_Capabilities",
+            version="1.1.1",
+        )
+        name = 'OGC:WMS'
+        crs_tag = 'SRS'
+    elif version == "1.3.0":
+        root = ET.Element(
+            "WMS_Capabilities",
+            version="1.3.0",
+            attrib={
+                "xmlns": "http://www.opengis.net/wms",
+                "xmlns:xlink": "http://www.w3.org/1999/xlink",
+            },
+        )
+        name = 'WMS'
+        crs_tag = 'CRS'
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Version {version} is not supported",
+        )
 
     service = ET.SubElement(root, "Service")
     create_text_element(service, "Name", "WMS")
@@ -71,6 +91,7 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
         ET.Element(
             "OnlineResource",
             attrib={
+                "xmlns:xlink": "http://www.w3.org/1999/xlink",
                 "xlink:type": "simple",
                 "xlink:href": "http://www.opengis.net/spec/wms_schema_1/1.3.0",
             },
@@ -78,30 +99,30 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
     )
 
     capability = ET.SubElement(root, "Capability")
-    # request_tag = ET.SubElement(capability, "Request")
+    request_tag = ET.SubElement(capability, "Request")
 
-    # get_capabilities = create_capability_element(
-    #     request_tag,
-    #     "GetCapabilities",
-    #     wms_url,
-    #     ["text/xml"],
-    # )
-    # TODO: Add more image formats
-    # get_map = create_capability_element(request_tag, "GetMap", wms_url, ["image/png"])
-    # TODO: Add more feature info formats
-    # get_feature_info = create_capability_element(
-    #     request_tag,
-    #     "GetFeatureInfo",
-    #     wms_url,
-    #     ["text/json"],
-    # )
-    # TODO: Add more image formats
-    # get_legend_graphic = create_capability_element(
-    #     request_tag,
-    #     "GetLegendGraphic",
-    #     wms_url,
-    #     ["image/png"],
-    # )
+    create_capability_element(
+        request_tag,
+        "GetCapabilities",
+        wms_url,
+        ["text/xml"],
+    )
+    #TODO: Add more image formats
+    create_capability_element(request_tag, "GetMap", wms_url, ["image/png"])
+    #TODO: Add more feature info formats
+    create_capability_element(
+        request_tag,
+        "GetFeatureInfo",
+        wms_url,
+        ["text/json"],
+    )
+    #TODO: Add more image formats
+    create_capability_element(
+        request_tag,
+        "GetLegendGraphic",
+        wms_url,
+        ["image/png"],
+    )
 
     exeption_tag = ET.SubElement(capability, "Exception")
     exception_format = ET.SubElement(exeption_tag, "Format")
@@ -114,18 +135,26 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
         "Description",
         ds.attrs.get("description", "No Description"),
     )
-    create_text_element(layer_tag, "CRS", "EPSG:4326")
-    create_text_element(layer_tag, "CRS", "EPSG:3857")
-    create_text_element(layer_tag, "CRS", "CRS:84")
+    create_text_element(layer_tag, crs_tag, "EPSG:4326")
+    create_text_element(layer_tag, crs_tag, "EPSG:3857")
+    create_text_element(layer_tag, crs_tag, "CRS:84")
 
     bbox = ds_bbox(ds)
     bounds = {
-        "CRS": "EPSG:4326",
+        crs_tag: "EPSG:4326",
         "minx": f"{bbox[0]}",
         "miny": f"{bbox[1]}",
         "maxx": f"{bbox[2]}",
         "maxy": f"{bbox[3]}",
     }
+    
+    if version == "1.1.1":
+        ll_bounds = {
+            "minx": f"{bbox[0]}",
+            "miny": f"{bbox[1]}",
+            "maxx": f"{bbox[2]}",
+            "maxy": f"{bbox[3]}",
+        }
 
     for var in ds.data_vars:
         da = ds[var]
@@ -147,9 +176,9 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
             "Abstract",
             attrs.get("long_name", attrs.get("name", var)),
         )
-        create_text_element(layer, "CRS", "EPSG:4326")
-        create_text_element(layer, "CRS", "EPSG:3857")
-        create_text_element(layer, "CRS", "CRS:84")
+        create_text_element(layer, crs_tag, "EPSG:4326")
+        create_text_element(layer, crs_tag, "EPSG:3857")
+        create_text_element(layer, crs_tag, "CRS:84")
 
         create_text_element(layer, "Units", attrs.get("units", ""))
 
@@ -161,6 +190,9 @@ def get_capabilities(ds: xr.Dataset, request: Request) -> Response:
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
+        if version == "1.1.1":
+            ET.SubElement(layer, "LatLonBoundingBox", attrib=ll_bounds)
+            
         ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
         if "T" in da.cf.axes:
