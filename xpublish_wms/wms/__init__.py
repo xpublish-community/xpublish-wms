@@ -29,7 +29,7 @@ async def wms_handler(
     method = query_params.get("request", "").lower()
     logger.info(f"WMS: {method}")
     if method == "getcapabilities":
-        return get_capabilities(dataset, request)
+        return get_capabilities(dataset, request, query_params)
     elif method == "getmap":
         getmap_service = GetMap(cache=cache)
         return getmap_service.get_map(dataset, query_params)

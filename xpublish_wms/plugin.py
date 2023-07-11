@@ -16,7 +16,7 @@ class CfWmsPlugin(Plugin):
     OGC WMS plugin for xpublish
     """
 
-    name = "cf_wms"
+    name: str = "cf_wms"
 
     dataset_router_prefix: str = "/wms"
     dataset_router_tags: List[str] = ["wms"]
