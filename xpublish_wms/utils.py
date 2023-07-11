@@ -22,7 +22,7 @@ def strip_float(value):
     return float(value.values)
 
 
-def round_float_values(v: list) -> list:
+def round_float_values(v) -> list:
     if not isinstance(v, list):
         return round(v, 5)
     return [round(x, 5) for x in v]

@@ -58,11 +58,24 @@ def create_parameter_feature_data(
         if has_time_axis
         else [len(x_axis), len(y_axis)]
     )
+
     values = values if values is not None else ds[parameter]
-    values = round_float_values(values.squeeze().values.tolist())
 
     if isinstance(values, float):
+        shape = [1, 1, 1]
         values = [values]
+    elif isinstance(values, list):
+        shape = [len(values), 1, 1]
+        values = round_float_values(values)
+    elif isinstance(values, xr.DataArray):
+        shape = values.shape
+        values = values.squeeze().values.round(decimals=5).flatten().tolist()
+    elif isinstance(values, np.ndarray):
+        shape = values.shape
+        values = values.round(decimals=5).flatten().tolist()
+    elif values is None:
+        shape = [1, 1, 1]
+        values = [np.nan]
 
     range = {
         "type": "NdArray",
@@ -144,7 +157,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         y_axis = [strip_float(selected_ds.cf["latitude"])]
     elif grid_type == GridType.SGRID:
         topology = ds.cf["grid_topology"]
-        lng_coord, lat_coord = topology.attrs["face_coordinates"].split(" ")
+
+        # TODO: ASSUMES HEAVILY THAT ALL PARAMETRS HAVE THE SAME GRID LOCATION
+        grid_location = ds[parameters[0]].attrs["location"]
+        lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(" ")
         selected_ds = sel2d(
             selected_ds,
             lons=selected_ds.cf[lng_coord],
