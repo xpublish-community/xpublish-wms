@@ -44,7 +44,7 @@ def create_capability_element(
             attrib={
                 "xmlns:xlink": "http://www.w3.org/1999/xlink",
                 "xlink:type": "simple",
-                "xlink:href": url
+                "xlink:href": url,
             },
         ),
     )
@@ -63,8 +63,8 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             "WMT_MS_Capabilities",
             version="1.1.1",
         )
-        name = 'OGC:WMS'
-        crs_tag = 'SRS'
+        name = "OGC:WMS"
+        crs_tag = "SRS"
     elif version == "1.3.0":
         root = ET.Element(
             "WMS_Capabilities",
@@ -74,8 +74,8 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
                 "xmlns:xlink": "http://www.w3.org/1999/xlink",
             },
         )
-        name = 'WMS'
-        crs_tag = 'CRS'
+        name = "WMS"
+        crs_tag = "CRS"
     else:
         raise HTTPException(
             status_code=400,
@@ -107,16 +107,16 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         wms_url,
         ["text/xml"],
     )
-    #TODO: Add more image formats
+    # TODO: Add more image formats
     create_capability_element(request_tag, "GetMap", wms_url, ["image/png"])
-    #TODO: Add more feature info formats
+    # TODO: Add more feature info formats
     create_capability_element(
         request_tag,
         "GetFeatureInfo",
         wms_url,
         ["text/json"],
     )
-    #TODO: Add more image formats
+    # TODO: Add more image formats
     create_capability_element(
         request_tag,
         "GetLegendGraphic",
@@ -147,7 +147,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         "maxx": f"{bbox[2]}",
         "maxy": f"{bbox[3]}",
     }
-    
+
     if version == "1.1.1":
         ll_bounds = {
             "minx": f"{bbox[0]}",
