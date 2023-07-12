@@ -179,7 +179,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
                 merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]]
             else:
                 merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]].merge(
-                    merged_ds, compat="override",
+                    merged_ds,
+                    compat="override",
                 )
 
             if x_axis is None:
