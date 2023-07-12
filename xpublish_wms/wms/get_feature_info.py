@@ -164,7 +164,9 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
 
         for parameter in parameters:
             grid_location = selected_ds[parameter].attrs["location"]
-            lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(" ")
+            lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(
+                " ",
+            )
             new_selected_ds = sel2d(
                 selected_ds,
                 lons=selected_ds.cf[lng_coord],
@@ -176,13 +178,15 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             if merged_ds is None:
                 merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]]
             else:
-                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]].merge(merged_ds, compat="override")
+                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]].merge(
+                    merged_ds, compat="override",
+                )
 
             if x_axis is None:
                 x_axis = [strip_float(new_selected_ds.cf[lng_coord])]
             if y_axis is None:
                 y_axis = [strip_float(new_selected_ds.cf[lat_coord])]
-        
+
         selected_ds = merged_ds
     else:
         raise HTTPException(500, f"Unsupported grid type: {grid_type}")
