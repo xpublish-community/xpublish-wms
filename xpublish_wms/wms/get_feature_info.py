@@ -98,8 +98,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     # Data selection
     if ":" in query["query_layers"]:
         parameters = query["query_layers"].split(":")
+        grouped = True
     else:
         parameters = query["query_layers"].split(",")
+        grouped = False
     time_str = query.get("time", None)
     if time_str:
         times = list(dict.fromkeys([t.replace("Z", "") for t in time_str.split("/")]))
@@ -220,9 +222,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         ranges[parameter] = range
 
     # For now, hardcoding uv parameter grouping
-    if len(parameters) == 2 and (
-        "u_eastward" in parameters or "u_eastward_max" in parameters
-    ):
+    if len(parameters) == 2 and grouped:
         speed, direction = speed_and_dir_for_uv(
             selected_ds[parameters[0]],
             selected_ds[parameters[1]],
