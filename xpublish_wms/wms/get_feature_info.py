@@ -204,7 +204,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     elif len(times) == 1:
         t_axis = str(format_timestamp(selected_ds.cf["time"]))
     else:
-        t_axis = str(format_timestamp(selected_ds.cf["time"]))
+        t_axis = format_timestamp(selected_ds.cf["time"]).tolist()
 
     parameter_info = {}
     ranges = {}
