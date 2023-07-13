@@ -212,21 +212,23 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             # TODO: Add ISO duration specifier
             time_dimension_element.text = f"{','.join(times)}"
 
-        if 'vertical' in da.cf.coords:
-            default_elevation = float(da.cf['vertical'].cf.sel(vertical=0, method='nearest').values)
-            elevations = [f'{e}' for e in da.cf['vertical'].values.round(5)]
-            elevation_units = da.cf['vertical'].attrs.get('units', 'sigma')
+        if "vertical" in da.cf.coords:
+            default_elevation = float(
+                da.cf["vertical"].cf.sel(vertical=0, method="nearest").values,
+            )
+            elevations = [f"{e}" for e in da.cf["vertical"].values.round(5)]
+            elevation_units = da.cf["vertical"].attrs.get("units", "sigma")
             elevation_dimension_element = ET.SubElement(
                 layer,
                 "Dimension",
                 attrib={
-                    'name': "elevation",
-                    'units': "depth", 
-                    'unitSymbol': elevation_units,
-                    'default': f'{default_elevation}'
+                    "name": "elevation",
+                    "units": "depth",
+                    "unitSymbol": elevation_units,
+                    "default": f"{default_elevation}",
                 },
             )
-            elevation_dimension_element.text = ','.join(elevations)
+            elevation_dimension_element.text = ",".join(elevations)
 
         for style in styles:
             style_element = ET.SubElement(
