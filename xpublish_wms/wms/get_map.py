@@ -204,7 +204,7 @@ class GetMap:
             da = da.cf.sel({self.ELEVATION_CF_NAME: self.elevation}, method="nearest")
         elif self.has_elevation:
             # Default closest to the surface no matter what
-            da = da.cf.sel({self.ELEVATION_CF_NAME: 0}, method='nearest')
+            da = da.cf.sel({self.ELEVATION_CF_NAME: 0}, method="nearest")
 
         return da
 
