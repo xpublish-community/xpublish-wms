@@ -202,7 +202,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     if not any_has_time_axis:
         t_axis = None
     elif len(times) == 1:
-        t_axis = str(format_timestamp(selected_ds.cf["time"]))
+        t_axis = [str(format_timestamp(selected_ds.cf["time"]))]
     else:
         t_axis = format_timestamp(selected_ds.cf["time"]).tolist()
 
