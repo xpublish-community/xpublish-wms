@@ -5,7 +5,6 @@ import numpy as np
 import xarray as xr
 from pyproj import Transformer
 
-from xpublish_wms.grid import GridType
 
 logger = logging.getLogger("uvicorn")
 
