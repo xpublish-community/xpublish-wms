@@ -114,10 +114,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     if elevation_str:
         elevation = list([float(e) for e in elevation_str.split("/")])
     else:
-        elevation = None
-    has_vertical_axis = [
-        ds[parameter].cf.axes.get("T") is not None for parameter in parameters
-    ]
+        elevation = []
     has_vertical_axis = [
         "vertical" in ds[parameter].cf.coordinates for parameter in parameters
     ]
@@ -147,10 +144,13 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = ds.cf.isel(time=0)
 
     if any_has_vertical_axis:
-        if elevation is not None:
+        if len(elevation) == 1:
             selected_ds = selected_ds.cf.interp(vertical=elevation)
+        elif len(elevation) > 1:
+            selected_ds = selected_ds.cf.sel(vertical=slice(elevation[0], elevation[1]))
         else:
-            selected_ds = selected_ds.cf.isel(vertical=0)
+            # Select closest to the surface by default
+            selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     if grid_type == GridType.REGULAR:
         selected_ds = selected_ds.cf.interp(longitude=x_coord, latitude=y_coord)

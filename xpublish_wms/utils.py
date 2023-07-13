@@ -80,29 +80,17 @@ to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
 to_mercator = Transformer.from_crs(4326, 3857, always_xy=True)
 
 
-def ds_bbox(ds: xr.Dataset) -> Tuple[float, float, float, float]:
+def da_bbox(da: xr.DataArray) -> Tuple[float, float, float, float]:
     """
-    Return the bounding box of the dataset
+    Return the bounding box of the dataarray
     :param ds:
     :return:
     """
-    grid_type = GridType.from_ds(ds)
-
-    if grid_type == GridType.REGULAR:
-        bbox = [
-            ds.cf.coords["longitude"].min().values.item(),
-            ds.cf.coords["latitude"].min().values.item(),
-            ds.cf.coords["longitude"].max().values.item(),
-            ds.cf.coords["latitude"].max().values.item(),
-        ]
-    elif grid_type == GridType.SGRID:
-        topology = ds.cf["grid_topology"]
-        lng_coord, lat_coord = topology.attrs["face_coordinates"].split(" ")
-        bbox = [
-            ds[lng_coord].min().values.item(),
-            ds[lat_coord].min().values.item(),
-            ds[lng_coord].max().values.item(),
-            ds[lat_coord].max().values.item(),
-        ]
+    bbox = [
+        da.cf.coords["longitude"].min().values.item(),
+        da.cf.coords["latitude"].min().values.item(),
+        da.cf.coords["longitude"].max().values.item(),
+        da.cf.coords["latitude"].max().values.item(),
+    ]
 
     return bbox
