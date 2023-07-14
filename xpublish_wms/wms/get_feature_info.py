@@ -77,13 +77,13 @@ def create_parameter_feature_data(
         values = values.values.round(decimals=5)
         if values.ndim < 2:
             shape.extend([1, 1])
-        else: 
+        else:
             shape = values.shape
         values = values.flatten().tolist()
     elif isinstance(values, np.ndarray):
         if values.ndim < 2:
             shape.extend([1, 1])
-        else: 
+        else:
             shape = values.shape
         values = values.round(decimals=5).flatten().tolist()
     elif values is None:
@@ -124,7 +124,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
 
     elevation_str = query.get("elevation", None)
     if elevation_str == "all":
-        elevation = 'all'
+        elevation = "all"
     elif elevation_str:
         elevation = list([float(e) for e in elevation_str.split("/")])
     else:
@@ -158,7 +158,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = selected_ds.cf.isel(time=0)
 
     if any_has_vertical_axis:
-        if elevation == 'all':
+        if elevation == "all":
             # Dont select an elevation, just keep all elevation coords
             elevation = selected_ds.cf["vertical"].values
         elif len(elevation) == 1:
@@ -222,7 +222,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         t_axis = [str(format_timestamp(selected_ds.cf["time"]))]
     else:
         t_axis = format_timestamp(selected_ds.cf["time"]).tolist()
-    
+
     if not any_has_vertical_axis:
         z_axis = None
         elevation_name = None
@@ -319,11 +319,11 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
                                 "name": elevation_name,
                                 "direction": elevation_positive,
                                 "unit": elevation_units,
-                            }
-                        ]
-                    }
-                }
-            }
+                            },
+                        ],
+                    },
+                },
+            },
         )
 
     referencing.append(
