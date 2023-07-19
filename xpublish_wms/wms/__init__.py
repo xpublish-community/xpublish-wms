@@ -35,6 +35,9 @@ async def wms_handler(
         return getmap_service.get_map(dataset, query_params)
     elif method == "getfeatureinfo" or method == "gettimeseries":
         return get_feature_info(dataset, query_params)
+    elif method == "getverticalprofile":
+        query_params["elevation"] = "all"
+        return get_feature_info(dataset, query_params)
     elif method == "getmetadata":
         return get_metadata(dataset, cache, query_params)
     elif method == "getlegendgraphic":

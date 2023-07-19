@@ -5,7 +5,7 @@ import cf_xarray  # noqa
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
-from xpublish_wms.utils import ds_bbox, format_timestamp
+from xpublish_wms.utils import da_bbox, format_timestamp
 
 # WMS Styles declaration
 # TODO: Add others beyond just simple raster
@@ -139,29 +139,31 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
     create_text_element(layer_tag, crs_tag, "EPSG:3857")
     create_text_element(layer_tag, crs_tag, "CRS:84")
 
-    bbox = ds_bbox(ds)
-    bounds = {
-        crs_tag: "EPSG:4326",
-        "minx": f"{bbox[0]}",
-        "miny": f"{bbox[1]}",
-        "maxx": f"{bbox[2]}",
-        "maxy": f"{bbox[3]}",
-    }
-
-    if version == "1.1.1":
-        ll_bounds = {
-            "minx": f"{bbox[0]}",
-            "miny": f"{bbox[1]}",
-            "maxx": f"{bbox[2]}",
-            "maxy": f"{bbox[3]}",
-        }
-
     for var in ds.data_vars:
         da = ds[var]
 
         # If there are not spatial coords, we can't view it with this router, sorry
         if "longitude" not in da.cf.coords:
             continue
+
+        # TODO: Cache this based on variable names fetched. for now we assume every dataarray
+        # can have a different bbox
+        bbox = da_bbox(da)
+        bounds = {
+            crs_tag: "EPSG:4326",
+            "minx": f"{bbox[0]}",
+            "miny": f"{bbox[1]}",
+            "maxx": f"{bbox[2]}",
+            "maxy": f"{bbox[3]}",
+        }
+
+        if version == "1.1.1":
+            ll_bounds = {
+                "minx": f"{bbox[0]}",
+                "miny": f"{bbox[1]}",
+                "maxx": f"{bbox[2]}",
+                "maxy": f"{bbox[3]}",
+            }
 
         attrs = da.cf.attrs
         layer = ET.SubElement(layer_tag, "Layer", attrib={"queryable": "1"})
@@ -195,8 +197,8 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
-        if "T" in da.cf.axes:
-            times = format_timestamp(da.cf["T"])
+        if "time" in da.cf.coords:
+            times = format_timestamp(da.cf["time"])
 
             time_dimension_element = ET.SubElement(
                 layer,
@@ -209,6 +211,24 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             )
             # TODO: Add ISO duration specifier
             time_dimension_element.text = f"{','.join(times)}"
+
+        if "vertical" in da.cf.coords:
+            default_elevation = float(
+                da.cf["vertical"].cf.sel(vertical=0, method="nearest").values,
+            )
+            elevations = [f"{e}" for e in da.cf["vertical"].values.round(5)]
+            elevation_units = da.cf["vertical"].attrs.get("units", "sigma")
+            elevation_dimension_element = ET.SubElement(
+                layer,
+                "Dimension",
+                attrib={
+                    "name": "elevation",
+                    "units": "depth",
+                    "unitSymbol": elevation_units,
+                    "default": f"{default_elevation}",
+                },
+            )
+            elevation_dimension_element.text = ",".join(elevations)
 
         for style in styles:
             style_element = ET.SubElement(

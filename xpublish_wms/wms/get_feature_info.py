@@ -18,8 +18,8 @@ from xpublish_wms.utils import (
 def create_parameter_feature_data(
     parameter,
     ds: xr.Dataset,
-    has_time_axis,
     t_axis,
+    z_axis,
     x_axis,
     y_axis,
     values=None,
@@ -52,35 +52,47 @@ def create_parameter_feature_data(
         },
     }
 
-    axis_names = ["t", "x", "y"] if has_time_axis else ["x", "y"]
-    shape = (
-        [len(t_axis), len(x_axis), len(y_axis)]
-        if has_time_axis
-        else [len(x_axis), len(y_axis)]
-    )
+    axis_names = []
+    if t_axis is not None:
+        axis_names.append("t")
+    if z_axis is not None:
+        axis_names.append("z")
+    axis_names.extend(["x", "y"])
 
     values = values if values is not None else ds[parameter]
 
+    shape = []
+    if t_axis is not None:
+        shape.append(len(t_axis))
+    if z_axis is not None:
+        shape.append(len(z_axis))
+
     if isinstance(values, float):
-        shape = [1, 1, 1]
+        shape.extend([1, 1])
         values = [values]
     elif isinstance(values, list):
-        shape = [len(values), 1, 1]
+        shape.extend([1, 1])
         values = round_float_values(values)
     elif isinstance(values, xr.DataArray):
-        shape = values.shape
-        values = values.squeeze().values.round(decimals=5).flatten().tolist()
+        values = values.values.round(decimals=5)
+        if values.ndim < 2:
+            shape.extend([1, 1])
+        else:
+            shape = values.shape
+        values = values.flatten().tolist()
     elif isinstance(values, np.ndarray):
-        shape = values.shape
+        if values.ndim < 2:
+            shape.extend([1, 1])
+        else:
+            shape = values.shape
         values = values.round(decimals=5).flatten().tolist()
     elif values is None:
-        shape = [1, 1, 1]
+        shape.extend([1, 1])
         values = [np.nan]
 
     range = {
         "type": "NdArray",
         "dataType": "float",
-        # TODO: Some fields might not have a time field, and some might have an elevation field
         "axisNames": axis_names,
         "shape": shape,
         "values": [None if np.isnan(v) else v for v in values],
@@ -98,8 +110,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     # Data selection
     if ":" in query["query_layers"]:
         parameters = query["query_layers"].split(":")
+        grouped = True
     else:
         parameters = query["query_layers"].split(",")
+        grouped = False
     time_str = query.get("time", None)
     if time_str:
         times = list(dict.fromkeys([t.replace("Z", "") for t in time_str.split("/")]))
@@ -109,13 +123,12 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     any_has_time_axis = True in has_time_axis
 
     elevation_str = query.get("elevation", None)
-    if elevation_str:
+    if elevation_str == "all":
+        elevation = "all"
+    elif elevation_str:
         elevation = list([float(e) for e in elevation_str.split("/")])
     else:
-        elevation = None
-    has_vertical_axis = [
-        ds[parameter].cf.axes.get("T") is not None for parameter in parameters
-    ]
+        elevation = []
     has_vertical_axis = [
         "vertical" in ds[parameter].cf.coordinates for parameter in parameters
     ]
@@ -138,17 +151,23 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
 
     if any_has_time_axis:
         if len(times) == 1:
-            selected_ds = ds.cf.interp(time=times[0])
+            selected_ds = selected_ds.cf.interp(time=times[0])
         elif len(times) > 1:
-            selected_ds = ds.cf.sel(time=slice(times[0], times[1]))
+            selected_ds = selected_ds.cf.sel(time=slice(times[0], times[1]))
         else:
-            selected_ds = ds.cf.isel(time=0)
+            selected_ds = selected_ds.cf.isel(time=0)
 
     if any_has_vertical_axis:
-        if elevation is not None:
+        if elevation == "all":
+            # Dont select an elevation, just keep all elevation coords
+            elevation = selected_ds.cf["vertical"].values
+        elif len(elevation) == 1:
             selected_ds = selected_ds.cf.interp(vertical=elevation)
+        elif len(elevation) > 1:
+            selected_ds = selected_ds.cf.sel(vertical=slice(elevation[0], elevation[1]))
         else:
-            selected_ds = selected_ds.cf.isel(vertical=0)
+            # Select closest to the surface by default
+            selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     if grid_type == GridType.REGULAR:
         selected_ds = selected_ds.cf.interp(longitude=x_coord, latitude=y_coord)
@@ -200,9 +219,24 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     if not any_has_time_axis:
         t_axis = None
     elif len(times) == 1:
-        t_axis = str(format_timestamp(selected_ds.cf["time"]))
+        t_axis = [str(format_timestamp(selected_ds.cf["time"]))]
     else:
-        t_axis = str(format_timestamp(selected_ds.cf["time"]))
+        t_axis = format_timestamp(selected_ds.cf["time"]).tolist()
+
+    if not any_has_vertical_axis:
+        z_axis = None
+        elevation_name = None
+        elevation_units = None
+        elevation_positive = None
+    else:
+        elevation_name = selected_ds.cf["vertical"].attrs.get("standard_name", "")
+        elevation_units = selected_ds.cf["vertical"].attrs.get("units", "sigma")
+        elevation_positive = selected_ds.cf["vertical"].attrs.get("positive", "up")
+
+        if len(elevation) < 2:
+            z_axis = [strip_float(selected_ds.cf["vertical"])]
+        else:
+            z_axis = selected_ds.cf["vertical"].values.tolist()
 
     parameter_info = {}
     ranges = {}
@@ -211,8 +245,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         info, range = create_parameter_feature_data(
             parameter,
             selected_ds,
-            has_time_axis[i_parameter],
             t_axis,
+            z_axis,
             x_axis,
             y_axis,
         )
@@ -220,9 +254,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         ranges[parameter] = range
 
     # For now, hardcoding uv parameter grouping
-    if len(parameters) == 2 and (
-        "u_eastward" in parameters or "u_eastward_max" in parameters
-    ):
+    if len(parameters) == 2 and grouped:
         speed, direction = speed_and_dir_for_uv(
             selected_ds[parameters[0]],
             selected_ds[parameters[1]],
@@ -230,8 +262,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         speed_info, speed_range = create_parameter_feature_data(
             parameter,
             selected_ds,
-            has_time_axis[i_parameter],
             t_axis,
+            z_axis,
             x_axis,
             y_axis,
             speed,
@@ -245,8 +277,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         direction_info, direction_range = create_parameter_feature_data(
             parameter,
             selected_ds,
-            has_time_axis[i_parameter],
             t_axis,
+            z_axis,
             x_axis,
             y_axis,
             direction,
@@ -257,14 +289,16 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         parameter_info[direction_parameter_name] = direction_info
         ranges[direction_parameter_name] = direction_range
 
-    axis = (
-        {"t": {"values": t_axis}, "x": {"values": x_axis}, "y": {"values": y_axis}}
-        if any_has_time_axis
-        else {"x": {"values": x_axis}, "y": {"values": y_axis}}
-    )
+    axis = {
+        "t": {"values": t_axis} if any_has_time_axis else {},
+        "x": {"values": x_axis},
+        "y": {"values": y_axis},
+        "z": {"values": z_axis} if any_has_vertical_axis else {},
+    }
 
-    referencing = (
-        [
+    referencing = []
+    if any_has_time_axis:
+        referencing.append(
             {
                 "coordinates": ["t"],
                 "system": {
@@ -272,24 +306,34 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
                     "calendar": "gregorian",
                 },
             },
+        )
+    if any_has_vertical_axis:
+        referencing.append(
             {
-                "coordinates": ["x", "y"],
+                "coordinates": ["z"],
                 "system": {
-                    "type": "GeographicCRS",
-                    "id": crs,
+                    "type": "VerticalCRS",
+                    "cs": {
+                        "csAxes": [
+                            {
+                                "name": elevation_name,
+                                "direction": elevation_positive,
+                                "unit": elevation_units,
+                            },
+                        ],
+                    },
                 },
             },
-        ]
-        if any_has_time_axis
-        else [
-            {
-                "coordinates": ["x", "y"],
-                "system": {
-                    "type": "GeographicCRS",
-                    "id": crs,
-                },
+        )
+
+    referencing.append(
+        {
+            "coordinates": ["x", "y"],
+            "system": {
+                "type": "GeographicCRS",
+                "id": crs,
             },
-        ]
+        },
     )
 
     return JSONResponse(
