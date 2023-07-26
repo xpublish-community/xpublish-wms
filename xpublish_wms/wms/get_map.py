@@ -12,7 +12,6 @@ import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 import xarray as xr
-
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grid import GridType
