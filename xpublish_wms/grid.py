@@ -12,7 +12,7 @@ class GridType(Enum):
 
     @classmethod
     def from_ds(cls, ds: xr.Dataset):
-        if 'grid' in ds.cf.cf_roles["grid_topology"]:
+        if "grid" in ds.cf.cf_roles["grid_topology"]:
             return cls.SGRID
 
         try:
