@@ -1,5 +1,6 @@
 import io
 import logging
+import time
 from datetime import datetime
 from typing import List, Union
 
@@ -118,6 +119,7 @@ class GetMap:
         # Data selection
         self.parameter = query["layers"]
         self.time_str = query.get("time", None)
+
         if self.time_str:
             self.time = pd.to_datetime(self.time_str).tz_localize(None)
         else:
@@ -257,6 +259,7 @@ class GetMap:
         :param da:
         :return:
         """
+
         if self.crs == "EPSG:3857":
             bbox_lng, bbox_lat = to_lnglat.transform(
                 [self.bbox[0], self.bbox[2]],
@@ -267,6 +270,7 @@ class GetMap:
             bbox_ll = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
 
         if minmax_only:
+            da = da.persist()
             x = np.array(da.cf["longitude"].values)
             y = np.array(da.cf["latitude"].values)
             data = np.array(da.values)
@@ -284,6 +288,18 @@ class GetMap:
                 "max": float(np.nanmax(data_sel)),
             }
 
+        if not self.autoscale:
+            vmin, vmax = self.colorscalerange
+        else:
+            vmin, vmax = [None, None]
+
+        start_dask = time.time()
+        da.persist()
+        da.cf["latitude"].persist()
+        da.cf["longitude"].persist()
+        logger.debug(f"dask compute: {time.time() - start_dask}")
+
+        start_shade = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
@@ -291,12 +307,7 @@ class GetMap:
             y_range=(bbox_ll[2], bbox_ll[3]),
         )
 
-        if not self.autoscale:
-            vmin, vmax = self.colorscalerange
-        else:
-            vmin, vmax = [None, None]
-
-        im = tf.shade(
+        shaded = tf.shade(
             cvs.quadmesh(
                 da,
                 x=da.cf.coords["longitude"].name,
@@ -305,7 +316,9 @@ class GetMap:
             cmap=cm.get_cmap(self.palettename),
             how="linear",
             span=(vmin, vmax),
-        ).to_pil()
-        im.save(buffer, format="PNG")
+        )
+        logger.debug(f"Shade time: {time.time() - start_shade}")
 
+        im = shaded.to_pil()
+        im.save(buffer, format="PNG")
         return True

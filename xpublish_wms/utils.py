@@ -78,17 +78,17 @@ to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
 to_mercator = Transformer.from_crs(4326, 3857, always_xy=True)
 
 
-def da_bbox(da: xr.DataArray) -> Tuple[float, float, float, float]:
+def da_bbox(lat: xr.DataArray, lon: xr.DataArray) -> Tuple[float, float, float, float]:
     """
     Return the bounding box of the dataarray
     :param ds:
     :return:
     """
     bbox = [
-        da.cf.coords["longitude"].min().values.item(),
-        da.cf.coords["latitude"].min().values.item(),
-        da.cf.coords["longitude"].max().values.item(),
-        da.cf.coords["latitude"].max().values.item(),
+        lon.min().values.item(),
+        lat.min().values.item(),
+        lon.max().values.item(),
+        lat.max().values.item(),
     ]
 
     return bbox

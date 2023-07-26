@@ -1,3 +1,4 @@
+import datetime
 import xml.etree.ElementTree as ET
 from typing import List
 
@@ -139,6 +140,8 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
     create_text_element(layer_tag, crs_tag, "EPSG:3857")
     create_text_element(layer_tag, crs_tag, "CRS:84")
 
+    current_date = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
     for var in ds.data_vars:
         da = ds[var]
 
@@ -148,7 +151,9 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         # TODO: Cache this based on variable names fetched. for now we assume every dataarray
         # can have a different bbox
-        bbox = da_bbox(da)
+        lat = da.cf["latitude"].persist()
+        lon = da.cf["longitude"].persist()
+        bbox = da_bbox(lat, lon)
         bounds = {
             crs_tag: "EPSG:4326",
             "minx": f"{bbox[0]}",
@@ -199,6 +204,9 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         if "time" in da.cf.coords:
             times = format_timestamp(da.cf["time"])
+            default_time = format_timestamp(
+                da.cf["time"].cf.sel(time=current_date, method="nearest"),
+            ).item()
 
             time_dimension_element = ET.SubElement(
                 layer,
@@ -206,7 +214,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
                 attrib={
                     "name": "time",
                     "units": "ISO8601",
-                    "default": times[-1],
+                    "default": default_time,
                 },
             )
             # TODO: Add ISO duration specifier
