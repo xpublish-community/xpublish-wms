@@ -1,5 +1,6 @@
 import io
 import logging
+import time
 from datetime import datetime
 from typing import List, Union
 
@@ -11,9 +12,8 @@ import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 import xarray as xr
-import time
-from fastapi.responses import StreamingResponse
 from dask.distributed import Client, LocalCluster
+from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
@@ -321,7 +321,7 @@ class GetMap:
             span=(vmin, vmax),
         )
         logger.debug(f"Shade time: {time.time() - start_shade}")
-        
+
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
         return True

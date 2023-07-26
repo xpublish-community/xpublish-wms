@@ -204,7 +204,9 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         if "time" in da.cf.coords:
             times = format_timestamp(da.cf["time"])
-            default_time = format_timestamp(da.cf['time'].cf.sel(time=current_date, method='nearest')).item()
+            default_time = format_timestamp(
+                da.cf["time"].cf.sel(time=current_date, method="nearest"),
+            ).item()
 
             time_dimension_element = ET.SubElement(
                 layer,
