@@ -11,7 +11,9 @@ import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 import xarray as xr
+import time
 from fastapi.responses import StreamingResponse
+from dask.distributed import Client, LocalCluster
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
@@ -59,6 +61,7 @@ class GetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
+        ensure_query_types_start = time.time()
         self.ensure_query_types(ds, query)
 
         # Select data according to request
@@ -72,6 +75,7 @@ class GetMap:
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
+        render_start = time.time()
         render_result = self.render(da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
@@ -118,6 +122,7 @@ class GetMap:
         # Data selection
         self.parameter = query["layers"]
         self.time_str = query.get("time", None)
+
         if self.time_str:
             self.time = pd.to_datetime(self.time_str).tz_localize(None)
         else:
@@ -257,6 +262,7 @@ class GetMap:
         :param da:
         :return:
         """
+
         if self.crs == "EPSG:3857":
             bbox_lng, bbox_lat = to_lnglat.transform(
                 [self.bbox[0], self.bbox[2]],
@@ -267,6 +273,7 @@ class GetMap:
             bbox_ll = [self.bbox[0], self.bbox[2], self.bbox[1], self.bbox[3]]
 
         if minmax_only:
+            da = da.persist()
             x = np.array(da.cf["longitude"].values)
             y = np.array(da.cf["latitude"].values)
             data = np.array(da.values)
@@ -284,6 +291,18 @@ class GetMap:
                 "max": float(np.nanmax(data_sel)),
             }
 
+        if not self.autoscale:
+            vmin, vmax = self.colorscalerange
+        else:
+            vmin, vmax = [None, None]
+
+        start_dask = time.time()
+        da.persist()
+        da.cf["latitude"].persist()
+        da.cf["longitude"].persist()
+        logger.debug(f"dask compute: {time.time() - start_dask}")
+
+        start_shade = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
@@ -291,12 +310,7 @@ class GetMap:
             y_range=(bbox_ll[2], bbox_ll[3]),
         )
 
-        if not self.autoscale:
-            vmin, vmax = self.colorscalerange
-        else:
-            vmin, vmax = [None, None]
-
-        im = tf.shade(
+        shaded = tf.shade(
             cvs.quadmesh(
                 da,
                 x=da.cf.coords["longitude"].name,
@@ -305,7 +319,9 @@ class GetMap:
             cmap=cm.get_cmap(self.palettename),
             how="linear",
             span=(vmin, vmax),
-        ).to_pil()
+        )
+        logger.debug(f"Shade time: {time.time() - start_shade}")
+        
+        im = shaded.to_pil()
         im.save(buffer, format="PNG")
-
         return True

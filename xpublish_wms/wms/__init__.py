@@ -20,7 +20,7 @@ from .get_metadata import get_metadata
 logger = logging.getLogger("uvicorn")
 
 
-async def wms_handler(
+def wms_handler(
     request: Request,
     dataset: xr.Dataset = Depends(get_dataset),
     cache: cachey.Cache = Depends(get_cache),
