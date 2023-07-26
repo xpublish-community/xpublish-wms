@@ -13,7 +13,6 @@ import pandas as pd
 import xarray as xr
 import time
 from fastapi.responses import StreamingResponse
-from dask.distributed import Client, LocalCluster
 
 from xpublish_wms.grid import GridType
 from xpublish_wms.utils import to_lnglat
@@ -61,7 +60,6 @@ class GetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
-        ensure_query_types_start = time.time()
         self.ensure_query_types(ds, query)
 
         # Select data according to request
@@ -75,7 +73,6 @@ class GetMap:
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
-        render_start = time.time()
         render_result = self.render(da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
