@@ -17,7 +17,7 @@ class GridType(Enum):
             return cls.SGRID
 
         try:
-            if len(ds.cf['latitude'].dims) > 1:
+            if len(ds.cf["latitude"].dims) > 1:
                 return cls.NON_DIMENSIONAL
             elif "latitude" in ds.cf["latitude"].dims:
                 return cls.REGULAR

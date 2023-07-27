@@ -6,14 +6,14 @@ from typing import List, Union
 
 import cachey
 import cf_xarray  # noqa
-import rioxarray  # noqa
+import dask.array as dask_array
 import datashader as dsh
 import datashader.transfer_functions as tf
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
+import rioxarray  # noqa
 import xarray as xr
-import dask.array as dask_array
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grid import GridType
@@ -263,19 +263,34 @@ class GetMap:
         """
         projection_start = time.time()
         if self.crs == "EPSG:3857":
-            if self.grid_type == GridType.NON_DIMENSIONAL or self.grid_type == GridType.SGRID:
-                x, y = to_mercator.transform(da.cf['longitude'], da.cf['latitude'])
-                x_chunks = da.cf['longitude'].chunks if da.cf['longitude'].chunks else x.shape
-                y_chunks = da.cf['latitude'].chunks if da.cf['latitude'].chunks else y.shape
+            if (
+                self.grid_type == GridType.NON_DIMENSIONAL
+                or self.grid_type == GridType.SGRID
+            ):
+                x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+                x_chunks = (
+                    da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+                )
+                y_chunks = (
+                    da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+                )
 
-                da = da.assign_coords({
-                    'x': (da.cf['longitude'].dims, dask_array.from_array(x, chunks=x_chunks)),
-                    'y': (da.cf['latitude'].dims, dask_array.from_array(y, chunks=y_chunks))
-                })
+                da = da.assign_coords(
+                    {
+                        "x": (
+                            da.cf["longitude"].dims,
+                            dask_array.from_array(x, chunks=x_chunks),
+                        ),
+                        "y": (
+                            da.cf["latitude"].dims,
+                            dask_array.from_array(y, chunks=y_chunks),
+                        ),
+                    },
+                )
             elif self.grid_type == GridType.REGULAR:
                 da = da.rio.reproject("EPSG:3857")
         else:
-            da = da.assign_coords({'x': da.cf['longitude'], 'y': da.cf['latitude']})
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
 
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
@@ -320,8 +335,8 @@ class GetMap:
         shaded = tf.shade(
             cvs.quadmesh(
                 da,
-                x='x',
-                y='y',
+                x="x",
+                y="y",
             ),
             cmap=cm.get_cmap(self.palettename),
             how="linear",
