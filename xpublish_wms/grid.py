@@ -7,16 +7,19 @@ import xarray as xr
 
 class GridType(Enum):
     REGULAR = 1
-    SGRID = 2
+    NON_DIMENSIONAL = 2
+    SGRID = 3
     UNSUPPORTED = 255
 
     @classmethod
     def from_ds(cls, ds: xr.Dataset):
-        if "grid" in ds.cf.cf_roles["grid_topology"]:
+        if "grid_topology" in ds.cf.cf_roles:
             return cls.SGRID
 
         try:
-            if "latitude" in ds.cf["latitude"].dims:
+            if len(ds.cf["latitude"].dims) > 1:
+                return cls.NON_DIMENSIONAL
+            elif "latitude" in ds.cf["latitude"].dims:
                 return cls.REGULAR
         except Exception:
             return cls.UNSUPPORTED
