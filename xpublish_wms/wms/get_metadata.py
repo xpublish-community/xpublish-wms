@@ -94,7 +94,9 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     da = ds[layer_name]
     units = da.attrs.get("units", "")
     supported_styles = "raster"  # TODO: more styles
-    bbox = da_bbox(da)
+    lat = da.cf["latitude"].persist()
+    lon = da.cf["longitude"].persist()
+    bbox = da_bbox(lat, lon)
     if "vertical" in da.cf:
         elevation = da.cf["vertical"].values.tolist()
         elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
