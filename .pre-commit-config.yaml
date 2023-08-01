@@ -27,7 +27,7 @@ repos:
     - id: blackdoc
 
 - repo: https://github.com/pycqa/flake8
-  rev: 6.0.0
+  rev: 6.1.0
   hooks:
     - id: flake8
       exclude: docs/source/conf.py
@@ -41,7 +41,7 @@ repos:
       args: ["--profile", "black", "--filter-files"]
 
 - repo: https://github.com/psf/black
-  rev: 23.3.0
+  rev: 23.7.0
   hooks:
   - id: black
     language_version: python3
@@ -54,13 +54,13 @@ repos:
         - --quiet-level=2
 
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.8.0
+  rev: v3.10.1
   hooks:
     - id: pyupgrade
       args:
         - --py36-plus
 
 - repo: https://github.com/asottile/add-trailing-comma
-  rev: v3.0.0
+  rev: v3.0.1
   hooks:
     - id: add-trailing-comma
