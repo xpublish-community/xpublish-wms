@@ -287,6 +287,8 @@ class GetMap:
                         ),
                     },
                 )
+
+                da = da.unify_chunks()
             elif self.grid_type == GridType.REGULAR:
                 da = da.rio.reproject("EPSG:3857")
         else:
