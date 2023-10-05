@@ -1,16 +1,130 @@
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Any, Optional, Tuple
 
 import cartopy.geodesic
 import numpy as np
 import xarray as xr
 
 
-@xr.register_dataarray_accessor("grid")
-class GridAccessor:
-    da: xr.DataArray
+class Grid(ABC):
 
-    def __init__(self, da: xr.DataArray):
-        self.da = da
+    @staticmethod
+    @abstractmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        """Recognize whether the given dataset is of this grid type"""
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Name of the grid type"""
+        pass
+
+    @abstractmethod
+    def crs(self) -> str:
+        """CRS of the grid"""
+        pass
+
+    @abstractmethod
+    def bbox(self, var: str) -> Tuple[float, float, float, float]:
+        """Bounding box of the grid for the given variable in the form (minx, miny, maxx, maxy)"""
+        pass
+
+    @abstractmethod
+    def render(self, var: str, bbox: Tuple[float, float, float, float], width: int, height: int) -> Any:
+        """Render the given variable for the given bounding box with the given width and height"""
+        pass
+
+
+class RegularGrid(Grid):
+    def __init__(self, ds: xr.Dataset):
+        self.ds = ds
+
+    @staticmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        return True
+
+    def name(self) -> str:
+        return "regular"
+
+    def crs(self) -> str:
+        return 'EPSG:4326'
+
+    def bbox(self, var: str) -> Tuple[float, float, float, float]:
+        da = self.ds[var]
+        return (
+            float(da.cf["longitude"].min()),
+            float(da.cf["latitude"].min()),
+            float(da.cf["longitude"].max()),
+            float(da.cf["latitude"].max()),
+        )
+
+    def render(self, var: str, crs: str, bbox: Tuple[float, float, float, float], width: int, height: int) -> Any:
+        pass
+
+class ROMSGrid(Grid):
+    def __init__(self, ds: xr.Dataset):
+        self.ds = ds
+
+    @staticmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        return "grid_topology" in ds.cf.cf_roles
+    
+    def name(self) -> str:
+        return "roms"
+
+    def crs(self) -> str:
+        return 'EPSG:4326'
+
+    def bbox(self, var: str) -> Tuple[float, float, float, float]:
+        da = self.ds[var]
+        return (
+            float(da.cf["longitude"].min()),
+            float(da.cf["latitude"].min()),
+            float(da.cf["longitude"].max()),
+            float(da.cf["latitude"].max()),
+        )
+
+
+def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
+    grid_impls = [ROMSGrid, RegularGrid]
+    for grid_impl in grid_impls:
+        if grid_impl.recognize(ds):
+            return grid_impl(ds)
+        
+    return None
+
+
+@xr.register_dataset_accessor("grid")
+class GridDatasetAccessor:
+    _ds: xr.Dataset
+    _grid: Optional[Grid]
+
+    def __init__(self, ds: xr.Dataset):
+        self._ds = ds
+        self._grid = grid_factory(ds)
+
+    @property
+    def name(self) -> str:
+        if self._grid is None:
+            return "unsupported"
+        else:
+            return self.grid.name
+        
+    @property
+    def bbox(self, var) -> Tuple[float, float, float, float]:
+        if self._grid is None:
+            return None
+        else:
+            return self.grid.bbox(var)
+        
+    @property
+    def crs(self) -> str:
+        if self._grid is None:
+            return None
+        else:
+            return self.grid.crs
 
 
 class GridType(Enum):
