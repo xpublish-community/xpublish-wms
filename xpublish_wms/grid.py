@@ -5,6 +5,14 @@ import numpy as np
 import xarray as xr
 
 
+@xr.register_dataarray_accessor("grid")
+class GridAccessor:
+    da: xr.DataArray
+
+    def __init__(self, da: xr.DataArray):
+        self.da = da
+
+
 class GridType(Enum):
     REGULAR = 1
     NON_DIMENSIONAL = 2
