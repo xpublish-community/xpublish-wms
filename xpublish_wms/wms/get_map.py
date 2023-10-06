@@ -16,7 +16,7 @@ import rioxarray  # noqa
 import xarray as xr
 from fastapi.responses import StreamingResponse
 
-from xpublish_wms.grid import GridType
+from xpublish_wms.grid import GridType, RenderMethod
 from xpublish_wms.utils import to_mercator
 
 logger = logging.getLogger("uvicorn")
@@ -75,7 +75,7 @@ class GetMap:
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
-        render_result = self.render(da, image_buffer, False)
+        render_result = self.render(ds, da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
 
@@ -107,7 +107,7 @@ class GetMap:
         if entire_layer:
             return {"min": float(da.min()), "max": float(da.max())}
         else:
-            return self.render(da, None, minmax_only=True)
+            return self.render(ds, da, None, minmax_only=True)
 
     def ensure_query_types(self, ds: xr.Dataset, query: dict):
         """
@@ -236,64 +236,19 @@ class GetMap:
 
     def render(
         self,
+        ds: xr.Dataset,
         da: xr.DataArray,
         buffer: io.BytesIO,
         minmax_only: bool,
     ) -> Union[bool, dict]:
         """
         Render the data array into an image buffer
-        :param da:
-        :return:
         """
         # For now, try to render everything as a quad grid
         # TODO: FVCOM and other grids
-        return self.render_quad_grid(da, buffer, minmax_only)
-
-    def render_quad_grid(
-        self,
-        da: xr.DataArray,
-        buffer: io.BytesIO,
-        minmax_only: bool,
-    ) -> Union[bool, dict]:
-        """
-        Render the data array into an image buffer when the dataset is using a
-        2d grid
-        :param da:
-        :return:
-        """
+        #return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
-        if self.crs == "EPSG:3857":
-            if (
-                self.grid_type == GridType.NON_DIMENSIONAL
-                or self.grid_type == GridType.SGRID
-            ):
-                x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
-                x_chunks = (
-                    da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-                )
-                y_chunks = (
-                    da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
-                )
-
-                da = da.assign_coords(
-                    {
-                        "x": (
-                            da.cf["longitude"].dims,
-                            dask_array.from_array(x, chunks=x_chunks),
-                        ),
-                        "y": (
-                            da.cf["latitude"].dims,
-                            dask_array.from_array(y, chunks=y_chunks),
-                        ),
-                    },
-                )
-
-                da = da.unify_chunks()
-            elif self.grid_type == GridType.REGULAR:
-                da = da.rio.reproject("EPSG:3857")
-        else:
-            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-
+        da = ds.grid.project(da, self.crs)
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
         if minmax_only:
@@ -334,12 +289,21 @@ class GetMap:
             y_range=(self.bbox[1], self.bbox[3]),
         )
 
-        shaded = tf.shade(
-            cvs.quadmesh(
+        if ds.grid.render_method == RenderMethod.Quad:
+            mesh = cvs.quadmesh(
                 da,
                 x="x",
                 y="y",
-            ),
+            )
+        elif ds.grid.render_method == RenderMethod.Triangle:
+            mesh = cvs.trimesh(
+                da,
+                x="x",
+                y="y",
+            )
+
+        shaded = tf.shade(
+            mesh,
             cmap=cm.get_cmap(self.palettename),
             how="linear",
             span=(vmin, vmax),
@@ -349,3 +313,52 @@ class GetMap:
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
         return True
+
+    # def render_quad_grid(
+    #     self,
+    #     da: xr.DataArray,
+    #     buffer: io.BytesIO,
+    #     minmax_only: bool,
+    # ) -> Union[bool, dict]:
+    #     """
+    #     Render the data array into an image buffer when the dataset is using a
+    #     2d grid
+    #     :param da:
+    #     :return:
+    #     """
+    #     projection_start = time.time()
+    #     if self.crs == "EPSG:3857":
+    #         if (
+    #             self.grid_type == GridType.NON_DIMENSIONAL
+    #             or self.grid_type == GridType.SGRID
+    #         ):
+    #             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+    #             x_chunks = (
+    #                 da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+    #             )
+    #             y_chunks = (
+    #                 da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+    #             )
+
+    #             da = da.assign_coords(
+    #                 {
+    #                     "x": (
+    #                         da.cf["longitude"].dims,
+    #                         dask_array.from_array(x, chunks=x_chunks),
+    #                     ),
+    #                     "y": (
+    #                         da.cf["latitude"].dims,
+    #                         dask_array.from_array(y, chunks=y_chunks),
+    #                     ),
+    #                 },
+    #             )
+
+    #             da = da.unify_chunks()
+    #         elif self.grid_type == GridType.REGULAR:
+    #             da = da.rio.reproject("EPSG:3857")
+    #     else:
+    #         da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+
+    #     logger.debug(f"Projection time: {time.time() - projection_start}")
+
+ 

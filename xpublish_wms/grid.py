@@ -4,7 +4,17 @@ from typing import Any, Optional, Tuple
 
 import cartopy.geodesic
 import numpy as np
+import rioxarray #noqa
+import cf_xarray #noqa
 import xarray as xr
+import dask.array as dask_array
+
+from xpublish_wms.utils import to_mercator
+
+
+class RenderMethod(Enum):
+    Quad = 'quad'
+    Triangle = 'triangle'
 
 
 class Grid(ABC):
@@ -21,6 +31,13 @@ class Grid(ABC):
         """Name of the grid type"""
         pass
 
+    @property
+    @abstractmethod
+    def render_method(self) -> RenderMethod:
+        """Name of the render method"""
+        pass
+
+    @property
     @abstractmethod
     def crs(self) -> str:
         """CRS of the grid"""
@@ -32,8 +49,8 @@ class Grid(ABC):
         pass
 
     @abstractmethod
-    def render(self, var: str, bbox: Tuple[float, float, float, float], width: int, height: int) -> Any:
-        """Render the given variable for the given bounding box with the given width and height"""
+    def project(self, da: xr.DataArray, crs: str) -> Any:
+        """Project the given data array from this dataset and grid to the given crs"""
         pass
 
 
@@ -45,9 +62,15 @@ class RegularGrid(Grid):
     def recognize(ds: xr.Dataset) -> bool:
         return True
 
+    @property
     def name(self) -> str:
         return "regular"
 
+    @property
+    def render_method(self) -> RenderMethod:
+        return RenderMethod.Quad
+
+    @property
     def crs(self) -> str:
         return 'EPSG:4326'
 
@@ -60,8 +83,13 @@ class RegularGrid(Grid):
             float(da.cf["latitude"].max()),
         )
 
-    def render(self, var: str, crs: str, bbox: Tuple[float, float, float, float], width: int, height: int) -> Any:
-        pass
+    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        if crs == 'EPSG:4326':
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+        elif crs == 'EPSG:3857':
+            da = da.rio.reproject("EPSG:3857")
+        return da
+
 
 class ROMSGrid(Grid):
     def __init__(self, ds: xr.Dataset):
@@ -71,8 +99,13 @@ class ROMSGrid(Grid):
     def recognize(ds: xr.Dataset) -> bool:
         return "grid_topology" in ds.cf.cf_roles
     
+    @property
     def name(self) -> str:
         return "roms"
+
+    @property
+    def render_method(self) -> RenderMethod:
+        return RenderMethod.Quad
 
     def crs(self) -> str:
         return 'EPSG:4326'
@@ -85,6 +118,34 @@ class ROMSGrid(Grid):
             float(da.cf["longitude"].max()),
             float(da.cf["latitude"].max()),
         )
+    
+    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        if crs == 'EPSG:4326':
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+        elif crs == 'EPSG:3857':
+            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
+            y_chunks = (
+                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+            )
+
+            da = da.assign_coords(
+                {
+                    "x": (
+                        da.cf["longitude"].dims,
+                        dask_array.from_array(x, chunks=x_chunks),
+                    ),
+                    "y": (
+                        da.cf["latitude"].dims,
+                        dask_array.from_array(y, chunks=y_chunks),
+                    ),
+                },
+            )
+
+            da = da.unify_chunks()
+        return da
 
 
 def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
@@ -106,18 +167,25 @@ class GridDatasetAccessor:
         self._grid = grid_factory(ds)
 
     @property
+    def grid(self) -> Grid:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid
+
+    @property
     def name(self) -> str:
         if self._grid is None:
             return "unsupported"
         else:
             return self.grid.name
-        
+    
     @property
-    def bbox(self, var) -> Tuple[float, float, float, float]:
+    def render_method(self) -> RenderMethod:
         if self._grid is None:
-            return None
+            return RenderMethod.Quad
         else:
-            return self.grid.bbox(var)
+            return self._grid.render_method
         
     @property
     def crs(self) -> str:
@@ -125,6 +193,18 @@ class GridDatasetAccessor:
             return None
         else:
             return self.grid.crs
+
+    def bbox(self, var) -> Tuple[float, float, float, float]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.bbox(var)
+
+    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.project(da, crs)
 
 
 class GridType(Enum):

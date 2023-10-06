@@ -138,7 +138,6 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
     )
     create_text_element(layer_tag, crs_tag, "EPSG:4326")
     create_text_element(layer_tag, crs_tag, "EPSG:3857")
-    create_text_element(layer_tag, crs_tag, "CRS:84")
 
     current_date = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
