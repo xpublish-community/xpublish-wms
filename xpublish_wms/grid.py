@@ -283,6 +283,7 @@ class FVCOMGrid(Grid):
 
     def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
         """Select the given data array by elevation"""
+        # TODO: Fix for u and v params (siglev??)
         if "vertical" in da.cf:
             if elevation is None:
                 elevation = 0.0
