@@ -8,6 +8,7 @@ import rioxarray #noqa
 import cf_xarray #noqa
 import xarray as xr
 import dask.array as dask_array
+import matplotlib.tri as tri
 
 from xpublish_wms.utils import to_mercator
 
@@ -53,9 +54,19 @@ class Grid(ABC):
         """Return the elevations for the given data array"""
         pass
 
+    def select_by_elevation(self, da: xr.DataArray, elevation: float = 0.0) -> xr.DataArray:
+        """Select the given data array by elevation"""
+        if "vertical" in da.cf:
+            da = da.cf.sel({'vertical': elevation}, method="nearest")
+        return da
+
     @abstractmethod
     def project(self, da: xr.DataArray, crs: str) -> Any:
         """Project the given data array from this dataset and grid to the given crs"""
+        pass
+
+    def tessellate(self, da: xr.DataArray) -> np.ndarray:
+        """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 
 
@@ -270,8 +281,47 @@ class FVCOMGrid(Grid):
         else:
             return None
 
+    def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
+        """Select the given data array by elevation"""
+        if "vertical" in da.cf:
+            if elevation is None:
+                elevation = 0.0
+            elevations = self.elevations(da)
+            diff = np.absolute(elevations - elevation)
+            elevation_index = diff.argmin()
+            da = da.cf.isel({"vertical": elevation_index})
+        return da
+
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        pass
+        if crs == 'EPSG:4326':
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+        elif crs == 'EPSG:3857':
+            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
+            y_chunks = (
+                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+            )
+
+            da = da.assign_coords(
+                {
+                    "x": (
+                        da.cf["longitude"].dims,
+                        dask_array.from_array(x, chunks=x_chunks),
+                    ),
+                    "y": (
+                        da.cf["latitude"].dims,
+                        dask_array.from_array(y, chunks=y_chunks),
+                    ),
+                },
+            )
+
+            da = da.unify_chunks()
+        return da
+
+    def tessellate(self, da: xr.DataArray) -> np.ndarray:
+        return tri.Triangulation(da.cf['longitude'], da.cf['latitude'], self.ds.nv[0].T - 1).triangles
 
 
 _grid_impls = [HYCOMGrid, FVCOMGrid, ROMSGrid, RegularGrid]
@@ -343,11 +393,23 @@ class GridDatasetAccessor:
         else:
             return self._grid.elevations(da)
 
+    def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.select_by_elevation(da, elevation)
+
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if self._grid is None:
             return None
         else:
             return self._grid.project(da, crs)
+
+    def tessellate(self, da: xr.DataArray) -> np.ndarray:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.tessellate(da)
 
 
 class GridType(Enum):

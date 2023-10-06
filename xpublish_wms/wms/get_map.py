@@ -67,8 +67,8 @@ class GetMap:
         # Select data according to request
         da = self.select_layer(ds)
         da = self.select_time(da)
-        da = self.select_elevation(da)
-        da = self.select_custom_dim(da)
+        da = self.select_elevation(ds, da)
+        #da = self.select_custom_dim(da)
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -100,7 +100,7 @@ class GetMap:
         # Select data according to request
         da = self.select_layer(ds)
         da = self.select_time(da)
-        da = self.select_elevation(da)
+        da = self.select_elevation(ds, da)
 
         # Prepare the data as if we are going to render it, but instead grab the min and max
         # values from the data to represent the range of values in the given area
@@ -189,7 +189,7 @@ class GetMap:
 
         return da
 
-    def select_elevation(self, da: xr.DataArray) -> xr.DataArray:
+    def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
         """
         Ensure elevation selection
 
@@ -204,11 +204,8 @@ class GetMap:
         :param da:
         :return:
         """
-        if self.elevation is not None and self.has_elevation:
-            da = da.cf.sel({self.ELEVATION_CF_NAME: self.elevation}, method="nearest")
-        elif self.has_elevation:
-            # Default closest to the surface no matter what
-            da = da.cf.sel({self.ELEVATION_CF_NAME: 0}, method="nearest")
+        da = ds.grid.select_by_elevation(da, self.elevation)
+        print(da.shape)
 
         return da
 
@@ -296,10 +293,13 @@ class GetMap:
                 y="y",
             )
         elif ds.grid.render_method == RenderMethod.Triangle:
+            triangles = ds.grid.tessellate(da)
+            verts = pd.DataFrame({'x': da.x, 'y': da.y, 'z': da})
+            tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
+
             mesh = cvs.trimesh(
-                da,
-                x="x",
-                y="y",
+                verts,
+                tris,
             )
 
         shaded = tf.shade(
