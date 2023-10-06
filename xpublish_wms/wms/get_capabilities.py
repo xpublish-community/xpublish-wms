@@ -2,11 +2,12 @@ import datetime
 import xml.etree.ElementTree as ET
 from typing import List
 
+import numpy as np
 import cf_xarray  # noqa
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
-from xpublish_wms.utils import da_bbox, format_timestamp
+from xpublish_wms.utils import format_timestamp
 
 # WMS Styles declaration
 # TODO: Add others beyond just simple raster
@@ -220,10 +221,10 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             time_dimension_element.text = f"{','.join(times)}"
 
         if "vertical" in da.cf.coords:
-            default_elevation = float(
-                da.cf["vertical"].cf.sel(vertical=0, method="nearest").values,
-            )
-            elevations = [f"{e}" for e in da.cf["vertical"].values.round(5)]
+            elevations_values = ds.grid.elevations(da).persist()
+            default_elevation_index = np.abs(elevations_values).argmin().values
+            default_elevation = elevations_values[default_elevation_index].values.round(5)
+            elevations = [f"{e}" for e in elevations_values.values.round(5)]
             elevation_units = da.cf["vertical"].attrs.get("units", "sigma")
             elevation_dimension_element = ET.SubElement(
                 layer,

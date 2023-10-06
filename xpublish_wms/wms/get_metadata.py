@@ -6,7 +6,7 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from xpublish_wms.utils import da_bbox, format_timestamp
+from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
 
@@ -94,11 +94,9 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     da = ds[layer_name]
     units = da.attrs.get("units", "")
     supported_styles = "raster"  # TODO: more styles
-    lat = da.cf["latitude"].persist()
-    lon = da.cf["longitude"].persist()
-    bbox = da_bbox(lat, lon)
+    bbox = ds.grid.bbox(da)
     if "vertical" in da.cf:
-        elevation = da.cf["vertical"].values.tolist()
+        elevation = ds.grid.elevations(da).values.round(5).tolist()
         elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
         elevation_units = da.cf["vertical"].attrs.get("units", "")
     else:

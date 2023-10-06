@@ -49,6 +49,11 @@ class Grid(ABC):
         pass
 
     @abstractmethod
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        """Return the elevations for the given data array"""
+        pass
+
+    @abstractmethod
     def project(self, da: xr.DataArray, crs: str) -> Any:
         """Project the given data array from this dataset and grid to the given crs"""
         pass
@@ -81,6 +86,12 @@ class RegularGrid(Grid):
             float(da.cf["longitude"].max()),
             float(da.cf["latitude"].max()),
         )
+
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"]
+        else:
+            return None
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == 'EPSG:4326':
@@ -117,7 +128,13 @@ class ROMSGrid(Grid):
             float(da.cf["longitude"].max()),
             float(da.cf["latitude"].max()),
         )
-    
+
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"]
+        else:
+            return None
+
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == 'EPSG:4326':
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
@@ -183,6 +200,12 @@ class HYCOMGrid(Grid):
             float(da.cf["latitude"].max()),
         )
 
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"]
+        else:
+            return None
+
     def project(self, da: xr.DataArray, crs: str) -> Any:
         # TODO: Figure out global coords 
         if crs == 'EPSG:4326':
@@ -213,7 +236,45 @@ class HYCOMGrid(Grid):
         return da
 
 
-_grid_impls = [HYCOMGrid, ROMSGrid, RegularGrid]
+class FVCOMGrid(Grid):
+    def __init__(self, ds: xr.Dataset):
+        self.ds = ds
+
+    @staticmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        return ds.attrs.get('source', '').startswith('FVCOM')
+
+    @property
+    def name(self) -> str:
+        return 'fvcom'
+
+    @property
+    def render_method(self) -> RenderMethod:
+        return RenderMethod.Triangle
+
+    @property
+    def crs(self) -> str:
+        return 'EPSG:4326'
+
+    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
+        return (
+            float(da.cf["longitude"].min()),
+            float(da.cf["latitude"].min()),
+            float(da.cf["longitude"].max()),
+            float(da.cf["latitude"].max()),
+        )
+
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"][:, 0]
+        else:
+            return None
+
+    def project(self, da: xr.DataArray, crs: str) -> Any:
+        pass
+
+
+_grid_impls = [HYCOMGrid, FVCOMGrid, ROMSGrid, RegularGrid]
 
 
 def register_grid_impl(grid_impl: Grid, priority: int = 0):
@@ -275,6 +336,12 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.bbox(var)
+
+    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.elevations(da)
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if self._grid is None:
