@@ -152,7 +152,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         # can have a different bbox
         lat = da.cf["latitude"].persist()
         lon = da.cf["longitude"].persist()
-        bbox = da_bbox(lat, lon)
+        bbox = ds.grid.bbox(da)
         bounds = {
             crs_tag: "EPSG:4326",
             "minx": f"{bbox[0]}",

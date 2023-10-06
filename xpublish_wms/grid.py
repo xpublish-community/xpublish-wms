@@ -44,8 +44,8 @@ class Grid(ABC):
         pass
 
     @abstractmethod
-    def bbox(self, var: str) -> Tuple[float, float, float, float]:
-        """Bounding box of the grid for the given variable in the form (minx, miny, maxx, maxy)"""
+    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
+        """Bounding box of the grid for the given data array in the form (minx, miny, maxx, maxy)"""
         pass
 
     @abstractmethod
@@ -74,8 +74,7 @@ class RegularGrid(Grid):
     def crs(self) -> str:
         return 'EPSG:4326'
 
-    def bbox(self, var: str) -> Tuple[float, float, float, float]:
-        da = self.ds[var]
+    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
         return (
             float(da.cf["longitude"].min()),
             float(da.cf["latitude"].min()),
@@ -107,11 +106,11 @@ class ROMSGrid(Grid):
     def render_method(self) -> RenderMethod:
         return RenderMethod.Quad
 
+    @property
     def crs(self) -> str:
         return 'EPSG:4326'
 
-    def bbox(self, var: str) -> Tuple[float, float, float, float]:
-        da = self.ds[var]
+    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
         return (
             float(da.cf["longitude"].min()),
             float(da.cf["latitude"].min()),
@@ -148,9 +147,86 @@ class ROMSGrid(Grid):
         return da
 
 
+class HYCOMGrid(Grid):
+
+    def __init__(self, ds: xr.Dataset):
+        self.ds = ds
+
+    @staticmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        return ds.attrs.get('title', '').startswith('HYCOM')
+    
+    @property
+    def name(self) -> str:
+        return 'hycom'
+
+    @property
+    def render_method(self) -> RenderMethod:
+        return RenderMethod.Quad
+
+    @property
+    def crs(self) -> str:
+        return 'EPSG:4326'
+
+    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
+        # HYCOM global grid (RTOFS) has invalid longitude values 
+        # over 500 that need to masked. Then the coords need to be
+        # normalized between -180 and 180
+        lng = da.cf['longitude']
+        lng = lng.where(lng < 500) % 360
+        lng = xr.where(lng > 180, lng - 360, lng)
+
+        return (
+            float(lng.min()),
+            float(da.cf["latitude"].min()),
+            float(lng.max()),
+            float(da.cf["latitude"].max()),
+        )
+
+    def project(self, da: xr.DataArray, crs: str) -> Any:
+        # TODO: Figure out global coords 
+        if crs == 'EPSG:4326':
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+        elif crs == 'EPSG:3857':
+            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
+            y_chunks = (
+                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+            )
+
+            da = da.assign_coords(
+                {
+                    "x": (
+                        da.cf["longitude"].dims,
+                        dask_array.from_array(x, chunks=x_chunks),
+                    ),
+                    "y": (
+                        da.cf["latitude"].dims,
+                        dask_array.from_array(y, chunks=y_chunks),
+                    ),
+                },
+            )
+
+            da = da.unify_chunks()
+        return da
+
+
+_grid_impls = [HYCOMGrid, ROMSGrid, RegularGrid]
+
+
+def register_grid_impl(grid_impl: Grid, priority: int = 0):
+    """
+    Register a new grid implementation.
+    :param grid_impl: The grid implementation to register
+    :param priority: The priority of the implementation. Highest priority is 0. Default is 0.
+    """
+    _grid_impls.insert(grid_impl, priority)
+
+
 def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
-    grid_impls = [ROMSGrid, RegularGrid]
-    for grid_impl in grid_impls:
+    for grid_impl in _grid_impls:
         if grid_impl.recognize(ds):
             return grid_impl(ds)
         
