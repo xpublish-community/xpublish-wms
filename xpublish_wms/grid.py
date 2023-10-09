@@ -44,15 +44,43 @@ class Grid(ABC):
         """CRS of the grid"""
         pass
 
-    @abstractmethod
     def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
         """Bounding box of the grid for the given data array in the form (minx, miny, maxx, maxy)"""
-        pass
+        lng = da.cf['longitude']
+        lng = xr.where(lng > 180, lng - 360, lng)
+        return (
+            float(lng.min()),
+            float(da.cf["latitude"].min()),
+            float(lng.max()),
+            float(da.cf["latitude"].max()),
+        )
 
-    @abstractmethod
+    def has_elevation(self, da: xr.DataArray) -> bool:
+        """Whether the given data array has elevation"""
+        return da.cf['vertical'] is not None
+
+    def elevation_units(self, da: xr.DataArray) -> Optional[str]:
+        """Return the elevation inits for the given data array"""
+        coord = da.cf.coords.get("vertical", None)
+        if coord is not None:
+            return coord.attrs.get("units", "sigma")
+        else:
+            return None
+
+    def elevation_positive_direction(self, da: xr.DataArray) -> Optional[str]:
+        """Return the elevation positive direction for the given data array"""
+        coord = da.cf.coords.get("vertical", None)
+        if coord is not None:
+            return coord.attrs.get("positive", "up")
+        else:
+            return None
+
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         """Return the elevations for the given data array"""
-        pass
+        if "vertical" in da.cf:
+            return da.cf["vertical"]
+        else:
+            return None
 
     def select_by_elevation(self, da: xr.DataArray, elevation: float = 0.0) -> xr.DataArray:
         """Select the given data array by elevation"""
@@ -90,20 +118,6 @@ class RegularGrid(Grid):
     def crs(self) -> str:
         return 'EPSG:4326'
 
-    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
-        return (
-            float(da.cf["longitude"].min()),
-            float(da.cf["latitude"].min()),
-            float(da.cf["longitude"].max()),
-            float(da.cf["latitude"].max()),
-        )
-
-    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
-        if "vertical" in da.cf:
-            return da.cf["vertical"]
-        else:
-            return None
-
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == 'EPSG:4326':
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
@@ -131,20 +145,6 @@ class ROMSGrid(Grid):
     @property
     def crs(self) -> str:
         return 'EPSG:4326'
-
-    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
-        return (
-            float(da.cf["longitude"].min()),
-            float(da.cf["latitude"].min()),
-            float(da.cf["longitude"].max()),
-            float(da.cf["latitude"].max()),
-        )
-
-    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
-        if "vertical" in da.cf:
-            return da.cf["vertical"]
-        else:
-            return None
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == 'EPSG:4326':
@@ -211,12 +211,6 @@ class HYCOMGrid(Grid):
             float(da.cf["latitude"].max()),
         )
 
-    def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
-        if "vertical" in da.cf:
-            return da.cf["vertical"]
-        else:
-            return None
-
     def project(self, da: xr.DataArray, crs: str) -> Any:
         # TODO: Figure out global coords 
         if crs == 'EPSG:4326':
@@ -267,30 +261,69 @@ class FVCOMGrid(Grid):
     def crs(self) -> str:
         return 'EPSG:4326'
 
-    def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
-        return (
-            float(da.cf["longitude"].min()),
-            float(da.cf["latitude"].min()),
-            float(da.cf["longitude"].max()),
-            float(da.cf["latitude"].max()),
-        )
+    def has_elevation(self, da: xr.DataArray) -> bool:
+        return "vertical" in da.cf or "siglay" in da.dims or "siglev" in da.dims
+
+    def elevation_units(self, da: xr.DataArray) -> Optional[str]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"].attrs.get("units", "sigma")
+        elif 'siglay' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return "sigma"
+        elif 'siglev' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return "sigma"
+        else:
+            return None
+
+    def elevation_positive_direction(self, da: xr.DataArray) -> Optional[str]:
+        if "vertical" in da.cf:
+            return da.cf["vertical"].attrs.get("positive", "up")
+        elif 'siglay' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return self.ds.siglay.attrs.get("positive", "up")
+        elif 'siglev' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return self.ds.siglev.attrs.get("positive", "up")
+        else:
+            return None
 
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         if "vertical" in da.cf:
             return da.cf["vertical"][:, 0]
+        elif 'siglay' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return self.ds.siglay[:, 0]
+        elif 'siglev' in da.dims:
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            return self.ds.siglev[:, 0]
         else:
-            return None
+            return None 
 
     def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
         """Select the given data array by elevation"""
-        # TODO: Fix for u and v params (siglev??)
+        print(da.coords)
+        print(da.cf)
+        if not self.has_elevation(da):
+            return da
+        
+        if elevation is None:
+            elevation = 0.0
+
+        elevations = self.elevations(da)
+        diff = np.absolute(elevations - elevation)
+        elevation_index = int(diff.argmin().values)
         if "vertical" in da.cf:
-            if elevation is None:
-                elevation = 0.0
-            elevations = self.elevations(da)
-            diff = np.absolute(elevations - elevation)
-            elevation_index = diff.argmin()
-            da = da.cf.isel({"vertical": elevation_index})
+            da = da.cf.isel(vertical=elevation_index)
+        elif 'siglay' in da.dims:
+            print(elevation_index)
+            da = da.isel(siglay=elevation_index)
+        elif 'siglev' in da.dims:
+            da = da.isel(siglev=elevation_index)
+
+        print(da.coords)
+        print(da.cf)
+
         return da
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
@@ -387,6 +420,24 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.bbox(var)
+
+    def has_elevation(self, da: xr.DataArray) -> bool:
+        if self._grid is None:
+            return False
+        else:
+            return self._grid.has_elevation(da)
+
+    def elevation_units(self, da: xr.DataArray) -> Optional[str]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.elevation_units(da)
+
+    def elevation_positive_direction(self, da: xr.DataArray) -> Optional[str]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.elevation_positive_direction(da)
 
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         if self._grid is None:

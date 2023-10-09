@@ -95,10 +95,10 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     units = da.attrs.get("units", "")
     supported_styles = "raster"  # TODO: more styles
     bbox = ds.grid.bbox(da)
-    if "vertical" in da.cf:
+    if ds.grid.has_elevation(da):
         elevation = ds.grid.elevations(da).values.round(5).tolist()
-        elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
-        elevation_units = da.cf["vertical"].attrs.get("units", "")
+        elevation_positive = ds.grid.elevation_positive_direction(da)
+        elevation_units = ds.grid.elevation_units(da)
     else:
         elevation = None
         elevation_positive = None
