@@ -130,7 +130,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     else:
         elevation = []
     has_vertical_axis = [
-        "vertical" in ds.grid.has_elevation(ds[parameter]) for parameter in parameters
+        ds.grid.has_elevation(ds[parameter]) for parameter in parameters
     ]
     any_has_vertical_axis = True in has_vertical_axis
 
@@ -171,47 +171,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             # Select closest to the surface by default
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
-    if grid_type == GridType.REGULAR:
-        selected_ds = selected_ds.cf.interp(longitude=x_coord, latitude=y_coord)
-        selected_ds = selected_ds.cf.isel(longitude=x, latitude=y)
-        x_axis = [strip_float(selected_ds.cf["longitude"])]
-        y_axis = [strip_float(selected_ds.cf["latitude"])]
-    elif grid_type == GridType.SGRID:
-        topology = ds.cf["grid_topology"]
-
-        merged_ds = None
-        x_axis = None
-        y_axis = None
-
-        for parameter in parameters:
-            grid_location = selected_ds[parameter].attrs["location"]
-            lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(
-                " ",
-            )
-            new_selected_ds = sel2d(
-                selected_ds,
-                lons=selected_ds.cf[lng_coord],
-                lats=selected_ds.cf[lat_coord],
-                lon0=x_coord[x],
-                lat0=y_coord[y],
-            )
-
-            if merged_ds is None:
-                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]]
-            else:
-                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]].merge(
-                    merged_ds,
-                    compat="override",
-                )
-
-            if x_axis is None:
-                x_axis = [strip_float(new_selected_ds.cf[lng_coord])]
-            if y_axis is None:
-                y_axis = [strip_float(new_selected_ds.cf[lat_coord])]
-
-        selected_ds = merged_ds
-    else:
-        raise HTTPException(500, f"Unsupported grid type: {grid_type}")
+    # try:
+    selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters)
+    # except ValueError:
+    #     raise HTTPException(500, f"Unsupported grid type: {selected_ds.grid.name}")
 
     # When none of the parameters have data, drop it
     time_coord_name = selected_ds.cf.coordinates["time"][0]

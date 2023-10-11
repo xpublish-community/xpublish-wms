@@ -10,7 +10,7 @@ import numpy as np
 import rioxarray  # noqa
 import xarray as xr
 
-from xpublish_wms.utils import to_mercator
+from xpublish_wms.utils import strip_float, to_mercator
 
 
 class RenderMethod(Enum):
@@ -100,6 +100,13 @@ class Grid(ABC):
         """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 
+    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+        """Select the given dataset by the given lon/lat and optional elevation"""
+        subset = subset.cf.interp(longitude=lng, latitude=lat)
+        x_axis = [strip_float(subset.cf["longitude"])]
+        y_axis = [strip_float(subset.cf["latitude"])]
+        return subset, x_axis, y_axis
+
 
 class RegularGrid(Grid):
     def __init__(self, ds: xr.Dataset):
@@ -135,6 +142,7 @@ class ROMSGrid(Grid):
 
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
+        print(ds.cf.cf_roles)
         return "grid_topology" in ds.cf.cf_roles
 
     @property
@@ -174,6 +182,42 @@ class ROMSGrid(Grid):
 
             da = da.unify_chunks()
         return da
+
+    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+        topology = self.ds.cf["grid_topology"]
+
+        merged_ds = None
+        x_axis = None
+        y_axis = None
+
+        for parameter in parameters:
+            grid_location = subset[parameter].attrs["location"]
+            lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(
+                " ",
+            )
+            new_selected_ds = sel2d(
+                subset,
+                lons=subset.cf[lng_coord],
+                lats=subset.cf[lat_coord],
+                lon0=lng,
+                lat0=lat,
+            )
+
+            if merged_ds is None:
+                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]]
+            else:
+                merged_ds = new_selected_ds[[parameter, lat_coord, lng_coord]].merge(
+                    merged_ds,
+                    compat="override",
+                )
+
+            if x_axis is None:
+                x_axis = [strip_float(new_selected_ds.cf[lng_coord])]
+            if y_axis is None:
+                y_axis = [strip_float(new_selected_ds.cf[lat_coord])]
+
+        subset = merged_ds
+        return subset, x_axis, y_axis
 
 
 class HYCOMGrid(Grid):
@@ -470,6 +514,12 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.tessellate(da)
+
+    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.sel_lat_lng(subset, lng, lat, parameters)
 
 
 class GridType(Enum):
