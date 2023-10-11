@@ -3,23 +3,22 @@ from enum import Enum
 from typing import Any, Optional, Tuple
 
 import cartopy.geodesic
-import numpy as np
-import rioxarray #noqa
-import cf_xarray #noqa
-import xarray as xr
+import cf_xarray  # noqa
 import dask.array as dask_array
 import matplotlib.tri as tri
+import numpy as np
+import rioxarray  # noqa
+import xarray as xr
 
 from xpublish_wms.utils import to_mercator
 
 
 class RenderMethod(Enum):
-    Quad = 'quad'
-    Triangle = 'triangle'
+    Quad = "quad"
+    Triangle = "triangle"
 
 
 class Grid(ABC):
-
     @staticmethod
     @abstractmethod
     def recognize(ds: xr.Dataset) -> bool:
@@ -46,7 +45,7 @@ class Grid(ABC):
 
     def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
         """Bounding box of the grid for the given data array in the form (minx, miny, maxx, maxy)"""
-        lng = da.cf['longitude']
+        lng = da.cf["longitude"]
         lng = xr.where(lng > 180, lng - 360, lng)
         return (
             float(lng.min()),
@@ -57,7 +56,7 @@ class Grid(ABC):
 
     def has_elevation(self, da: xr.DataArray) -> bool:
         """Whether the given data array has elevation"""
-        return 'vertical' in da.cf
+        return "vertical" in da.cf
 
     def elevation_units(self, da: xr.DataArray) -> Optional[str]:
         """Return the elevation inits for the given data array"""
@@ -82,10 +81,12 @@ class Grid(ABC):
         else:
             return None
 
-    def select_by_elevation(self, da: xr.DataArray, elevation: float = 0.0) -> xr.DataArray:
+    def select_by_elevation(
+        self, da: xr.DataArray, elevation: float = 0.0,
+    ) -> xr.DataArray:
         """Select the given data array by elevation"""
         if "vertical" in da.cf:
-            da = da.cf.sel({'vertical': elevation}, method="nearest")
+            da = da.cf.sel({"vertical": elevation}, method="nearest")
         return da
 
     @abstractmethod
@@ -116,12 +117,12 @@ class RegularGrid(Grid):
 
     @property
     def crs(self) -> str:
-        return 'EPSG:4326'
+        return "EPSG:4326"
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
-        if crs == 'EPSG:4326':
+        if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-        elif crs == 'EPSG:3857':
+        elif crs == "EPSG:3857":
             da = da.rio.reproject("EPSG:3857")
         return da
 
@@ -133,7 +134,7 @@ class ROMSGrid(Grid):
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
         return "grid_topology" in ds.cf.cf_roles
-    
+
     @property
     def name(self) -> str:
         return "roms"
@@ -144,19 +145,17 @@ class ROMSGrid(Grid):
 
     @property
     def crs(self) -> str:
-        return 'EPSG:4326'
+        return "EPSG:4326"
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
-        if crs == 'EPSG:4326':
+        if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-        elif crs == 'EPSG:3857':
+        elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
                 da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
             )
-            y_chunks = (
-                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
-            )
+            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
             da = da.assign_coords(
                 {
@@ -176,17 +175,16 @@ class ROMSGrid(Grid):
 
 
 class HYCOMGrid(Grid):
-
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
 
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
-        return ds.attrs.get('title', '').startswith('HYCOM')
-    
+        return ds.attrs.get("title", "").startswith("HYCOM")
+
     @property
     def name(self) -> str:
-        return 'hycom'
+        return "hycom"
 
     @property
     def render_method(self) -> RenderMethod:
@@ -194,13 +192,13 @@ class HYCOMGrid(Grid):
 
     @property
     def crs(self) -> str:
-        return 'EPSG:4326'
+        return "EPSG:4326"
 
     def bbox(self, da: xr.DataArray) -> Tuple[float, float, float, float]:
-        # HYCOM global grid (RTOFS) has invalid longitude values 
+        # HYCOM global grid (RTOFS) has invalid longitude values
         # over 500 that need to masked. Then the coords need to be
         # normalized between -180 and 180
-        lng = da.cf['longitude']
+        lng = da.cf["longitude"]
         lng = lng.where(lng < 500) % 360
         lng = xr.where(lng > 180, lng - 360, lng)
 
@@ -212,17 +210,15 @@ class HYCOMGrid(Grid):
         )
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        # TODO: Figure out global coords 
-        if crs == 'EPSG:4326':
+        # TODO: Figure out global coords
+        if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-        elif crs == 'EPSG:3857':
+        elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
                 da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
             )
-            y_chunks = (
-                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
-            )
+            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
             da = da.assign_coords(
                 {
@@ -247,11 +243,11 @@ class FVCOMGrid(Grid):
 
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
-        return ds.attrs.get('source', '').startswith('FVCOM')
+        return ds.attrs.get("source", "").startswith("FVCOM")
 
     @property
     def name(self) -> str:
-        return 'fvcom'
+        return "fvcom"
 
     @property
     def render_method(self) -> RenderMethod:
@@ -259,7 +255,7 @@ class FVCOMGrid(Grid):
 
     @property
     def crs(self) -> str:
-        return 'EPSG:4326'
+        return "EPSG:4326"
 
     def has_elevation(self, da: xr.DataArray) -> bool:
         return "vertical" in da.cf or "siglay" in da.dims or "siglev" in da.dims
@@ -267,10 +263,10 @@ class FVCOMGrid(Grid):
     def elevation_units(self, da: xr.DataArray) -> Optional[str]:
         if "vertical" in da.cf:
             return da.cf["vertical"].attrs.get("units", "sigma")
-        elif 'siglay' in da.dims:
+        elif "siglay" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return "sigma"
-        elif 'siglev' in da.dims:
+        elif "siglev" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return "sigma"
         else:
@@ -279,10 +275,10 @@ class FVCOMGrid(Grid):
     def elevation_positive_direction(self, da: xr.DataArray) -> Optional[str]:
         if "vertical" in da.cf:
             return da.cf["vertical"].attrs.get("positive", "up")
-        elif 'siglay' in da.dims:
+        elif "siglay" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return self.ds.siglay.attrs.get("positive", "up")
-        elif 'siglev' in da.dims:
+        elif "siglev" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return self.ds.siglev.attrs.get("positive", "up")
         else:
@@ -291,22 +287,24 @@ class FVCOMGrid(Grid):
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         if "vertical" in da.cf:
             return da.cf["vertical"][:, 0]
-        elif 'siglay' in da.dims:
+        elif "siglay" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return self.ds.siglay[:, 0]
-        elif 'siglev' in da.dims:
+        elif "siglev" in da.dims:
             # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
             return self.ds.siglev[:, 0]
         else:
-            return None 
+            return None
 
-    def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
+    def select_by_elevation(
+        self, da: xr.DataArray, elevation: Optional[float],
+    ) -> xr.DataArray:
         """Select the given data array by elevation"""
         print(da.coords)
         print(da.cf)
         if not self.has_elevation(da):
             return da
-        
+
         if elevation is None:
             elevation = 0.0
 
@@ -315,10 +313,10 @@ class FVCOMGrid(Grid):
         elevation_index = int(diff.argmin().values)
         if "vertical" in da.cf:
             da = da.cf.isel(vertical=elevation_index)
-        elif 'siglay' in da.dims:
+        elif "siglay" in da.dims:
             print(elevation_index)
             da = da.isel(siglay=elevation_index)
-        elif 'siglev' in da.dims:
+        elif "siglev" in da.dims:
             da = da.isel(siglev=elevation_index)
 
         print(da.coords)
@@ -327,16 +325,14 @@ class FVCOMGrid(Grid):
         return da
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        if crs == 'EPSG:4326':
+        if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-        elif crs == 'EPSG:3857':
+        elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
                 da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
             )
-            y_chunks = (
-                da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
-            )
+            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
             da = da.assign_coords(
                 {
@@ -355,7 +351,9 @@ class FVCOMGrid(Grid):
         return da
 
     def tessellate(self, da: xr.DataArray) -> np.ndarray:
-        return tri.Triangulation(da.cf['longitude'], da.cf['latitude'], self.ds.nv[0].T - 1).triangles
+        return tri.Triangulation(
+            da.cf["longitude"], da.cf["latitude"], self.ds.nv[0].T - 1,
+        ).triangles
 
 
 _grid_impls = [HYCOMGrid, FVCOMGrid, ROMSGrid, RegularGrid]
@@ -374,7 +372,7 @@ def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
     for grid_impl in _grid_impls:
         if grid_impl.recognize(ds):
             return grid_impl(ds)
-        
+
     return None
 
 
@@ -400,14 +398,14 @@ class GridDatasetAccessor:
             return "unsupported"
         else:
             return self.grid.name
-    
+
     @property
     def render_method(self) -> RenderMethod:
         if self._grid is None:
             return RenderMethod.Quad
         else:
             return self._grid.render_method
-        
+
     @property
     def crs(self) -> str:
         if self._grid is None:
@@ -445,7 +443,9 @@ class GridDatasetAccessor:
         else:
             return self._grid.elevations(da)
 
-    def select_by_elevation(self, da: xr.DataArray, elevation: Optional[float]) -> xr.DataArray:
+    def select_by_elevation(
+        self, da: xr.DataArray, elevation: Optional[float],
+    ) -> xr.DataArray:
         if self._grid is None:
             return None
         else:

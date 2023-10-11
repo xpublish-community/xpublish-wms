@@ -2,8 +2,8 @@ import datetime
 import xml.etree.ElementTree as ET
 from typing import List
 
-import numpy as np
 import cf_xarray  # noqa
+import numpy as np
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
@@ -223,7 +223,9 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         if ds.grid.has_elevation(da):
             elevations_values = ds.grid.elevations(da).persist()
             default_elevation_index = np.abs(elevations_values).argmin().values
-            default_elevation = elevations_values[default_elevation_index].values.round(5)
+            default_elevation = elevations_values[default_elevation_index].values.round(
+                5,
+            )
             elevations = [f"{e}" for e in elevations_values.values.round(5)]
             elevation_units = ds.grid.elevation_units(da)
             elevation_dimension_element = ET.SubElement(

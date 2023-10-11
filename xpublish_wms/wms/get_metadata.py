@@ -123,23 +123,23 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
         "timesteps": timesteps,
     }
 
+
 def get_menu(ds: xr.Dataset):
     """
     Returns the dataset menu items for the xreds viewer
     TODO - support grouped layers?
     """
-    results = {
-        "children": [],
-        "label": ds.attrs.get("title", "")
-    }
+    results = {"children": [], "label": ds.attrs.get("title", "")}
 
     for var in ds.data_vars:
         da = ds[var]
 
-        results["children"].append({
-            "plottable": "longitude" in da.cf.coords,
-            "id": var,
-            "label": da.attrs.get("long_name", da.attrs.get("name", var))
-        })
+        results["children"].append(
+            {
+                "plottable": "longitude" in da.cf.coords,
+                "id": var,
+                "label": da.attrs.get("long_name", da.attrs.get("name", var)),
+            },
+        )
 
     return results
