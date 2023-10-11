@@ -82,7 +82,9 @@ class Grid(ABC):
             return None
 
     def select_by_elevation(
-        self, da: xr.DataArray, elevation: float = 0.0,
+        self,
+        da: xr.DataArray,
+        elevation: float = 0.0,
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
         if "vertical" in da.cf:
@@ -297,7 +299,9 @@ class FVCOMGrid(Grid):
             return None
 
     def select_by_elevation(
-        self, da: xr.DataArray, elevation: Optional[float],
+        self,
+        da: xr.DataArray,
+        elevation: Optional[float],
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
         print(da.coords)
@@ -352,7 +356,9 @@ class FVCOMGrid(Grid):
 
     def tessellate(self, da: xr.DataArray) -> np.ndarray:
         return tri.Triangulation(
-            da.cf["longitude"], da.cf["latitude"], self.ds.nv[0].T - 1,
+            da.cf["longitude"],
+            da.cf["latitude"],
+            self.ds.nv[0].T - 1,
         ).triangles
 
 
@@ -444,7 +450,9 @@ class GridDatasetAccessor:
             return self._grid.elevations(da)
 
     def select_by_elevation(
-        self, da: xr.DataArray, elevation: Optional[float],
+        self,
+        da: xr.DataArray,
+        elevation: Optional[float],
     ) -> xr.DataArray:
         if self._grid is None:
             return None

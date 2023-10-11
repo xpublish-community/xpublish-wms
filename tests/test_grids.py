@@ -1,4 +1,4 @@
-from xpublish_wms.grid import GridAccessor #noqa
+from xpublish_wms.grid import GridAccessor  # noqa
 
 
 def test_recognize_grid():
