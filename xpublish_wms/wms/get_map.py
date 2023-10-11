@@ -6,7 +6,6 @@ from typing import List, Union
 
 import cachey
 import cf_xarray  # noqa
-import dask.array as dask_array
 import datashader as dsh
 import datashader.transfer_functions as tf
 import matplotlib.cm as cm
@@ -17,7 +16,6 @@ import xarray as xr
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grid import GridType, RenderMethod
-from xpublish_wms.utils import to_mercator
 
 logger = logging.getLogger("uvicorn")
 
