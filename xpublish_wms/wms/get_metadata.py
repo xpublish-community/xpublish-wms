@@ -6,7 +6,7 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from xpublish_wms.utils import da_bbox, format_timestamp
+from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
 
@@ -20,18 +20,20 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     layer_name = params.get("layername", None)
     metadata_type = params.get("item", "layerdetails")
 
-    if not layer_name and metadata_type != "minmax":
+    if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
         raise HTTPException(
             status_code=400,
             detail="layerName must be specified",
         )
-    elif layer_name not in ds and metadata_type != "minmax":
+    elif layer_name not in ds and metadata_type != "minmax" and metadata_type != "menu":
         raise HTTPException(
             status_code=400,
             detail=f"layerName {layer_name} not found in dataset",
         )
 
-    if metadata_type == "layerdetails":
+    if metadata_type == "menu":
+        payload = get_menu(ds)
+    elif metadata_type == "layerdetails":
         payload = get_layer_details(ds, layer_name)
     elif metadata_type == "timesteps":
         da = ds[layer_name]
@@ -94,13 +96,11 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     da = ds[layer_name]
     units = da.attrs.get("units", "")
     supported_styles = "raster"  # TODO: more styles
-    lat = da.cf["latitude"].persist()
-    lon = da.cf["longitude"].persist()
-    bbox = da_bbox(lat, lon)
-    if "vertical" in da.cf:
-        elevation = da.cf["vertical"].values.tolist()
-        elevation_positive = da.cf["vertical"].attrs.get("positive", "up")
-        elevation_units = da.cf["vertical"].attrs.get("units", "")
+    bbox = ds.grid.bbox(da)
+    if ds.grid.has_elevation(da):
+        elevation = ds.grid.elevations(da).values.round(5).tolist()
+        elevation_positive = ds.grid.elevation_positive_direction(da)
+        elevation_units = ds.grid.elevation_units(da)
     else:
         elevation = None
         elevation_positive = None
@@ -122,3 +122,24 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
         "elevation_units": elevation_units,
         "timesteps": timesteps,
     }
+
+
+def get_menu(ds: xr.Dataset):
+    """
+    Returns the dataset menu items for the xreds viewer
+    TODO - support grouped layers?
+    """
+    results = {"children": [], "label": ds.attrs.get("title", "")}
+
+    for var in ds.data_vars:
+        da = ds[var]
+
+        results["children"].append(
+            {
+                "plottable": "longitude" in da.cf.coords,
+                "id": var,
+                "label": da.attrs.get("long_name", da.attrs.get("name", var)),
+            },
+        )
+
+    return results

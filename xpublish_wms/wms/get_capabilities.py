@@ -3,10 +3,11 @@ import xml.etree.ElementTree as ET
 from typing import List
 
 import cf_xarray  # noqa
+import numpy as np
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
-from xpublish_wms.utils import da_bbox, format_timestamp
+from xpublish_wms.utils import format_timestamp
 
 # WMS Styles declaration
 # TODO: Add others beyond just simple raster
@@ -138,7 +139,6 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
     )
     create_text_element(layer_tag, crs_tag, "EPSG:4326")
     create_text_element(layer_tag, crs_tag, "EPSG:3857")
-    create_text_element(layer_tag, crs_tag, "CRS:84")
 
     current_date = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
@@ -151,9 +151,9 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         # TODO: Cache this based on variable names fetched. for now we assume every dataarray
         # can have a different bbox
-        lat = da.cf["latitude"].persist()
-        lon = da.cf["longitude"].persist()
-        bbox = da_bbox(lat, lon)
+        da.cf["latitude"].persist()
+        da.cf["longitude"].persist()
+        bbox = ds.grid.bbox(da)
         bounds = {
             crs_tag: "EPSG:4326",
             "minx": f"{bbox[0]}",
@@ -220,12 +220,14 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             # TODO: Add ISO duration specifier
             time_dimension_element.text = f"{','.join(times)}"
 
-        if "vertical" in da.cf.coords:
-            default_elevation = float(
-                da.cf["vertical"].cf.sel(vertical=0, method="nearest").values,
+        if ds.grid.has_elevation(da):
+            elevations_values = ds.grid.elevations(da).persist()
+            default_elevation_index = np.abs(elevations_values).argmin().values
+            default_elevation = elevations_values[default_elevation_index].values.round(
+                5,
             )
-            elevations = [f"{e}" for e in da.cf["vertical"].values.round(5)]
-            elevation_units = da.cf["vertical"].attrs.get("units", "sigma")
+            elevations = [f"{e}" for e in elevations_values.values.round(5)]
+            elevation_units = ds.grid.elevation_units(da)
             elevation_dimension_element = ET.SubElement(
                 layer,
                 "Dimension",
