@@ -6,7 +6,7 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from xpublish_wms.grid import GridType, sel2d
+from xpublish_wms.grid import GridType
 from xpublish_wms.utils import (
     format_timestamp,
     round_float_values,
@@ -105,8 +105,6 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     """
     Return the WMS feature info for the dataset and given parameters
     """
-    grid_type = GridType.from_ds(ds)
-
     # Data selection
     if ":" in query["query_layers"]:
         parameters = query["query_layers"].split(":")
