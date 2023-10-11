@@ -6,7 +6,6 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from xpublish_wms.grid import GridType
 from xpublish_wms.utils import (
     format_timestamp,
     round_float_values,
