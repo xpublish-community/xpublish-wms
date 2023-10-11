@@ -57,7 +57,7 @@ class Grid(ABC):
 
     def has_elevation(self, da: xr.DataArray) -> bool:
         """Whether the given data array has elevation"""
-        return da.cf['vertical'] is not None
+        return 'vertical' in da.cf
 
     def elevation_units(self, da: xr.DataArray) -> Optional[str]:
         """Return the elevation inits for the given data array"""
