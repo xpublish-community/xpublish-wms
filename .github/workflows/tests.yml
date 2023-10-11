@@ -27,7 +27,7 @@ jobs:
             --file requirements-dev.txt
             --channel conda-forge
 
-      - name: Install xpublish-opendap
+      - name: Install xpublish-wms
         shell: bash -l {0}
         run: >
           python -m pip install -e . --no-deps --force-reinstall
