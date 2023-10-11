@@ -130,7 +130,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     else:
         elevation = []
     has_vertical_axis = [
-        "vertical" in ds[parameter].cf.coordinates for parameter in parameters
+        "vertical" in ds.grid.has_elevation(ds[parameter]) for parameter in parameters
     ]
     any_has_vertical_axis = True in has_vertical_axis
 
@@ -157,6 +157,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         else:
             selected_ds = selected_ds.cf.isel(time=0)
 
+    # TODO: This is really difficult when we have multiple parameters
+    # with different vertical dimensions, and even some without indexes
     if any_has_vertical_axis:
         if elevation == "all":
             # Dont select an elevation, just keep all elevation coords
