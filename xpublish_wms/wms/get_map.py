@@ -66,7 +66,7 @@ class GetMap:
         da = self.select_layer(ds)
         da = self.select_time(da)
         da = self.select_elevation(ds, da)
-        #da = self.select_custom_dim(da)
+        # da = self.select_custom_dim(da)
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -241,7 +241,7 @@ class GetMap:
         """
         # For now, try to render everything as a quad grid
         # TODO: FVCOM and other grids
-        #return self.render_quad_grid(da, buffer, minmax_only)
+        # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
         da = ds.grid.project(da, self.crs)
         logger.debug(f"Projection time: {time.time() - projection_start}")
@@ -292,7 +292,7 @@ class GetMap:
             )
         elif ds.grid.render_method == RenderMethod.Triangle:
             triangles = ds.grid.tessellate(da)
-            verts = pd.DataFrame({'x': da.x, 'y': da.y, 'z': da})
+            verts = pd.DataFrame({"x": da.x, "y": da.y, "z": da})
             tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
 
             mesh = cvs.trimesh(
@@ -358,5 +358,3 @@ class GetMap:
     #         da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
 
     #     logger.debug(f"Projection time: {time.time() - projection_start}")
-
- 
