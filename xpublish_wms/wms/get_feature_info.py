@@ -171,10 +171,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             # Select closest to the surface by default
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
-    # try:
-    selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters)
-    # except ValueError:
-    #     raise HTTPException(500, f"Unsupported grid type: {selected_ds.grid.name}")
+    try:
+        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters)
+    except ValueError:
+        raise HTTPException(500, f"Unsupported grid type: {ds.grid.name}")
 
     # When none of the parameters have data, drop it
     time_coord_name = selected_ds.cf.coordinates["time"][0]
