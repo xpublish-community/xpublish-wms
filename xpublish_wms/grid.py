@@ -92,7 +92,8 @@ class Grid(ABC):
         return da
 
     def mask(
-        self, da: Union[xr.DataArray, xr.Dataset],
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
     ) -> Union[xr.DataArray, xr.Dataset]:
         """Mask the given data array"""
         return da
@@ -169,7 +170,8 @@ class ROMSGrid(Grid):
         return "EPSG:4326"
 
     def mask(
-        self, da: Union[xr.DataArray, xr.Dataset],
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
     ) -> Union[xr.DataArray, xr.Dataset]:
         mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}']
         mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
@@ -534,7 +536,8 @@ class GridDatasetAccessor:
             return self._grid.select_by_elevation(da, elevation)
 
     def mask(
-        self, da: Union[xr.DataArray, xr.Dataset],
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
     ) -> Union[xr.DataArray, xr.Dataset]:
         if self._grid is None:
             return None
