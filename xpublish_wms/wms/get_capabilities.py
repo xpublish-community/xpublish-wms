@@ -153,7 +153,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         # can have a different bbox
         da.cf["latitude"].persist()
         da.cf["longitude"].persist()
-        bbox = ds.grid.bbox(da)
+        bbox = ds.gridded.bbox(da)
         bounds = {
             crs_tag: "EPSG:4326",
             "minx": f"{bbox[0]}",
@@ -220,14 +220,14 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             # TODO: Add ISO duration specifier
             time_dimension_element.text = f"{','.join(times)}"
 
-        if ds.grid.has_elevation(da):
-            elevations_values = ds.grid.elevations(da).persist()
+        if ds.gridded.has_elevation(da):
+            elevations_values = ds.gridded.elevations(da).persist()
             default_elevation_index = np.abs(elevations_values).argmin().values
             default_elevation = elevations_values[default_elevation_index].values.round(
                 5,
             )
             elevations = [f"{e}" for e in elevations_values.values.round(5)]
-            elevation_units = ds.grid.elevation_units(da)
+            elevation_units = ds.gridded.elevation_units(da)
             elevation_dimension_element = ET.SubElement(
                 layer,
                 "Dimension",

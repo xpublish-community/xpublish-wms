@@ -210,7 +210,7 @@ class ROMSGrid(Grid):
         lat,
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
-        topology = self.ds.cf["grid_topology"]
+        topology = self.ds.grid
 
         merged_ds = None
         x_axis = None
@@ -452,7 +452,7 @@ def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
     return None
 
 
-@xr.register_dataset_accessor("grid")
+@xr.register_dataset_accessor("gridded")
 class GridDatasetAccessor:
     _ds: xr.Dataset
     _grid: Optional[Grid]
@@ -558,28 +558,6 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.sel_lat_lng(subset, lng, lat, parameters)
-
-
-class GridType(Enum):
-    REGULAR = 1
-    NON_DIMENSIONAL = 2
-    SGRID = 3
-    UNSUPPORTED = 255
-
-    @classmethod
-    def from_ds(cls, ds: xr.Dataset):
-        if "grid_topology" in ds.cf.cf_roles:
-            return cls.SGRID
-
-        try:
-            if len(ds.cf["latitude"].dims) > 1:
-                return cls.NON_DIMENSIONAL
-            elif "latitude" in ds.cf["latitude"].dims:
-                return cls.REGULAR
-        except Exception:
-            return cls.UNSUPPORTED
-
-        return cls.UNSUPPORTED
 
 
 def argsel2d(lons, lats, lon0, lat0):

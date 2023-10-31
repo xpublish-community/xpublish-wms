@@ -15,7 +15,7 @@ import rioxarray  # noqa
 import xarray as xr
 from fastapi.responses import StreamingResponse
 
-from xpublish_wms.grid import GridType, RenderMethod
+from xpublish_wms.grid import RenderMethod
 
 logger = logging.getLogger("uvicorn")
 
@@ -41,7 +41,6 @@ class GetMap:
     has_elevation: bool
 
     # Grid
-    grid_type: GridType
     crs: str
     bbox = List[float]
     width: int
@@ -114,8 +113,6 @@ class GetMap:
         :param query:
         :return:
         """
-        self.grid_type = GridType.from_ds(ds)
-
         # Data selection
         self.parameter = query["layers"]
         self.time_str = query.get("time", None)
@@ -202,7 +199,7 @@ class GetMap:
         :param da:
         :return:
         """
-        da = ds.grid.select_by_elevation(da, self.elevation)
+        da = ds.gridded.select_by_elevation(da, self.elevation)
         print(da.shape)
 
         return da
@@ -243,8 +240,8 @@ class GetMap:
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
-        da = ds.grid.mask(da)
-        da = ds.grid.project(da, self.crs)
+        da = ds.gridded.mask(da)
+        da = ds.gridded.project(da, self.crs)
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
         if minmax_only:
@@ -285,14 +282,14 @@ class GetMap:
             y_range=(self.bbox[1], self.bbox[3]),
         )
 
-        if ds.grid.render_method == RenderMethod.Quad:
+        if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
                 da,
                 x="x",
                 y="y",
             )
-        elif ds.grid.render_method == RenderMethod.Triangle:
-            triangles = ds.grid.tessellate(da)
+        elif ds.gridded.render_method == RenderMethod.Triangle:
+            triangles = ds.gridded.tessellate(da)
             verts = pd.DataFrame({"x": da.x, "y": da.y, "z": da})
             tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
 
