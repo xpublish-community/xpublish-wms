@@ -169,7 +169,9 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     try:
-        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters)
+        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(
+            subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters,
+        )
     except ValueError:
         raise HTTPException(500, f"Unsupported grid type: {ds.grid.name}")
 
