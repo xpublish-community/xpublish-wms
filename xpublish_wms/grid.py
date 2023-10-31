@@ -100,7 +100,13 @@ class Grid(ABC):
         """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 
-    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
         subset = subset.cf.interp(longitude=lng, latitude=lat)
         x_axis = [strip_float(subset.cf["longitude"])]
@@ -183,7 +189,13 @@ class ROMSGrid(Grid):
             da = da.unify_chunks()
         return da
 
-    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
         topology = self.ds.cf["grid_topology"]
 
         merged_ds = None
@@ -515,7 +527,13 @@ class GridDatasetAccessor:
         else:
             return self._grid.tessellate(da)
 
-    def sel_lat_lng(self, subset: xr.Dataset, lng, lat, parameters) -> Tuple[xr.Dataset, list, list]:
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
         if self._grid is None:
             return None
         else:

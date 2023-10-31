@@ -161,7 +161,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             # Dont select an elevation, just keep all elevation coords
             elevation = selected_ds.cf["vertical"].values
         elif len(elevation) == 1:
-            selected_ds = selected_ds.cf.interp(vertical=elevation)
+            selected_ds = selected_ds.cf.sel(vertical=elevation, method="nearest")
         elif len(elevation) > 1:
             selected_ds = selected_ds.cf.sel(vertical=slice(elevation[0], elevation[1]))
         else:
@@ -169,7 +169,12 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     try:
-        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(subset=selected_ds, lng=x_coord[x], lat=y_coord[y], parameters=parameters)
+        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(
+            subset=selected_ds,
+            lng=x_coord[x],
+            lat=y_coord[y],
+            parameters=parameters,
+        )
     except ValueError:
         raise HTTPException(500, f"Unsupported grid type: {ds.grid.name}")
 
