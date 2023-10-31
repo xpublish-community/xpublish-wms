@@ -161,7 +161,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             # Dont select an elevation, just keep all elevation coords
             elevation = selected_ds.cf["vertical"].values
         elif len(elevation) == 1:
-            selected_ds = selected_ds.cf.interp(vertical=elevation)
+            selected_ds = selected_ds.cf.sel(vertical=elevation, method="nearest")
         elif len(elevation) > 1:
             selected_ds = selected_ds.cf.sel(vertical=slice(elevation[0], elevation[1]))
         else:
