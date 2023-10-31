@@ -169,6 +169,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     try:
+        # Apply masking if necessary
+        selected_ds = ds.gridded.mask(selected_ds)
         selected_ds, x_axis, y_axis = ds.gridded.sel_lat_lng(
             subset=selected_ds,
             lng=x_coord[x],

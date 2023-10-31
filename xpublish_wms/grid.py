@@ -91,7 +91,7 @@ class Grid(ABC):
             da = da.cf.sel({"vertical": elevation}, method="nearest")
         return da
 
-    def mask(self, da: xr.DataArray) -> xr.DataArray:
+    def mask(self, da: xr.DataArray | xr.Dataset) -> xr.DataArray | xr.Dataset:
         """Mask the given data array"""
         return da
 
@@ -152,7 +152,6 @@ class ROMSGrid(Grid):
 
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
-        print(ds.cf.cf_roles)
         return "grid_topology" in ds.cf.cf_roles
 
     @property
@@ -167,13 +166,13 @@ class ROMSGrid(Grid):
     def crs(self) -> str:
         return "EPSG:4326"
 
-    def mask(self, da: xr.DataArray) -> xr.DataArray:
-        mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}'].cf.isel(time=0)
+    def mask(self, da: xr.DataArray | xr.Dataset) -> xr.DataArray | xr.Dataset:
+        mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}']
+        mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
         mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
         mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
         mask[1:, :] = mask[1:, :].where(mask[:-1, :] == 1, 0)
         mask[:, 1:] = mask[:, 1:].where(mask[:, :-1] == 1, 0)
-
         return da.where(mask == 1)
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
@@ -221,6 +220,7 @@ class ROMSGrid(Grid):
             lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(
                 " ",
             )
+
             new_selected_ds = sel2d(
                 subset,
                 lons=subset.cf[lng_coord],
