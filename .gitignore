@@ -9,3 +9,4 @@ __pycache__/
 build/
 dist/
 xpublish_wms/_version.py
+env/
