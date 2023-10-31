@@ -127,7 +127,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     else:
         elevation = []
     has_vertical_axis = [
-        ds.grid.has_elevation(ds[parameter]) for parameter in parameters
+        ds.gridded.has_elevation(ds[parameter]) for parameter in parameters
     ]
     any_has_vertical_axis = True in has_vertical_axis
 
@@ -169,14 +169,16 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
 
     try:
-        selected_ds, x_axis, y_axis = ds.grid.sel_lat_lng(
+        # Apply masking if necessary
+        selected_ds = ds.gridded.mask(selected_ds)
+        selected_ds, x_axis, y_axis = ds.gridded.sel_lat_lng(
             subset=selected_ds,
             lng=x_coord[x],
             lat=y_coord[y],
             parameters=parameters,
         )
     except ValueError:
-        raise HTTPException(500, f"Unsupported grid type: {ds.grid.name}")
+        raise HTTPException(500, f"Unsupported grid type: {ds.gridded.name}")
 
     # When none of the parameters have data, drop it
     time_coord_name = selected_ds.cf.coordinates["time"][0]

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import cartopy.geodesic
 import cf_xarray  # noqa
@@ -91,6 +91,13 @@ class Grid(ABC):
             da = da.cf.sel({"vertical": elevation}, method="nearest")
         return da
 
+    def mask(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        """Mask the given data array"""
+        return da
+
     @abstractmethod
     def project(self, da: xr.DataArray, crs: str) -> Any:
         """Project the given data array from this dataset and grid to the given crs"""
@@ -148,7 +155,6 @@ class ROMSGrid(Grid):
 
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
-        print(ds.cf.cf_roles)
         return "grid_topology" in ds.cf.cf_roles
 
     @property
@@ -162,6 +168,18 @@ class ROMSGrid(Grid):
     @property
     def crs(self) -> str:
         return "EPSG:4326"
+
+    def mask(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}']
+        mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
+        mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
+        mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
+        mask[1:, :] = mask[1:, :].where(mask[:-1, :] == 1, 0)
+        mask[:, 1:] = mask[:, 1:].where(mask[:, :-1] == 1, 0)
+        return da.where(mask == 1)
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == "EPSG:4326":
@@ -187,6 +205,7 @@ class ROMSGrid(Grid):
             )
 
             da = da.unify_chunks()
+
         return da
 
     def sel_lat_lng(
@@ -196,7 +215,7 @@ class ROMSGrid(Grid):
         lat,
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
-        topology = self.ds.cf["grid_topology"]
+        topology = self.ds.grid
 
         merged_ds = None
         x_axis = None
@@ -207,6 +226,7 @@ class ROMSGrid(Grid):
             lng_coord, lat_coord = topology.attrs[f"{grid_location}_coordinates"].split(
                 " ",
             )
+
             new_selected_ds = sel2d(
                 subset,
                 lons=subset.cf[lng_coord],
@@ -438,7 +458,7 @@ def grid_factory(ds: xr.Dataset) -> Optional[Grid]:
     return None
 
 
-@xr.register_dataset_accessor("grid")
+@xr.register_dataset_accessor("gridded")
 class GridDatasetAccessor:
     _ds: xr.Dataset
     _grid: Optional[Grid]
@@ -515,6 +535,15 @@ class GridDatasetAccessor:
         else:
             return self._grid.select_by_elevation(da, elevation)
 
+    def mask(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.mask(da)
+
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if self._grid is None:
             return None
@@ -538,28 +567,6 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.sel_lat_lng(subset, lng, lat, parameters)
-
-
-class GridType(Enum):
-    REGULAR = 1
-    NON_DIMENSIONAL = 2
-    SGRID = 3
-    UNSUPPORTED = 255
-
-    @classmethod
-    def from_ds(cls, ds: xr.Dataset):
-        if "grid_topology" in ds.cf.cf_roles:
-            return cls.SGRID
-
-        try:
-            if len(ds.cf["latitude"].dims) > 1:
-                return cls.NON_DIMENSIONAL
-            elif "latitude" in ds.cf["latitude"].dims:
-                return cls.REGULAR
-        except Exception:
-            return cls.UNSUPPORTED
-
-        return cls.UNSUPPORTED
 
 
 def argsel2d(lons, lats, lon0, lat0):
