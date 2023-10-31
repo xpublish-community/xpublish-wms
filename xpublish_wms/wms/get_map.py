@@ -243,6 +243,7 @@ class GetMap:
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
+        da = ds.grid.mask(da)
         da = ds.grid.project(da, self.crs)
         logger.debug(f"Projection time: {time.time() - projection_start}")
 

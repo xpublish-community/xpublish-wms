@@ -91,6 +91,10 @@ class Grid(ABC):
             da = da.cf.sel({"vertical": elevation}, method="nearest")
         return da
 
+    def mask(self, da: xr.DataArray) -> xr.DataArray:
+        """Mask the given data array"""
+        return da
+
     @abstractmethod
     def project(self, da: xr.DataArray, crs: str) -> Any:
         """Project the given data array from this dataset and grid to the given crs"""
@@ -163,6 +167,15 @@ class ROMSGrid(Grid):
     def crs(self) -> str:
         return "EPSG:4326"
 
+    def mask(self, da: xr.DataArray) -> xr.DataArray:
+        mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}'].cf.isel(time=0)
+        mask[:-1,:] = mask[:-1,:].where(mask[1:,:] == 1, 0)
+        mask[:,:-1] = mask[:,:-1].where(mask[:,1:] == 1, 0)
+        mask[1:,:] = mask[1:,:].where(mask[:-1,:] == 1, 0)
+        mask[:,1:] = mask[:,1:].where(mask[:,:-1] == 1, 0)
+
+        return da.where(mask == 1)
+
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
@@ -187,6 +200,7 @@ class ROMSGrid(Grid):
             )
 
             da = da.unify_chunks()
+
         return da
 
     def sel_lat_lng(
@@ -514,6 +528,12 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.select_by_elevation(da, elevation)
+
+    def mask(self, da: xr.DataArray) -> xr.DataArray:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.mask(da)
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
         if self._grid is None:
