@@ -169,10 +169,10 @@ class ROMSGrid(Grid):
 
     def mask(self, da: xr.DataArray) -> xr.DataArray:
         mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}'].cf.isel(time=0)
-        mask[:-1,:] = mask[:-1,:].where(mask[1:,:] == 1, 0)
-        mask[:,:-1] = mask[:,:-1].where(mask[:,1:] == 1, 0)
-        mask[1:,:] = mask[1:,:].where(mask[:-1,:] == 1, 0)
-        mask[:,1:] = mask[:,1:].where(mask[:,:-1] == 1, 0)
+        mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
+        mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
+        mask[1:, :] = mask[1:, :].where(mask[:-1, :] == 1, 0)
+        mask[:, 1:] = mask[:, 1:].where(mask[:, :-1] == 1, 0)
 
         return da.where(mask == 1)
 
