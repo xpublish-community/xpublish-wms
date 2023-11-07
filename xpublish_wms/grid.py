@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional, Tuple, Union, Sequence
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import cartopy.geodesic
 import cf_xarray  # noqa
@@ -9,9 +9,9 @@ import matplotlib.tri as tri
 import numpy as np
 import rioxarray  # noqa
 import xarray as xr
+from sklearn.neighbors import BallTree
 
 from xpublish_wms.utils import strip_float, to_mercator
-from sklearn.neighbors import BallTree
 
 
 class RenderMethod(Enum):
@@ -89,7 +89,11 @@ class Grid(ABC):
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
 
-        if elevations is None or len(elevations) == 0 or all(v is None for v in elevations):
+        if (
+            elevations is None
+            or len(elevations) == 0
+            or all(v is None for v in elevations)
+        ):
             elevations = [0.0]
 
         if "vertical" in da.cf:
@@ -391,7 +395,7 @@ class FVCOMGrid(Grid):
                     dims=da[vertical_var].dims,
                     coords=da[vertical_var].coords,
                     name=self.ds[vertical_var].name,
-                    attrs=self.ds[vertical_var].attrs
+                    attrs=self.ds[vertical_var].attrs,
                 )
 
         return None
@@ -411,9 +415,12 @@ class FVCOMGrid(Grid):
         stacked = np.stack([lng_rad, lat_rad], axis=-1)
         tree = BallTree(stacked, leaf_size=2, metric="haversine")
 
-        idx = tree.query([[np.deg2rad((360 + lng) if lng < 0 else lng), np.deg2rad(lat)]], return_distance=False)
+        idx = tree.query(
+            [[np.deg2rad((360 + lng) if lng < 0 else lng), np.deg2rad(lat)]],
+            return_distance=False,
+        )
 
-        if 'nele' in subset.dims:
+        if "nele" in subset.dims:
             subset = subset.isel(nele=idx[0][0])
         else:
             subset = subset.isel(node=idx[0][0])
@@ -431,12 +438,19 @@ class FVCOMGrid(Grid):
         if not self.has_elevation(da):
             return da
 
-        if elevations is None or len(elevations) == 0 or all(v is None for v in elevations):
+        if (
+            elevations is None
+            or len(elevations) == 0
+            or all(v is None for v in elevations)
+        ):
             elevations = [0.0]
 
         da_elevations = self.elevations(da)
 
-        elevation_index = [int(np.absolute(da_elevations - elevation).argmin().values) for elevation in elevations]
+        elevation_index = [
+            int(np.absolute(da_elevations - elevation).argmin().values)
+            for elevation in elevations
+        ]
         if len(elevation_index) == 1:
             elevation_index = elevation_index[0]
 
@@ -453,21 +467,31 @@ class FVCOMGrid(Grid):
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
         # fvcom nodal variables have data on both the faces and edges
-        if 'nele' in da.dims:
+        if "nele" in da.dims:
             elem_count = self.ds.ntve.isel(time=0).values
             neighbors = self.ds.nbve.isel(time=0).values
-            mask = (neighbors[:, :] > 0)
+            mask = neighbors[:, :] > 0
 
-            new_values = np.sum(da.values[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
+            new_values = (
+                np.sum(da.values[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
+            )
             da = xr.DataArray(
                 data=new_values,
                 dims=da.dims,
                 name=da.name,
                 attrs=da.attrs,
                 coords=dict(
-                    lonc=(da.cf["longitude"].dims, self.ds.lon.values, da.cf["longitude"].attrs),
-                    latc=(da.cf["latitude"].dims, self.ds.lat.values, da.cf["latitude"].attrs),
-                    time=da.coords['time']
+                    lonc=(
+                        da.cf["longitude"].dims,
+                        self.ds.lon.values,
+                        da.cf["longitude"].attrs,
+                    ),
+                    latc=(
+                        da.cf["latitude"].dims,
+                        self.ds.lat.values,
+                        da.cf["latitude"].attrs,
+                    ),
+                    time=da.coords["time"],
                 ),
             )
 

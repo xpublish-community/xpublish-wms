@@ -21,7 +21,7 @@ def strip_float(value):
 
 
 def parse_float(value):
-    if 'e' in value.lower():
+    if "e" in value.lower():
         part_arr = value.lower().split("e")
         return float(part_arr[0].strip()) * (10 ** float(part_arr[1].strip()))
 
