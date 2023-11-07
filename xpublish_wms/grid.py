@@ -690,6 +690,7 @@ class SELFEGrid(Grid):
             self.ds.ele[0].T - 1,
         ).triangles
 
+
 _grid_impls = [HYCOMGrid, FVCOMGrid, SELFEGrid, ROMSGrid, RegularGrid]
 
 
