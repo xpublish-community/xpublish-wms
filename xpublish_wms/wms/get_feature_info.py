@@ -159,14 +159,9 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     if any_has_vertical_axis:
         if elevation == "all":
             # Dont select an elevation, just keep all elevation coords
-            elevation = selected_ds.cf["vertical"].values
-        elif len(elevation) == 1:
-            selected_ds = selected_ds.cf.sel(vertical=elevation, method="nearest")
-        elif len(elevation) > 1:
-            selected_ds = selected_ds.cf.sel(vertical=slice(elevation[0], elevation[1]))
-        else:
-            # Select closest to the surface by default
-            selected_ds = selected_ds.cf.sel(vertical=0, method="nearest")
+            elevation = ds.gridded.elevations(selected_ds)
+
+        selected_ds = ds.gridded.select_by_elevation(selected_ds, elevation)
 
     try:
         # Apply masking if necessary

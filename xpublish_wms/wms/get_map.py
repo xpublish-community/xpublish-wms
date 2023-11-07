@@ -16,6 +16,7 @@ import xarray as xr
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grid import RenderMethod
+from xpublish_wms.utils import parse_float
 
 logger = logging.getLogger("uvicorn")
 
@@ -150,7 +151,7 @@ class GetMap:
                 self.palettename = self.DEFAULT_PALETTE
 
         self.colorscalerange = [
-            float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
+            parse_float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
         ]
         self.autoscale = query.get("autoscale", "false") == "true"
 
@@ -199,8 +200,7 @@ class GetMap:
         :param da:
         :return:
         """
-        da = ds.gridded.select_by_elevation(da, self.elevation)
-        print(da.shape)
+        da = ds.gridded.select_by_elevation(da, [self.elevation])
 
         return da
 

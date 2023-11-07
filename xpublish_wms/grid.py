@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import cartopy.geodesic
 import cf_xarray  # noqa
@@ -9,6 +9,7 @@ import matplotlib.tri as tri
 import numpy as np
 import rioxarray  # noqa
 import xarray as xr
+from sklearn.neighbors import BallTree
 
 from xpublish_wms.utils import strip_float, to_mercator
 
@@ -84,11 +85,25 @@ class Grid(ABC):
     def select_by_elevation(
         self,
         da: xr.DataArray,
-        elevation: float = 0.0,
+        elevations: Sequence[float],
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
+
+        if (
+            elevations is None
+            or len(elevations) == 0
+            or all(v is None for v in elevations)
+        ):
+            elevations = [0.0]
+
         if "vertical" in da.cf:
-            da = da.cf.sel({"vertical": elevation}, method="nearest")
+            if len(elevations) == 1:
+                return da.cf.sel(vertical=elevations[0], method="nearest")
+            elif len(elevations) > 1:
+                return da.cf.sel(vertical=elevations)
+            else:
+                return da.cf.sel(vertical=0, method="nearest")
+
         return da
 
     def mask(
@@ -365,46 +380,121 @@ class FVCOMGrid(Grid):
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         if "vertical" in da.cf:
             return da.cf["vertical"][:, 0]
-        elif "siglay" in da.dims:
-            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
-            return self.ds.siglay[:, 0]
-        elif "siglev" in da.dims:
-            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
-            return self.ds.siglev[:, 0]
         else:
-            return None
+            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+            vertical_var = None
+            if "siglay" in da.dims:
+                vertical_var = "siglay"
+            elif "siglev" in da.dims:
+                vertical_var = "siglev"
+
+            if vertical_var is not None:
+                temp_elevations = self.ds[vertical_var].values[:, 0]
+                return xr.DataArray(
+                    data=[temp_elevations[i] for i in da[vertical_var]],
+                    dims=da[vertical_var].dims,
+                    coords=da[vertical_var].coords,
+                    name=self.ds[vertical_var].name,
+                    attrs=self.ds[vertical_var].attrs,
+                )
+
+        return None
+
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
+        """Select the given dataset by the given lon/lat and optional elevation"""
+
+        lng_rad = np.deg2rad(subset.cf["longitude"])
+        lat_rad = np.deg2rad(subset.cf["latitude"])
+
+        stacked = np.stack([lng_rad, lat_rad], axis=-1)
+        tree = BallTree(stacked, leaf_size=2, metric="haversine")
+
+        idx = tree.query(
+            [[np.deg2rad((360 + lng) if lng < 0 else lng), np.deg2rad(lat)]],
+            return_distance=False,
+        )
+
+        if "nele" in subset.dims:
+            subset = subset.isel(nele=idx[0][0])
+        else:
+            subset = subset.isel(node=idx[0][0])
+
+        x_axis = [strip_float(subset.cf["longitude"])]
+        y_axis = [strip_float(subset.cf["latitude"])]
+        return subset, x_axis, y_axis
 
     def select_by_elevation(
         self,
         da: xr.DataArray,
-        elevation: Optional[float],
+        elevations: Optional[Sequence[float]],
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
-        print(da.coords)
-        print(da.cf)
         if not self.has_elevation(da):
             return da
 
-        if elevation is None:
-            elevation = 0.0
+        if (
+            elevations is None
+            or len(elevations) == 0
+            or all(v is None for v in elevations)
+        ):
+            elevations = [0.0]
 
-        elevations = self.elevations(da)
-        diff = np.absolute(elevations - elevation)
-        elevation_index = int(diff.argmin().values)
+        da_elevations = self.elevations(da)
+
+        elevation_index = [
+            int(np.absolute(da_elevations - elevation).argmin().values)
+            for elevation in elevations
+        ]
+        if len(elevation_index) == 1:
+            elevation_index = elevation_index[0]
+
+        if "vertical" not in da.cf:
+            if "siglay" in da.dims:
+                da.__setitem__("siglay", da_elevations)
+            elif "siglev" in da.dims:
+                da.__setitem__("siglev", da_elevations)
+
         if "vertical" in da.cf:
             da = da.cf.isel(vertical=elevation_index)
-        elif "siglay" in da.dims:
-            print(elevation_index)
-            da = da.isel(siglay=elevation_index)
-        elif "siglev" in da.dims:
-            da = da.isel(siglev=elevation_index)
-
-        print(da.coords)
-        print(da.cf)
 
         return da
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
+        # fvcom nodal variables have data on both the faces and edges
+        if "nele" in da.dims:
+            elem_count = self.ds.ntve.isel(time=0).values
+            neighbors = self.ds.nbve.isel(time=0).values
+            mask = neighbors[:, :] > 0
+
+            new_values = (
+                np.sum(da.values[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
+            )
+            da = xr.DataArray(
+                data=new_values,
+                dims=da.dims,
+                name=da.name,
+                attrs=da.attrs,
+                coords=dict(
+                    lonc=(
+                        da.cf["longitude"].dims,
+                        self.ds.lon.values,
+                        da.cf["longitude"].attrs,
+                    ),
+                    latc=(
+                        da.cf["latitude"].dims,
+                        self.ds.lat.values,
+                        da.cf["latitude"].attrs,
+                    ),
+                    time=da.coords["time"],
+                ),
+            )
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
@@ -528,12 +618,12 @@ class GridDatasetAccessor:
     def select_by_elevation(
         self,
         da: xr.DataArray,
-        elevation: Optional[float],
+        elevations: Optional[Sequence[float]],
     ) -> xr.DataArray:
         if self._grid is None:
             return None
         else:
-            return self._grid.select_by_elevation(da, elevation)
+            return self._grid.select_by_elevation(da, elevations)
 
     def mask(
         self,
