@@ -7,6 +7,8 @@ from fastapi import Response
 from matplotlib import cm
 from PIL import Image
 
+from xpublish_wms.utils import parse_float
+
 
 def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
     """
@@ -18,7 +20,7 @@ def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
     vertical = query.get("vertical", "false") == "true"
     # colorbaronly = query.get("colorbaronly", "False") == "True"
     colorscalerange = [
-        float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
+        parse_float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
     ]
     if isnan(colorscalerange[0]):
         autoscale = True
