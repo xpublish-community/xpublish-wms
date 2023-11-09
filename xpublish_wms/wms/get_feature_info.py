@@ -172,8 +172,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             lat=y_coord[y],
             parameters=parameters,
         )
-    except ValueError:
-        raise HTTPException(500, f"Unsupported grid type: {ds.gridded.name}")
+    except ValueError as e:
+        raise HTTPException(500, f"Error with grid type {ds.gridded.name}: {e}")
 
     # When none of the parameters have data, drop it
     time_coord_name = selected_ds.cf.coordinates["time"][0]
