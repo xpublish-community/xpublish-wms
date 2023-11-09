@@ -167,11 +167,11 @@ class RegularGrid(Grid):
 class NonDimensionalGrid(Grid):
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
-    
+
     @staticmethod
     def recognize(ds: xr.Dataset) -> bool:
         try:
-            return len(ds.cf['latitude'].dims) == 2
+            return len(ds.cf["latitude"].dims) == 2
         except:
             return False
 
@@ -223,8 +223,8 @@ class NonDimensionalGrid(Grid):
         """Select the given dataset by the given lon/lat and optional elevation"""
         subset = sel2d(
             subset[parameters],
-            lons=subset.cf['longitude'],
-            lats=subset.cf['latitude'],
+            lons=subset.cf["longitude"],
+            lats=subset.cf["latitude"],
             lon0=lng,
             lat0=lat,
         )
@@ -760,7 +760,14 @@ class SELFEGrid(Grid):
         ).triangles
 
 
-_grid_impls = [HYCOMGrid, FVCOMGrid, SELFEGrid, ROMSGrid, NonDimensionalGrid, RegularGrid]
+_grid_impls = [
+    HYCOMGrid,
+    FVCOMGrid,
+    SELFEGrid,
+    ROMSGrid,
+    NonDimensionalGrid,
+    RegularGrid,
+]
 
 
 def register_grid_impl(grid_impl: Grid, priority: int = 0):
