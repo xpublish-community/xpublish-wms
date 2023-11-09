@@ -172,7 +172,7 @@ class NonDimensionalGrid(Grid):
     def recognize(ds: xr.Dataset) -> bool:
         try:
             return len(ds.cf['latitude'].dims) == 2
-        except:
+        except Exception:
             return False
 
     @property
