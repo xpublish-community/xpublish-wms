@@ -164,6 +164,75 @@ class RegularGrid(Grid):
         return da
 
 
+class NonDimensionalGrid(Grid):
+    def __init__(self, ds: xr.Dataset):
+        self.ds = ds
+
+    @staticmethod
+    def recognize(ds: xr.Dataset) -> bool:
+        try:
+            return len(ds.cf["latitude"].dims) == 2
+        except Exception:
+            return False
+
+    @property
+    def name(self) -> str:
+        return "nondimensional"
+
+    @property
+    def render_method(self) -> RenderMethod:
+        return RenderMethod.Quad
+
+    @property
+    def crs(self) -> str:
+        return "EPSG:4326"
+
+    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        if crs == "EPSG:4326":
+            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+        elif crs == "EPSG:3857":
+            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
+            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+
+            da = da.assign_coords(
+                {
+                    "x": (
+                        da.cf["longitude"].dims,
+                        dask_array.from_array(x, chunks=x_chunks),
+                    ),
+                    "y": (
+                        da.cf["latitude"].dims,
+                        dask_array.from_array(y, chunks=y_chunks),
+                    ),
+                },
+            )
+
+            da = da.unify_chunks()
+        return da
+
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
+        """Select the given dataset by the given lon/lat and optional elevation"""
+        subset = sel2d(
+            subset[parameters],
+            lons=subset.cf["longitude"],
+            lats=subset.cf["latitude"],
+            lon0=lng,
+            lat0=lat,
+        )
+        x_axis = [strip_float(subset.cf["longitude"])]
+        y_axis = [strip_float(subset.cf["latitude"])]
+        return subset, x_axis, y_axis
+
+
 class ROMSGrid(Grid):
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
@@ -691,7 +760,14 @@ class SELFEGrid(Grid):
         ).triangles
 
 
-_grid_impls = [HYCOMGrid, FVCOMGrid, SELFEGrid, ROMSGrid, RegularGrid]
+_grid_impls = [
+    HYCOMGrid,
+    FVCOMGrid,
+    SELFEGrid,
+    ROMSGrid,
+    NonDimensionalGrid,
+    RegularGrid,
+]
 
 
 def register_grid_impl(grid_impl: Grid, priority: int = 0):
