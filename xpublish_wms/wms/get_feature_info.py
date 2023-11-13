@@ -147,7 +147,12 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     y_coord = np.linspace(bbox[1], bbox[3], height)
 
     if any_has_time_axis:
-        if len(times) == 1:
+        if (
+            len(selected_ds.cf["time"].shape) == 1
+            and selected_ds.cf["time"].shape[0] == 1
+        ):
+            selected_ds = selected_ds.cf.isel(time=0)
+        elif len(times) == 1:
             selected_ds = selected_ds.cf.interp(time=times[0])
         elif len(times) > 1:
             selected_ds = selected_ds.cf.sel(time=slice(times[0], times[1]))
@@ -164,8 +169,6 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         selected_ds = ds.gridded.select_by_elevation(selected_ds, elevation)
 
     try:
-        # Apply masking if necessary
-        selected_ds = ds.gridded.mask(selected_ds)
         selected_ds, x_axis, y_axis = ds.gridded.sel_lat_lng(
             subset=selected_ds,
             lng=x_coord[x],
@@ -176,9 +179,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         raise HTTPException(500, f"Error with grid type {ds.gridded.name}: {e}")
 
     # When none of the parameters have data, drop it
-    time_coord_name = selected_ds.cf.coordinates["time"][0]
-    if any_has_time_axis and selected_ds[time_coord_name].shape:
-        selected_ds = selected_ds.dropna(time_coord_name, how="all")
+    if any_has_time_axis:
+        time_coord_name = selected_ds.cf.coordinates["time"][0]
+        if selected_ds[time_coord_name].shape:
+            selected_ds = selected_ds.dropna(time_coord_name, how="all")
 
     if not any_has_time_axis:
         t_axis = None
