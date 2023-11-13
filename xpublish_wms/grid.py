@@ -484,11 +484,11 @@ class HYCOMGrid(Grid):
         for parameter in parameters:
             subset[parameter] = self.mask(subset[parameter])
 
-        subset.cf["longitude"][:] = xr.where(
+        subset.__setitem__(subset.cf["longitude"].name, xr.where(
             subset.cf["longitude"] > 180,
             subset.cf["longitude"] - 360,
             subset.cf["longitude"],
-        )[:]
+        ))
 
         subset = sel2d(
             subset[parameters],
@@ -646,18 +646,17 @@ class FVCOMGrid(Grid):
         data = da.values
         # create new data by getting values from the surrounding edges
         if "nele" in da.dims:
-            elem_count = (
-                self.ds.ntve.isel(time=0).values
-                if "time" in self.ds.ntve.coords
-                else self.ds.ntve.values
-            )
-            neighbors = (
-                self.ds.nbve.isel(time=0).values
-                if "time" in self.ds.nbve.coords
-                else self.ds.nbve.values
-            )
-            mask = neighbors[:, :] > 0
+            if "time" in self.ds.ntve.coords:
+                elem_count = self.ds.ntve.isel(time=0).values
+            else:
+                elem_count = self.ds.ntve.values
 
+            if "time" in self.ds.nbve.coords:
+                neighbors = self.ds.nbve.isel(time=0).values
+            else:
+                neighbors = self.ds.nbve.values
+
+            mask = neighbors[:, :] > 0
             data = np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
 
         coords = dict()
