@@ -484,11 +484,14 @@ class HYCOMGrid(Grid):
         for parameter in parameters:
             subset[parameter] = self.mask(subset[parameter])
 
-        subset.__setitem__(subset.cf["longitude"].name, xr.where(
-            subset.cf["longitude"] > 180,
-            subset.cf["longitude"] - 360,
-            subset.cf["longitude"],
-        ))
+        subset.__setitem__(
+            subset.cf["longitude"].name,
+            xr.where(
+                subset.cf["longitude"] > 180,
+                subset.cf["longitude"] - 360,
+                subset.cf["longitude"],
+            ),
+        )
 
         subset = sel2d(
             subset[parameters],
