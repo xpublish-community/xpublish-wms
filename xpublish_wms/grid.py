@@ -11,7 +11,7 @@ import rioxarray  # noqa
 import xarray as xr
 from sklearn.neighbors import BallTree
 
-from xpublish_wms.utils import strip_float, to_mercator
+from xpublish_wms.utils import strip_float, to_mercator, lnglat_to_mercator
 
 
 class RenderMethod(Enum):
@@ -130,7 +130,10 @@ class Grid(ABC):
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
+
+        subset = self.mask(subset)
         subset = subset.cf.interp(longitude=lng, latitude=lat)
+
         x_axis = [strip_float(subset.cf["longitude"])]
         y_axis = [strip_float(subset.cf["latitude"])]
         return subset, x_axis, y_axis
@@ -157,10 +160,43 @@ class RegularGrid(Grid):
         return "EPSG:4326"
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
-        if crs == "EPSG:4326":
-            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-        elif crs == "EPSG:3857":
-            da = da.rio.reproject("EPSG:3857")
+        da = self.mask(da)
+
+        coords = dict()
+        # need to convert longitude and latitude to x and y for the mesh to work properly
+        # regular grid doesn't have x & y as dimensions so have to remake the whole data array
+        for coord in da.coords:
+            if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
+                coords[coord] = da.coords[coord]
+
+        # build new x coordinate
+        coords["x"] = (
+            "x",
+            da.cf["longitude"].values,
+            da.cf["longitude"].attrs
+        )
+        # build new y coordinate
+        coords["y"] = (
+            "y",
+            da.cf["latitude"].values,
+            da.cf["latitude"].attrs
+        )
+        # build new data array
+        da = xr.DataArray(
+            data=da,
+            dims=("y", "x"),
+            coords=coords,
+            name=da.name,
+            attrs=da.attrs,
+        )
+
+        # convert to mercator
+        if crs == "EPSG:3857":
+            lng, lat = lnglat_to_mercator(da.cf["longitude"], da.cf["latitude"])
+
+            da = da.assign_coords({"x": lng, "y": lat})
+            da = da.unify_chunks()
+
         return da
 
 
@@ -188,6 +224,8 @@ class NonDimensionalGrid(Grid):
         return "EPSG:4326"
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        da = self.mask(da)
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
@@ -221,6 +259,9 @@ class NonDimensionalGrid(Grid):
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
+
+        subset = self.mask(subset)
+
         subset = sel2d(
             subset[parameters],
             lons=subset.cf["longitude"],
@@ -258,14 +299,21 @@ class ROMSGrid(Grid):
         da: Union[xr.DataArray, xr.Dataset],
     ) -> Union[xr.DataArray, xr.Dataset]:
         mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}']
-        mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
+        if "time" in mask.cf.coords:
+            mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
+        else:
+            mask = mask.cf.squeeze(drop=True).cf
+
         mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
         mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
         mask[1:, :] = mask[1:, :].where(mask[:-1, :] == 1, 0)
         mask[:, 1:] = mask[:, 1:].where(mask[:, :-1] == 1, 0)
+
         return da.where(mask == 1)
 
     def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+        da = self.mask(da)
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
@@ -311,10 +359,11 @@ class ROMSGrid(Grid):
                 " ",
             )
 
+            new_selected_ds = self.mask(subset[[parameter]])
             new_selected_ds = sel2d(
-                subset,
-                lons=subset.cf[lng_coord],
-                lats=subset.cf[lat_coord],
+                new_selected_ds,
+                lons=new_selected_ds.cf[lng_coord],
+                lats=new_selected_ds.cf[lat_coord],
                 lon0=lng,
                 lat0=lat,
             )
@@ -371,32 +420,92 @@ class HYCOMGrid(Grid):
             float(da.cf["latitude"].max()),
         )
 
+    def mask(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        # mask values where the longitude is >500 bc of RTOFS-Global https://oceanpython.org/2012/11/29/global-rtofs-real-time-ocean-forecast-system/
+        lng = da.cf["longitude"]
+
+        # add missing dimensions to lng mask (ie. elevation & time)
+        if len(da.dims) > len(lng.dims):
+            for dim in set(da.dims).symmetric_difference(lng.dims):
+                lng = lng.expand_dims({dim: da[dim]})
+
+        mask = lng > 500
+
+        np_mask = np.ma.masked_where(mask == True, da.values)[:]
+        np_mask[:-1, :] = np.ma.masked_where(mask[1:, :] == True, np_mask[:-1, :])[:]
+        np_mask[:, :-1] = np.ma.masked_where(mask[:, 1:] == True, np_mask[:, :-1])[:]
+        np_mask[1:, :] = np.ma.masked_where(mask[:-1, :] == True, np_mask[1:, :])[:]
+        np_mask[:, 1:] = np.ma.masked_where(mask[:, :-1] == True, np_mask[:, 1:])[:]
+
+        return da.where(np_mask.mask == False)
+
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        # TODO: Figure out global coords
+        da = self.mask(da)
+
+        # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
+        mask_0 = xr.where(da.cf["longitude"] <= 180, True, False)
+        temp_da_0 = da.where(mask_0.compute() == True, drop=True)
+        da_0 = xr.DataArray(
+            data=temp_da_0,
+            dims=temp_da_0.dims,
+            name=temp_da_0.name,
+            coords=temp_da_0.coords,
+            attrs=temp_da_0.attrs
+        )
+
+        mask_1 = xr.where(da.cf["longitude"] > 180, True, False)
+        temp_da_1 = da.where(mask_1.compute() == True, drop=True)
+        temp_da_1.cf["longitude"][:] = temp_da_1.cf["longitude"][:] - 360
+        da_1 = xr.DataArray(
+            data=temp_da_1,
+            dims=temp_da_1.dims,
+            name=temp_da_1.name,
+            coords=temp_da_1.coords,
+            attrs=temp_da_1.attrs,
+        )
+
+        # put the 2 DataArrays back together in the proper order
+        da = xr.concat([da_1, da_0], dim="X")
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
-            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
-            x_chunks = (
-                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-            )
-            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+            lng, lat = lnglat_to_mercator(da.cf["longitude"], da.cf["latitude"])
 
-            da = da.assign_coords(
-                {
-                    "x": (
-                        da.cf["longitude"].dims,
-                        dask_array.from_array(x, chunks=x_chunks),
-                    ),
-                    "y": (
-                        da.cf["latitude"].dims,
-                        dask_array.from_array(y, chunks=y_chunks),
-                    ),
-                },
-            )
-
+            da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
+
         return da
+
+
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> Tuple[xr.Dataset, list, list]:
+        """Select the given dataset by the given lon/lat and optional elevation"""
+
+        for parameter in parameters:
+            subset[parameter] = self.mask(subset[parameter])
+
+        subset.cf["longitude"][:] = xr.where(subset.cf["longitude"] > 180, subset.cf["longitude"] - 360, subset.cf["longitude"])[:]
+
+        subset = sel2d(
+            subset[parameters],
+            lons=subset.cf["longitude"],
+            lats=subset.cf["latitude"],
+            lon0=lng,
+            lat0=lat,
+        )
+
+        x_axis = [strip_float(subset.cf["longitude"])]
+        y_axis = [strip_float(subset.cf["latitude"])]
+        return subset, x_axis, y_axis
 
 
 class FVCOMGrid(Grid):
@@ -478,6 +587,8 @@ class FVCOMGrid(Grid):
     ) -> Tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
 
+        subset = self.mask(subset)
+
         lng_rad = np.deg2rad(subset.cf["longitude"])
         lat_rad = np.deg2rad(subset.cf["latitude"])
 
@@ -485,7 +596,7 @@ class FVCOMGrid(Grid):
         tree = BallTree(stacked, leaf_size=2, metric="haversine")
 
         idx = tree.query(
-            [[np.deg2rad((360 + lng) if lng < 0 else lng), np.deg2rad(lat)]],
+            [[np.deg2rad(360 + lng), np.deg2rad(lat)]],
             return_distance=False,
         )
 
@@ -534,38 +645,51 @@ class FVCOMGrid(Grid):
 
         return da
 
+
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        # fvcom nodal variables have data on both the faces and edges
+        da = self.mask(da)
+
+        data = da.values
+        # create new data by getting values from the surrounding edges
         if "nele" in da.dims:
-            elem_count = self.ds.ntve.isel(time=0).values
-            neighbors = self.ds.nbve.isel(time=0).values
+            elem_count = self.ds.ntve.isel(time=0).values if "time" in self.ds.ntve.coords else self.ds.ntve.values
+            neighbors = self.ds.nbve.isel(time=0).values if "time" in self.ds.nbve.coords else self.ds.nbve.values
             mask = neighbors[:, :] > 0
 
-            new_values = (
-                np.sum(da.values[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
-            )
-            da = xr.DataArray(
-                data=new_values,
-                dims=da.dims,
-                name=da.name,
-                attrs=da.attrs,
-                coords=dict(
-                    lonc=(
-                        da.cf["longitude"].dims,
-                        self.ds.lon.values,
-                        da.cf["longitude"].attrs,
-                    ),
-                    latc=(
-                        da.cf["latitude"].dims,
-                        self.ds.lat.values,
-                        da.cf["latitude"].attrs,
-                    ),
-                    time=da.coords["time"],
-                ),
+            data = (
+                np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
             )
 
+        coords = dict()
+        # need to create new x & y coordinates with dataset values while dropping the old ones
+        # can't keep the original values or else da.cf will have 2 lng/lat arrays
+        for coord in da.coords:
+            if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
+                coords[coord] = da.coords[coord]
+
+        # build new x coordinate
+        coords["x"] = (
+            da.cf["longitude"].dims,
+            self.ds.lon.values,
+            da.cf["longitude"].attrs
+        )
+        # build new y coordinate
+        coords["y"] = (
+            da.cf["latitude"].dims,
+            self.ds.lat.values,
+            da.cf["latitude"].attrs
+        )
+        # build new data array
+        da = xr.DataArray(
+            data=data,
+            dims=da.dims,
+            name=da.name,
+            attrs=da.attrs,
+            coords=coords,
+        )
+
         if crs == "EPSG:4326":
-            da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
+            da.__setitem__(da.cf["longitude"].name, da.cf["longitude"] - 360)
         elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
@@ -578,10 +702,12 @@ class FVCOMGrid(Grid):
                     "x": (
                         da.cf["longitude"].dims,
                         dask_array.from_array(x, chunks=x_chunks),
+                        da.cf["longitude"].attrs,
                     ),
                     "y": (
                         da.cf["latitude"].dims,
                         dask_array.from_array(y, chunks=y_chunks),
+                        da.cf["latitude"].attrs,
                     ),
                 },
             )
@@ -590,10 +716,15 @@ class FVCOMGrid(Grid):
         return da
 
     def tessellate(self, da: xr.DataArray) -> np.ndarray:
+        nv = self.ds.nv
+        if len(nv.shape) > 2:
+            for i in range(len(nv.shape) - 2):
+                nv = nv[0]
+
         return tri.Triangulation(
             da.cf["longitude"],
             da.cf["latitude"],
-            self.ds.nv[0].T - 1,
+            nv.T - 1,
         ).triangles
 
 
@@ -659,6 +790,8 @@ class SELFEGrid(Grid):
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
+
+        subset = self.mask(subset)
 
         lng_rad = np.deg2rad(subset.cf["longitude"])
         lat_rad = np.deg2rad(subset.cf["latitude"])
@@ -727,6 +860,8 @@ class SELFEGrid(Grid):
         return da
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
+        da = self.mask(da)
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
@@ -753,10 +888,15 @@ class SELFEGrid(Grid):
         return da
 
     def tessellate(self, da: xr.DataArray) -> np.ndarray:
+        ele = self.ds.ele
+        if len(ele.shape) > 2:
+            for i in range(len(ele.shape) - 2):
+                ele = ele[0]
+
         return tri.Triangulation(
             da.cf["longitude"],
             da.cf["latitude"],
-            self.ds.ele[0].T - 1,
+            ele.T - 1,
         ).triangles
 
 

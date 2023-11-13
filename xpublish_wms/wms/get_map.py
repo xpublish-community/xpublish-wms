@@ -122,14 +122,14 @@ class GetMap:
             self.time = pd.to_datetime(self.time_str).tz_localize(None)
         else:
             self.time = None
-        self.has_time = "time" in ds[self.parameter].cf.coordinates
+        self.has_time = self.TIME_CF_NAME in ds[self.parameter].cf.coords
 
         self.elevation_str = query.get("elevation", None)
         if self.elevation_str:
             self.elevation = float(self.elevation_str)
         else:
             self.elevation = None
-        self.has_elevation = "vertical" in ds[self.parameter].cf.coordinates
+        self.has_elevation = self.ELEVATION_CF_NAME in ds[self.parameter].cf.coords
 
         # Grid
         self.crs = query.get("crs", None) or query.get("srs")
@@ -180,7 +180,7 @@ class GetMap:
         """
         if self.time is not None:
             da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
-        else:
+        elif self.TIME_CF_NAME in da.cf.coords:
             da = da.cf.isel({self.TIME_CF_NAME: -1})
 
         return da
@@ -240,7 +240,6 @@ class GetMap:
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
-        da = ds.gridded.mask(da)
         da = ds.gridded.project(da, self.crs)
         logger.debug(f"Projection time: {time.time() - projection_start}")
 

@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Union
 
 import numpy as np
@@ -79,6 +80,21 @@ def lnglat_to_cartesian(longitude, latitude):
     z = R * np.sin(lat_rad)
     return np.column_stack((x, y, z))
 
+def lnglat_to_mercator(longitude, latitude):
+    """
+    Converts data array with cf standard lng/lat to mercator coordinates
+    """
+    constant = 20037508.34 / 180
+
+    longitude = xr.where(longitude == 180, longitude - 0.000001, longitude)
+    longitude = xr.where(longitude == -180, longitude + 0.000001, longitude)
+    longitude = longitude * constant
+
+    latitude = xr.where(latitude == 90, latitude - 0.000001, latitude)
+    latitude = xr.where(latitude == -90, latitude + 0.000001, latitude)
+    latitude = (np.log(np.tan((90 + latitude) * math.pi / 360)) / (math.pi / 180)) * constant
+
+    return longitude, latitude
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
 
