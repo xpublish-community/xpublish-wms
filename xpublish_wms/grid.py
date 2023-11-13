@@ -11,7 +11,7 @@ import rioxarray  # noqa
 import xarray as xr
 from sklearn.neighbors import BallTree
 
-from xpublish_wms.utils import strip_float, to_mercator, lnglat_to_mercator
+from xpublish_wms.utils import lnglat_to_mercator, strip_float, to_mercator
 
 
 class RenderMethod(Enum):
@@ -170,17 +170,9 @@ class RegularGrid(Grid):
                 coords[coord] = da.coords[coord]
 
         # build new x coordinate
-        coords["x"] = (
-            "x",
-            da.cf["longitude"].values,
-            da.cf["longitude"].attrs
-        )
+        coords["x"] = ("x", da.cf["longitude"].values, da.cf["longitude"].attrs)
         # build new y coordinate
-        coords["y"] = (
-            "y",
-            da.cf["latitude"].values,
-            da.cf["latitude"].attrs
-        )
+        coords["y"] = ("y", da.cf["latitude"].values, da.cf["latitude"].attrs)
         # build new data array
         da = xr.DataArray(
             data=da,
@@ -453,7 +445,7 @@ class HYCOMGrid(Grid):
             dims=temp_da_0.dims,
             name=temp_da_0.name,
             coords=temp_da_0.coords,
-            attrs=temp_da_0.attrs
+            attrs=temp_da_0.attrs,
         )
 
         mask_1 = xr.where(da.cf["longitude"] > 180, True, False)
@@ -480,7 +472,6 @@ class HYCOMGrid(Grid):
 
         return da
 
-
     def sel_lat_lng(
         self,
         subset: xr.Dataset,
@@ -493,7 +484,11 @@ class HYCOMGrid(Grid):
         for parameter in parameters:
             subset[parameter] = self.mask(subset[parameter])
 
-        subset.cf["longitude"][:] = xr.where(subset.cf["longitude"] > 180, subset.cf["longitude"] - 360, subset.cf["longitude"])[:]
+        subset.cf["longitude"][:] = xr.where(
+            subset.cf["longitude"] > 180,
+            subset.cf["longitude"] - 360,
+            subset.cf["longitude"],
+        )[:]
 
         subset = sel2d(
             subset[parameters],
@@ -645,20 +640,25 @@ class FVCOMGrid(Grid):
 
         return da
 
-
     def project(self, da: xr.DataArray, crs: str) -> Any:
         da = self.mask(da)
 
         data = da.values
         # create new data by getting values from the surrounding edges
         if "nele" in da.dims:
-            elem_count = self.ds.ntve.isel(time=0).values if "time" in self.ds.ntve.coords else self.ds.ntve.values
-            neighbors = self.ds.nbve.isel(time=0).values if "time" in self.ds.nbve.coords else self.ds.nbve.values
+            elem_count = (
+                self.ds.ntve.isel(time=0).values
+                if "time" in self.ds.ntve.coords
+                else self.ds.ntve.values
+            )
+            neighbors = (
+                self.ds.nbve.isel(time=0).values
+                if "time" in self.ds.nbve.coords
+                else self.ds.nbve.values
+            )
             mask = neighbors[:, :] > 0
 
-            data = (
-                np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
-            )
+            data = np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
 
         coords = dict()
         # need to create new x & y coordinates with dataset values while dropping the old ones
@@ -671,13 +671,13 @@ class FVCOMGrid(Grid):
         coords["x"] = (
             da.cf["longitude"].dims,
             self.ds.lon.values,
-            da.cf["longitude"].attrs
+            da.cf["longitude"].attrs,
         )
         # build new y coordinate
         coords["y"] = (
             da.cf["latitude"].dims,
             self.ds.lat.values,
-            da.cf["latitude"].attrs
+            da.cf["latitude"].attrs,
         )
         # build new data array
         da = xr.DataArray(

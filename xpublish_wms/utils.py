@@ -80,6 +80,7 @@ def lnglat_to_cartesian(longitude, latitude):
     z = R * np.sin(lat_rad)
     return np.column_stack((x, y, z))
 
+
 def lnglat_to_mercator(longitude, latitude):
     """
     Converts data array with cf standard lng/lat to mercator coordinates
@@ -92,9 +93,12 @@ def lnglat_to_mercator(longitude, latitude):
 
     latitude = xr.where(latitude == 90, latitude - 0.000001, latitude)
     latitude = xr.where(latitude == -90, latitude + 0.000001, latitude)
-    latitude = (np.log(np.tan((90 + latitude) * math.pi / 360)) / (math.pi / 180)) * constant
+    latitude = (
+        np.log(np.tan((90 + latitude) * math.pi / 360)) / (math.pi / 180)
+    ) * constant
 
     return longitude, latitude
+
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
 

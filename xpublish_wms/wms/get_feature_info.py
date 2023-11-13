@@ -147,7 +147,10 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     y_coord = np.linspace(bbox[1], bbox[3], height)
 
     if any_has_time_axis:
-        if len(selected_ds.cf["time"].shape) == 1 and selected_ds.cf["time"].shape[0] == 1:
+        if (
+            len(selected_ds.cf["time"].shape) == 1
+            and selected_ds.cf["time"].shape[0] == 1
+        ):
             selected_ds = selected_ds.cf.isel(time=0)
         elif len(times) == 1:
             selected_ds = selected_ds.cf.interp(time=times[0])
