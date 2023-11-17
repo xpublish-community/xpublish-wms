@@ -565,11 +565,9 @@ class FVCOMGrid(Grid):
                 vertical_var = "siglev"
 
             if vertical_var is not None:
-                temp_elevations = self.ds[vertical_var].values[:, 0]
                 return xr.DataArray(
-                    data=[temp_elevations[i] for i in da[vertical_var]],
-                    dims=da[vertical_var].dims,
-                    coords=da[vertical_var].coords,
+                    data=self.ds[vertical_var][:, 0].values,
+                    dims=vertical_var,
                     name=self.ds[vertical_var].name,
                     attrs=self.ds[vertical_var].attrs,
                 )
