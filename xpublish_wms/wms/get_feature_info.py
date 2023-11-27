@@ -73,7 +73,7 @@ def create_parameter_feature_data(
         shape.extend([1, 1])
         values = round_float_values(values)
     elif isinstance(values, xr.DataArray):
-        values = values.values.round(decimals=5)
+        values = values.values
         if values.ndim < 2:
             shape.extend([1, 1])
         else:
@@ -84,7 +84,7 @@ def create_parameter_feature_data(
             shape.extend([1, 1])
         else:
             shape = values.shape
-        values = values.round(decimals=5).flatten().tolist()
+        values = values.flatten().tolist()
     elif values is None:
         shape.extend([1, 1])
         values = [np.nan]
