@@ -9,7 +9,6 @@ import matplotlib.tri as tri
 import numpy as np
 import rioxarray  # noqa
 import xarray as xr
-from sklearn.neighbors import BallTree
 
 from xpublish_wms.utils import lnglat_to_mercator, strip_float, to_mercator
 
