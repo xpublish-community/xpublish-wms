@@ -298,7 +298,11 @@ class NonDimensionalGrid(Grid):
         # if yes -> interpolate the values using bilinear interpolation
         else:
             percent_quad, percent_point = lat_lng_quad_percentage(
-                lng, lat, lng_values, lat_values, valid_quad,
+                lng,
+                lat,
+                lng_values,
+                lat_values,
+                valid_quad,
             )
 
             for parameter in parameters:
@@ -461,7 +465,11 @@ class ROMSGrid(Grid):
             # if yes -> interpolate the values using bilinear interpolation
             else:
                 percent_quad, percent_point = lat_lng_quad_percentage(
-                    lng, lat, lng_values, lat_values, valid_quad,
+                    lng,
+                    lat,
+                    lng_values,
+                    lat_values,
+                    valid_quad,
                 )
                 values = subset[parameter].values[
                     ...,
@@ -648,7 +656,11 @@ class HYCOMGrid(Grid):
         # if yes -> interpolate the values using bilinear interpolation
         else:
             percent_quad, percent_point = lat_lng_quad_percentage(
-                lng, lat, lng_values, lat_values, valid_quad,
+                lng,
+                lat,
+                lng_values,
+                lat_values,
+                valid_quad,
             )
 
             for parameter in parameters:
@@ -839,7 +851,11 @@ class FVCOMGrid(Grid):
 
         # find if the selected lng/lat is within a triangle
         valid_tri = lat_lng_find_tri(
-            lng + 360, lat, lng_values, lat_values, self.tessellate(subset),
+            lng + 360,
+            lat,
+            lng_values,
+            lat_values,
+            self.tessellate(subset),
         )
         # if no -> set all values to nan
         if valid_tri is None:
@@ -1101,7 +1117,11 @@ class SELFEGrid(Grid):
 
         # find if the selected lng/lat is within a triangle
         valid_tri = lat_lng_find_tri(
-            lng, lat, lng_values, lat_values, self.tessellate(subset),
+            lng,
+            lat,
+            lng_values,
+            lat_values,
+            self.tessellate(subset),
         )
         # if no -> set all values to nan
         if valid_tri is None:
