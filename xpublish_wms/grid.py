@@ -262,16 +262,22 @@ class NonDimensionalGrid(Grid):
         lat_name = ret_subset.cf["latitude"].name
 
         # adjust the lng/lat to the requested point
-        ret_subset.__setitem__(lng_name, (
-            ret_subset[lng_name].dims,
-            np.full(ret_subset[lng_name].shape, lng),
-            ret_subset[lng_name].attrs,
-        ))
-        ret_subset.__setitem__(lat_name, (
-            ret_subset[lat_name].dims,
-            np.full(ret_subset[lat_name].shape, lat),
-            ret_subset[lat_name].attrs,
-        ))
+        ret_subset.__setitem__(
+            lng_name,
+            (
+                ret_subset[lng_name].dims,
+                np.full(ret_subset[lng_name].shape, lng),
+                ret_subset[lng_name].attrs,
+            ),
+        )
+        ret_subset.__setitem__(
+            lat_name,
+            (
+                ret_subset[lat_name].dims,
+                np.full(ret_subset[lat_name].shape, lat),
+                ret_subset[lat_name].attrs,
+            ),
+        )
 
         lng_values = subset.cf["longitude"].values
         lat_values = subset.cf["latitude"].values
@@ -282,25 +288,36 @@ class NonDimensionalGrid(Grid):
         # if no -> set all values to nan
         if valid_quad is None:
             for parameter in parameters:
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, np.nan),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
         # if yes -> interpolate the values using bilinear interpolation
         else:
-            percent_quad, percent_point = lat_lng_quad_percentage(lng, lat, lng_values, lat_values, valid_quad)
+            percent_quad, percent_point = lat_lng_quad_percentage(
+                lng, lat, lng_values, lat_values, valid_quad,
+            )
 
             for parameter in parameters:
-                values = subset[parameter].values[..., valid_quad[0][0]:(valid_quad[1][0] + 1),
-                         valid_quad[0][1]:(valid_quad[1][1] + 1)]
+                values = subset[parameter].values[
+                    ...,
+                    valid_quad[0][0] : (valid_quad[1][0] + 1),
+                    valid_quad[0][1] : (valid_quad[1][1] + 1),
+                ]
 
                 new_value = bilinear_interp(percent_point, percent_quad, values)
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, new_value),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, new_value),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
 
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
@@ -380,11 +397,12 @@ class ROMSGrid(Grid):
         lat,
         parameters,
     ) -> Tuple[xr.Dataset, list, list]:
-
         unique_dims = dict()
         for parameter in parameters:
             # using a custom mask for now because mask() can cause nan values in quads where there should be 4 corners of data
-            mask = self.ds[f'mask_{subset[parameter].cf["latitude"].name.split("_")[1]}']
+            mask = self.ds[
+                f'mask_{subset[parameter].cf["latitude"].name.split("_")[1]}'
+            ]
             if "time" in mask.cf.coords:
                 mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
             else:
@@ -404,19 +422,25 @@ class ROMSGrid(Grid):
         lng_variables = list(ret_subset.cf[["longitude"]].coords)
         # adjust all lng variables to the requested point
         for lng_name in lng_variables:
-            ret_subset.__setitem__(lng_name, (
-                ret_subset[lng_name].dims,
-                np.full(ret_subset[lng_name].shape, lng),
-                ret_subset[lng_name].attrs,
-            ))
+            ret_subset.__setitem__(
+                lng_name,
+                (
+                    ret_subset[lng_name].dims,
+                    np.full(ret_subset[lng_name].shape, lng),
+                    ret_subset[lng_name].attrs,
+                ),
+            )
         lat_variables = list(ret_subset.cf[["latitude"]].coords)
         # adjust all lat variables to the requested point
         for lat_name in lat_variables:
-            ret_subset.__setitem__(lat_name, (
-                ret_subset[lat_name].dims,
-                np.full(ret_subset[lat_name].shape, lat),
-                ret_subset[lat_name].attrs,
-            ))
+            ret_subset.__setitem__(
+                lat_name,
+                (
+                    ret_subset[lat_name].dims,
+                    np.full(ret_subset[lat_name].shape, lat),
+                    ret_subset[lat_name].attrs,
+                ),
+            )
 
         for parameter in parameters:
             lng_values = subset[parameter].cf["longitude"].values
@@ -427,22 +451,34 @@ class ROMSGrid(Grid):
 
             # if no -> set all values to nan
             if valid_quad is None:
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, np.nan),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
             # if yes -> interpolate the values using bilinear interpolation
             else:
-                percent_quad, percent_point = lat_lng_quad_percentage(lng, lat, lng_values, lat_values, valid_quad)
-                values = subset[parameter].values[..., valid_quad[0][0]:(valid_quad[1][0] + 1), valid_quad[0][1]:(valid_quad[1][1] + 1)]
+                percent_quad, percent_point = lat_lng_quad_percentage(
+                    lng, lat, lng_values, lat_values, valid_quad,
+                )
+                values = subset[parameter].values[
+                    ...,
+                    valid_quad[0][0] : (valid_quad[1][0] + 1),
+                    valid_quad[0][1] : (valid_quad[1][1] + 1),
+                ]
 
                 new_value = bilinear_interp(percent_point, percent_quad, values)
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, new_value),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, new_value),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
 
         x_axis = [strip_float(ret_subset.cf[["longitude"]][lng_variables[0]])]
         y_axis = [strip_float(ret_subset.cf[["latitude"]][lat_variables[0]])]
@@ -576,16 +612,22 @@ class HYCOMGrid(Grid):
         lat_name = ret_subset.cf["latitude"].name
 
         # adjust the lng/lat to the requested point
-        ret_subset.__setitem__(lng_name, (
-            ret_subset[lng_name].dims,
-            np.full(ret_subset[lng_name].shape, lng),
-            ret_subset[lng_name].attrs,
-        ))
-        ret_subset.__setitem__(lat_name, (
-            ret_subset[lat_name].dims,
-            np.full(ret_subset[lat_name].shape, lat),
-            ret_subset[lat_name].attrs,
-        ))
+        ret_subset.__setitem__(
+            lng_name,
+            (
+                ret_subset[lng_name].dims,
+                np.full(ret_subset[lng_name].shape, lng),
+                ret_subset[lng_name].attrs,
+            ),
+        )
+        ret_subset.__setitem__(
+            lat_name,
+            (
+                ret_subset[lat_name].dims,
+                np.full(ret_subset[lat_name].shape, lat),
+                ret_subset[lat_name].attrs,
+            ),
+        )
 
         lng_values = subset.cf["longitude"].values
         lat_values = subset.cf["latitude"].values
@@ -596,25 +638,36 @@ class HYCOMGrid(Grid):
         # if no -> set all values to nan
         if valid_quad is None:
             for parameter in parameters:
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, np.nan),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
         # if yes -> interpolate the values using bilinear interpolation
         else:
-            percent_quad, percent_point = lat_lng_quad_percentage(lng, lat, lng_values, lat_values, valid_quad)
+            percent_quad, percent_point = lat_lng_quad_percentage(
+                lng, lat, lng_values, lat_values, valid_quad,
+            )
 
             for parameter in parameters:
-                values = subset[parameter].values[..., valid_quad[0][0]:(valid_quad[1][0] + 1),
-                         valid_quad[0][1]:(valid_quad[1][1] + 1)]
+                values = subset[parameter].values[
+                    ...,
+                    valid_quad[0][0] : (valid_quad[1][0] + 1),
+                    valid_quad[0][1] : (valid_quad[1][1] + 1),
+                ]
 
                 new_value = bilinear_interp(percent_point, percent_quad, values)
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, new_value),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, new_value),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
 
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
@@ -719,7 +772,14 @@ class FVCOMGrid(Grid):
                     neighbors = self.ds.nbve.values
 
                 mask = neighbors[:, :] > 0
-                data = np.sum(subset[parameter].values[..., neighbors[:, :] - 1], axis=-2, where=mask) / elem_count
+                data = (
+                    np.sum(
+                        subset[parameter].values[..., neighbors[:, :] - 1],
+                        axis=-2,
+                        where=mask,
+                    )
+                    / elem_count
+                )
                 temp_arrays[subset[parameter].name] = (
                     subset[parameter].dims,
                     data,
@@ -749,11 +809,7 @@ class FVCOMGrid(Grid):
             subset[lat_name].attrs,
         )
         # new dataset
-        subset = xr.Dataset(
-            data_vars=temp_arrays,
-            coords=coords,
-            attrs=subset.attrs
-        )
+        subset = xr.Dataset(data_vars=temp_arrays, coords=coords, attrs=subset.attrs)
 
         # cut the dataset down to 1 point, the values are adjusted anyhow so doesn't matter the point
         if "nele" in subset.dims:
@@ -762,30 +818,41 @@ class FVCOMGrid(Grid):
             ret_subset = subset.isel(node=0)
 
         # adjust the lng/lat to the requested point
-        ret_subset.__setitem__(lng_name, (
-            ret_subset[lng_name].dims,
-            np.full(ret_subset[lng_name].shape, lng),
-            ret_subset[lng_name].attrs,
-        ))
-        ret_subset.__setitem__(lat_name, (
-            ret_subset[lat_name].dims,
-            np.full(ret_subset[lat_name].shape, lat),
-            ret_subset[lat_name].attrs,
-        ))
+        ret_subset.__setitem__(
+            lng_name,
+            (
+                ret_subset[lng_name].dims,
+                np.full(ret_subset[lng_name].shape, lng),
+                ret_subset[lng_name].attrs,
+            ),
+        )
+        ret_subset.__setitem__(
+            lat_name,
+            (
+                ret_subset[lat_name].dims,
+                np.full(ret_subset[lat_name].shape, lat),
+                ret_subset[lat_name].attrs,
+            ),
+        )
 
         lng_values = subset.cf["longitude"].values
         lat_values = subset.cf["latitude"].values
 
         # find if the selected lng/lat is within a triangle
-        valid_tri = lat_lng_find_tri(lng + 360, lat, lng_values, lat_values, self.tessellate(subset))
+        valid_tri = lat_lng_find_tri(
+            lng + 360, lat, lng_values, lat_values, self.tessellate(subset),
+        )
         # if no -> set all values to nan
         if valid_tri is None:
             for parameter in parameters:
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, np.nan),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
         # if yes -> interpolate the values based on barycentric weights
         else:
             p1 = [lng_values[valid_tri[0]], lat_values[valid_tri[0]]]
@@ -801,11 +868,14 @@ class FVCOMGrid(Grid):
                 v3 = values[..., valid_tri[2]]
 
                 new_value = (v1 * w1) + (v2 * w2) + (v3 * w3)
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, new_value),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, new_value),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
 
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
@@ -1010,30 +1080,41 @@ class SELFEGrid(Grid):
         lat_name = ret_subset.cf["latitude"].name
 
         # adjust the lng/lat to the requested point
-        ret_subset.__setitem__(lng_name, (
-            ret_subset[lng_name].dims,
-            np.full(ret_subset[lng_name].shape, lng),
-            ret_subset[lng_name].attrs,
-        ))
-        ret_subset.__setitem__(lat_name, (
-            ret_subset[lat_name].dims,
-            np.full(ret_subset[lat_name].shape, lat),
-            ret_subset[lat_name].attrs,
-        ))
+        ret_subset.__setitem__(
+            lng_name,
+            (
+                ret_subset[lng_name].dims,
+                np.full(ret_subset[lng_name].shape, lng),
+                ret_subset[lng_name].attrs,
+            ),
+        )
+        ret_subset.__setitem__(
+            lat_name,
+            (
+                ret_subset[lat_name].dims,
+                np.full(ret_subset[lat_name].shape, lat),
+                ret_subset[lat_name].attrs,
+            ),
+        )
 
         lng_values = subset.cf["longitude"].values
         lat_values = subset.cf["latitude"].values
 
         # find if the selected lng/lat is within a triangle
-        valid_tri = lat_lng_find_tri(lng, lat, lng_values, lat_values, self.tessellate(subset))
+        valid_tri = lat_lng_find_tri(
+            lng, lat, lng_values, lat_values, self.tessellate(subset),
+        )
         # if no -> set all values to nan
         if valid_tri is None:
             for parameter in parameters:
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, np.nan),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
         # if yes -> interpolate the values based on barycentric weights
         else:
             p1 = [lng_values[valid_tri[0]], lat_values[valid_tri[0]]]
@@ -1048,11 +1129,14 @@ class SELFEGrid(Grid):
                 v3 = values[..., valid_tri[2]]
 
                 new_value = (v1 * w1) + (v2 * w2) + (v3 * w3)
-                ret_subset.__setitem__(parameter, (
-                    ret_subset[parameter].dims,
-                    np.full(ret_subset[parameter].shape, new_value),
-                    ret_subset[parameter].attrs,
-                ))
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, new_value),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
 
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
@@ -1387,10 +1471,16 @@ def barycentric_weights(point, v1, v2, v3):
     the following formula: (w1 * value1) + (w2 * value2) + (w3 * value3)
     """
 
-    denominator = ((v2[1] - v3[1]) * (v1[0] - v3[0])) + ((v3[0] - v2[0]) * (v1[1] - v3[1]))
+    denominator = ((v2[1] - v3[1]) * (v1[0] - v3[0])) + (
+        (v3[0] - v2[0]) * (v1[1] - v3[1])
+    )
 
-    w1 = (((v2[1] - v3[1]) * (point[0] - v3[0])) + ((v3[0] - v2[0]) * (point[1] - v3[1]))) / denominator
-    w2 = (((v3[1] - v1[1]) * (point[0] - v3[0])) + ((v1[0] - v3[0]) * (point[1] - v3[1]))) / denominator
+    w1 = (
+        ((v2[1] - v3[1]) * (point[0] - v3[0])) + ((v3[0] - v2[0]) * (point[1] - v3[1]))
+    ) / denominator
+    w2 = (
+        ((v3[1] - v1[1]) * (point[0] - v3[0])) + ((v1[0] - v3[0]) * (point[1] - v3[1]))
+    ) / denominator
     w3 = 1 - w1 - w2
 
     return w1, w2, w3
@@ -1421,12 +1511,15 @@ def lat_lng_find_tri(lng, lat, lng_values, lat_values, triangles):
 
     lnglat_data = np.stack((lng_values[triangles], lat_values[triangles]), axis=2)
 
-    d1 = ((lng - lnglat_data[:, 1, 0]) * (lnglat_data[:, 0, 1] - lnglat_data[:, 1, 1])) - (
-                (lnglat_data[:, 0, 0] - lnglat_data[:, 1, 0]) * (lat - lnglat_data[:, 1, 1]))
-    d2 = ((lng - lnglat_data[:, 2, 0]) * (lnglat_data[:, 1, 1] - lnglat_data[:, 2, 1])) - (
-                (lnglat_data[:, 1, 0] - lnglat_data[:, 2, 0]) * (lat - lnglat_data[:, 2, 1]))
-    d3 = ((lng - lnglat_data[:, 0, 0]) * (lnglat_data[:, 2, 1] - lnglat_data[:, 0, 1])) - (
-                (lnglat_data[:, 2, 0] - lnglat_data[:, 0, 0]) * (lat - lnglat_data[:, 0, 1]))
+    d1 = (
+        (lng - lnglat_data[:, 1, 0]) * (lnglat_data[:, 0, 1] - lnglat_data[:, 1, 1])
+    ) - ((lnglat_data[:, 0, 0] - lnglat_data[:, 1, 0]) * (lat - lnglat_data[:, 1, 1]))
+    d2 = (
+        (lng - lnglat_data[:, 2, 0]) * (lnglat_data[:, 1, 1] - lnglat_data[:, 2, 1])
+    ) - ((lnglat_data[:, 1, 0] - lnglat_data[:, 2, 0]) * (lat - lnglat_data[:, 2, 1]))
+    d3 = (
+        (lng - lnglat_data[:, 0, 0]) * (lnglat_data[:, 2, 1] - lnglat_data[:, 0, 1])
+    ) - ((lnglat_data[:, 2, 0] - lnglat_data[:, 0, 0]) * (lat - lnglat_data[:, 0, 1]))
 
     has_neg = np.logical_or(np.logical_or(d1 < 0, d2 < 0), d3 < 0)
     has_pos = np.logical_or(np.logical_or(d1 > 0, d2 > 0), d3 > 0)
@@ -1460,28 +1553,58 @@ def bilinear_interp(percent_point, percent_quad, value_quad):
 
     a = -percent_quad[0][0][0] + percent_quad[0][1][0]
     b = -percent_quad[0][0][0] + percent_quad[1][0][0]
-    c = percent_quad[0][0][0] - percent_quad[1][0][0] - percent_quad[0][1][0] + percent_quad[1][1][0]
+    c = (
+        percent_quad[0][0][0]
+        - percent_quad[1][0][0]
+        - percent_quad[0][1][0]
+        + percent_quad[1][1][0]
+    )
     d = percent_point[0] - percent_quad[0][0][0]
     e = -percent_quad[0][0][1] + percent_quad[0][1][1]
     f = -percent_quad[0][0][1] + percent_quad[1][0][1]
-    g = percent_quad[0][0][1] - percent_quad[1][0][1] - percent_quad[0][1][1] + percent_quad[1][1][1]
+    g = (
+        percent_quad[0][0][1]
+        - percent_quad[1][0][1]
+        - percent_quad[0][1][1]
+        + percent_quad[1][1][1]
+    )
     h = percent_point[1] - percent_quad[0][0][1]
 
-    alpha_denominator = (2 * c * e - 2 * a * g)
-    beta_denominator = (2 * c * f - 2 * b * g)
+    alpha_denominator = 2 * c * e - 2 * a * g
+    beta_denominator = 2 * c * f - 2 * b * g
 
     # for regular grids, just use x/y percents as alpha/beta
     if alpha_denominator == 0 or beta_denominator == 0:
         alpha = percent_point[0]
         beta = percent_point[1]
     else:
-        alpha = -(b * e - a * f + d * g - c * h + np.sqrt(-4 * (c * e - a * g) * (d * f - b * h) +
-                                                          np.power((b * e - a * f + d * g - c * h), 2))) / alpha_denominator
-        beta = (b * e - a * f - d * g + c * h + np.sqrt(-4 * (c * e - a * g) * (d * f - b * h) +
-                                                        np.power((b * e - a * f + d * g - c * h), 2))) / beta_denominator
+        alpha = (
+            -(
+                b * e
+                - a * f
+                + d * g
+                - c * h
+                + np.sqrt(
+                    -4 * (c * e - a * g) * (d * f - b * h)
+                    + np.power((b * e - a * f + d * g - c * h), 2),
+                )
+            )
+            / alpha_denominator
+        )
+        beta = (
+            b * e
+            - a * f
+            - d * g
+            + c * h
+            + np.sqrt(
+                -4 * (c * e - a * g) * (d * f - b * h)
+                + np.power((b * e - a * f + d * g - c * h), 2),
+            )
+        ) / beta_denominator
 
-    return (1 - alpha) * ((1 - beta) * value_quad[..., 0, 0] + beta * value_quad[..., 1, 0]) + alpha * (
-                (1 - beta) * value_quad[..., 0, 1] + beta * value_quad[..., 1, 1])
+    return (1 - alpha) * (
+        (1 - beta) * value_quad[..., 0, 0] + beta * value_quad[..., 1, 0]
+    ) + alpha * ((1 - beta) * value_quad[..., 0, 1] + beta * value_quad[..., 1, 1])
 
 
 def lat_lng_quad_percentage(lng, lat, lng_values, lat_values, quad):
@@ -1505,16 +1628,16 @@ def lat_lng_quad_percentage(lng, lat, lng_values, lat_values, quad):
     within the percent quad
     """
 
-    lngs = lng_values[quad[0][0]:(quad[1][0] + 1), quad[0][1]:(quad[1][1] + 1)]
-    lats = lat_values[quad[0][0]:(quad[1][0] + 1), quad[0][1]:(quad[1][1] + 1)]
+    lngs = lng_values[quad[0][0] : (quad[1][0] + 1), quad[0][1] : (quad[1][1] + 1)]
+    lats = lat_values[quad[0][0] : (quad[1][0] + 1), quad[0][1] : (quad[1][1] + 1)]
 
     lng_min = np.min(lngs)
     lng_max = np.max(lngs)
     lat_min = np.min(lats)
     lat_max = np.max(lats)
 
-    lng_denominator = (lng_max - lng_min)
-    lat_denominator = (lat_max - lat_min)
+    lng_denominator = lng_max - lng_min
+    lat_denominator = lat_max - lat_min
 
     percent_quad = np.zeros((2, 2, 2))
     percent_quad[:, :, 0] = (lngs - lng_min) / lng_denominator
@@ -1548,20 +1671,57 @@ def lat_lng_find_quad(lng, lat, lng_values, lat_values):
 
     lnglat_data = np.stack((lng_values, lat_values), axis=2)
 
-    x0y0tox0y1 = np.where(((lnglat_data[1:, :-1, 0] - lnglat_data[:-1, :-1, 0]) * (lat - lnglat_data[:-1, :-1, 1])
-                           - (lng - lnglat_data[:-1, :-1, 0]) * (lnglat_data[1:, :-1, 1] - lnglat_data[:-1, :-1, 1]))
-                           <= 0, 1, 0)
-    x0y1tox1y1 = np.where(((lnglat_data[1:, 1:, 0] - lnglat_data[1:, :-1, 0]) * (lat - lnglat_data[1:, :-1, 1])
-                           - (lng - lnglat_data[1:, :-1, 0]) * (lnglat_data[1:, 1:, 1] - lnglat_data[1:, :-1, 1]))
-                           <= 0, 1, 0)
-    x1y1tox1y0 = np.where(((lnglat_data[:-1, 1:, 0] - lnglat_data[1:, 1:, 0]) * (lat - lnglat_data[1:, 1:, 1])
-                           - (lng - lnglat_data[1:, 1:, 0]) * (lnglat_data[:-1, 1:, 1] - lnglat_data[1:, 1:, 1]))
-                           <= 0, 1, 0)
-    x1y0tox0y0 = np.where(((lnglat_data[:-1, :-1, 0] - lnglat_data[:-1, 1:, 0]) * (lat - lnglat_data[:-1, 1:, 1])
-                           - (lng - lnglat_data[:-1, 1:, 0]) * (lnglat_data[:-1, :-1, 1] - lnglat_data[:-1, 1:, 1])
-                           <= 0), 1, 0)
+    x0y0tox0y1 = np.where(
+        (
+            (lnglat_data[1:, :-1, 0] - lnglat_data[:-1, :-1, 0])
+            * (lat - lnglat_data[:-1, :-1, 1])
+            - (lng - lnglat_data[:-1, :-1, 0])
+            * (lnglat_data[1:, :-1, 1] - lnglat_data[:-1, :-1, 1])
+        )
+        <= 0,
+        1,
+        0,
+    )
+    x0y1tox1y1 = np.where(
+        (
+            (lnglat_data[1:, 1:, 0] - lnglat_data[1:, :-1, 0])
+            * (lat - lnglat_data[1:, :-1, 1])
+            - (lng - lnglat_data[1:, :-1, 0])
+            * (lnglat_data[1:, 1:, 1] - lnglat_data[1:, :-1, 1])
+        )
+        <= 0,
+        1,
+        0,
+    )
+    x1y1tox1y0 = np.where(
+        (
+            (lnglat_data[:-1, 1:, 0] - lnglat_data[1:, 1:, 0])
+            * (lat - lnglat_data[1:, 1:, 1])
+            - (lng - lnglat_data[1:, 1:, 0])
+            * (lnglat_data[:-1, 1:, 1] - lnglat_data[1:, 1:, 1])
+        )
+        <= 0,
+        1,
+        0,
+    )
+    x1y0tox0y0 = np.where(
+        (
+            (lnglat_data[:-1, :-1, 0] - lnglat_data[:-1, 1:, 0])
+            * (lat - lnglat_data[:-1, 1:, 1])
+            - (lng - lnglat_data[:-1, 1:, 0])
+            * (lnglat_data[:-1, :-1, 1] - lnglat_data[:-1, 1:, 1])
+            <= 0
+        ),
+        1,
+        0,
+    )
 
-    top_left_index = np.where(np.logical_and(np.logical_and(x0y0tox0y1, x0y1tox1y1), np.logical_and(x1y1tox1y0, x1y0tox0y0)))
+    top_left_index = np.where(
+        np.logical_and(
+            np.logical_and(x0y0tox0y1, x0y1tox1y1),
+            np.logical_and(x1y1tox1y0, x1y0tox0y0),
+        ),
+    )
 
     if len(top_left_index) == 0 or len(top_left_index[0]) == 0:
         return None
