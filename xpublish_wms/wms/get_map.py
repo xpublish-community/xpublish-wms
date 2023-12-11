@@ -60,6 +60,7 @@ class GetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
+        start_time = time.time()
         self.ensure_query_types(ds, query)
 
         # Select data according to request
@@ -67,6 +68,7 @@ class GetMap:
         da = self.select_time(da)
         da = self.select_elevation(ds, da)
         # da = self.select_custom_dim(da)
+        print(f'Selecting data: {(time.time()-start_time)*1000}')
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -74,6 +76,7 @@ class GetMap:
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
         render_result = self.render(ds, da, image_buffer, False)
+        print(f'Render: {(time.time()-start_time)*1000}')
         if render_result:
             image_buffer.seek(0)
 
@@ -241,7 +244,7 @@ class GetMap:
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
         da = ds.gridded.project(da, self.crs)
-        logger.debug(f"Projection time: {time.time() - projection_start}")
+        print(f"Projection time: {time.time() - projection_start}")
 
         if minmax_only:
             da = da.persist()
@@ -271,7 +274,7 @@ class GetMap:
         da.persist()
         da.y.persist()
         da.x.persist()
-        logger.debug(f"dask compute: {time.time() - start_dask}")
+        print(f"dask compute: {time.time() - start_dask}")
 
         start_shade = time.time()
         cvs = dsh.Canvas(
@@ -303,7 +306,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        logger.debug(f"Shade time: {time.time() - start_shade}")
+        print(f"Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
