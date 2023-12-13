@@ -116,7 +116,9 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         times = list(dict.fromkeys([t.replace("Z", "") for t in time_str.split("/")]))
     else:
         times = []
-    has_time_coord = ["time" in ds[parameter].cf.coordinates for parameter in parameters]
+    has_time_coord = [
+        "time" in ds[parameter].cf.coordinates for parameter in parameters
+    ]
     any_has_time_axis = True in has_time_coord
 
     elevation_str = query.get("elevation", None)
