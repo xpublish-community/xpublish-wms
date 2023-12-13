@@ -181,7 +181,7 @@ class GetMap:
         time_dim = da.cf.coords.get(self.TIME_CF_NAME, None)
         if not time_dim or time_dim not in da.dims:
             return da
-        
+
         if self.time is not None:
             da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
         elif self.TIME_CF_NAME in da.cf.coords:
