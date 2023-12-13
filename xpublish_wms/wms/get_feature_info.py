@@ -162,7 +162,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             try:
                 selected_ds = selected_ds.cf.isel(time=0)
             except:
-                # Skip it, time isnt a dimension, even though it is coordinate
+                # Skip it, time isn't a dimension, even though it is a coordinate
                 pass
 
     # TODO: This is really difficult when we have multiple parameters
