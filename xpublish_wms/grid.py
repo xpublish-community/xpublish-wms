@@ -355,7 +355,7 @@ class ROMSGrid(Grid):
         if "time" in mask.cf.coords:
             mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
         else:
-            mask = mask.cf.squeeze(drop=True).cf
+            mask = mask.cf.squeeze(drop=True)
 
         mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
         mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)

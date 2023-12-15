@@ -187,8 +187,6 @@ class GetMap:
         elif self.TIME_CF_NAME in da.cf.coords:
             da = da.cf.isel({self.TIME_CF_NAME: -1})
 
-        return da
-
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
         """
         Ensure elevation selection
@@ -284,6 +282,9 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
+
+        # Squeeze single value dimensions
+        da = da.squeeze()
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
