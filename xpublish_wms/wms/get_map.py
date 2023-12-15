@@ -189,7 +189,7 @@ class GetMap:
             da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
         elif self.TIME_CF_NAME in da.cf.coords:
             da = da.cf.isel({self.TIME_CF_NAME: -1})
-        
+
         return da
 
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
