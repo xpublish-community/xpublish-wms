@@ -178,14 +178,19 @@ class GetMap:
         :param da:
         :return:
         """
-        time_dim = da.cf.coords.get(self.TIME_CF_NAME, None)
-        if not time_dim or time_dim not in da.dims:
+        time_dim = da.cf.coordinates.get(self.TIME_CF_NAME, None)
+        if time_dim is not None and len(time_dim):
+            time_dim = time_dim[0]
+
+        if not time_dim or time_dim not in list(da.dims):
             return da
 
         if self.time is not None:
             da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
         elif self.TIME_CF_NAME in da.cf.coords:
             da = da.cf.isel({self.TIME_CF_NAME: -1})
+        
+        return da
 
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
         """
