@@ -1,4 +1,4 @@
-## xpublish-wms
+# xpublish-wms
 
 [![PyPI](https://img.shields.io/pypi/v/xpublish-wms)](https://pypi.org/project/xpublish-wms/)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/xpublish-wms.svg)](https://anaconda.org/conda-forge/xpublish-wms)
@@ -8,11 +8,7 @@
 
 [Xpublish](https://xpublish.readthedocs.io/en/latest/) routers for the [OGC WMS API](https://www.ogc.org/standards/wms).
 
-### Documentation and code
-
-*Coming soon*
-
-### Installation
+## Installation
 
 For `conda` users you can
 
@@ -28,16 +24,20 @@ pip install xpublish_wms
 
 Once it's installed, the plugin will register itself with Xpublish and WMS endpoints will be included for each dataset on the server.
 
-### Dataset Requirements
+## Dataset Requirements
 
-At this time, only a subset of xarray datasets will work out of the box with this plugin. To be compatible, a dataset must have:
+At this time, only a subset of xarray datasets will work out of the box with this plugin. To be compatible, a dataset must contain CF compliant coordinate variables for `lat`, `lon`, `time`, and `vertical`. `time` and `vertical` are optional.
 
-- CF Compliant `latitude` and `longitude` coordinates
-- One of:
-    - `latitude` and `longitude` dimensions that correspond to the CF compliant coordinates
-    - CF compliant SGRID metadata (`topology`)
+Currently the following grid/model types are supported:
+- Regularly spaced lat/lon grids (Tested with GFS, GFS Wave models)
+- Curvilinear grids (Tested with ROMS models CBOFS, DBOFS, TBOFS, WCOFS, GOMOFS, and CIOFS models)
+- FVCOM grids (Tested with LOOFS, LSOFS, LMHOFS, and NGOFS2 models)
+- SELFE grids (Tested with CREOFS model)
+- 2d Non Dimensional grids (Tested with RTOFS, HRRR-Conus models)
 
-Currently only regularly spaced lat/lng grids and SGRID grids are supported. If a datasets meets these requirements and does not work, please file an [issue](https://github.com/xpublish-community/xpublish-wms/issues). Pull requests to support other grid systems are encouraged!
+### Supporting new grid/model types
+
+If you have a dataset that is not supported, you can add support by creating a new `xpublish_wms.Grid` subclass and registering it with the `xpublish_wms.register_grid_impl` function. See the [xpublish_wms.grids](/xpublish_wms/grid.py) module for examples.
 
 ## Get in touch
 

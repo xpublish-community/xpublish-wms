@@ -186,6 +186,13 @@ class GetMap:
         :param da:
         :return:
         """
+        time_dim = da.cf.coordinates.get(self.TIME_CF_NAME, None)
+        if time_dim is not None and len(time_dim):
+            time_dim = time_dim[0]
+
+        if not time_dim or time_dim not in list(da.dims):
+            return da
+
         if self.time is not None:
             da = da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
         elif self.TIME_CF_NAME in da.cf.coords:
@@ -293,6 +300,9 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
+
+        # Squeeze single value dimensions
+        da = da.squeeze()
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
