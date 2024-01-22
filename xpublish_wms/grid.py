@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Optional, Sequence, Tuple, Union
@@ -557,7 +558,8 @@ class HYCOMGrid(Grid):
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
         mask_0 = xr.where(da.cf["longitude"] <= 180, 1, 0)
-        temp_da_0 = da.where(mask_0.compute() == 1, drop=True)
+        computedMask = mask_0.compute() # Compute once use twice
+        temp_da_0 = da.where(computedMask == 1, drop=True)
         da_0 = xr.DataArray(
             data=temp_da_0,
             dims=temp_da_0.dims,
@@ -566,9 +568,11 @@ class HYCOMGrid(Grid):
             attrs=temp_da_0.attrs,
         )
 
-        mask_1 = xr.where(da.cf["longitude"] > 180, 1, 0)
-        temp_da_1 = da.where(mask_1.compute() == 1, drop=True)
+        #mask_1 = xr.where(da.cf["longitude"] > 180, 1, 0)
+
+        temp_da_1 = da.where(computedMask != 1, drop=True)
         temp_da_1.cf["longitude"][:] = temp_da_1.cf["longitude"][:] - 360
+
         da_1 = xr.DataArray(
             data=temp_da_1,
             dims=temp_da_1.dims,
@@ -578,7 +582,9 @@ class HYCOMGrid(Grid):
         )
 
         # put the 2 DataArrays back together in the proper order
+        #startTime = time.time()
         da = xr.concat([da_1, da_0], dim="X")
+        #print(str(time.time() - startTime))
 
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
