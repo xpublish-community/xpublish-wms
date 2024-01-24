@@ -169,6 +169,8 @@ class GetMap:
         :param ds:
         :return:
         """
+        if ds.gridded.name == 'hycom':
+            return ds[self.parameter][0,:-1,]
         return ds[self.parameter]
 
     def select_time(self, da: xr.DataArray) -> xr.DataArray:
