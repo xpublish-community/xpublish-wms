@@ -355,7 +355,7 @@ class ROMSGrid(Grid):
         if "time" in mask.cf.coords:
             mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
         else:
-            mask = mask.cf.squeeze(drop=True)
+            mask = mask.cf.squeeze(drop=True).copy(deep=True)
 
         mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
         mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
@@ -409,7 +409,11 @@ class ROMSGrid(Grid):
             if "time" in mask.cf.coords:
                 mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
             else:
-                mask = mask.cf.squeeze(drop=True)
+                # We apparently need to deep copy because for some reason
+                # if we dont this function will overwrite the mask in the dataset
+                # I'm guessing that squeeze is a no-op if there are no length 1
+                # dimensions
+                mask = mask.cf.squeeze(drop=True).copy(deep=True)
 
             subset[parameter] = subset[parameter].where(mask == 1)
 
