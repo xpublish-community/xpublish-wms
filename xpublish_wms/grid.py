@@ -554,7 +554,8 @@ class HYCOMGrid(Grid):
         return da.where(np_mask.mask == 0)
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        da = self.mask(da)
+        #da = self.mask(da)
+        da = da[0:,:-1,] # Drop lng>500
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
         mask_0 = xr.where(da.cf["longitude"] <= 180, 1, 0)
