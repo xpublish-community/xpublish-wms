@@ -64,6 +64,8 @@ class GetMap:
 
         # Select data according to request
         da = self.select_layer(ds)
+        if ds.gridded.name == 'hycom':
+            da = da[0:, :-1, ]  # Drop lng>500 on HYCOM Grid. This has to be done before select_time(da) is ran.
         da = self.select_time(da)
         da = self.select_elevation(ds, da)
         # da = self.select_custom_dim(da)
