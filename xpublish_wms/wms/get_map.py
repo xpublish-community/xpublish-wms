@@ -64,7 +64,7 @@ class GetMap:
 
         # Select data according to request
         da = self.select_layer(ds)
-        #da = self.select_time(da)
+        da = self.select_time(da)
         da = self.select_elevation(ds, da)
         # da = self.select_custom_dim(da)
 
