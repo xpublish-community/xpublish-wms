@@ -60,7 +60,6 @@ class GetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
-        #start_time = time.perf_counter()
         self.ensure_query_types(ds, query)
 
         # Select data according to request
@@ -68,8 +67,6 @@ class GetMap:
         #da = self.select_time(da)
         da = self.select_elevation(ds, da)
         # da = self.select_custom_dim(da)
-
-        #print(f'Selecting data: {(time.time()-start_time)*1000}')
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -249,8 +246,9 @@ class GetMap:
         # For now, try to render everything as a quad grid
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
-        da = ds.gridded.project(da, self.crs) # This is blocking?
-        #print(f"Projection time: {time.time() - projection_start}")
+        projection_start = time.time()
+        da = ds.gridded.project(da, self.crs)
+        logger.debug(f"Projection time: {time.time() - projection_start}")
 
         if minmax_only:
             da = da.persist()
@@ -276,13 +274,13 @@ class GetMap:
         else:
             vmin, vmax = [None, None]
 
-        start_dask = time.perf_counter()
+        start_dask = time.time()
         da.persist()
         da.y.persist()
         da.x.persist()
-        #print(f"dask compute: {time.time() - start_dask}")
+        logger.debug(f"dask compute: {time.time() - start_dask}")
 
-        start_shade = time.perf_counter()
+        start_shade = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
@@ -315,7 +313,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        #print(f"Shade time: {time.time() - start_shade}")
+        logger.debug(f"Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
