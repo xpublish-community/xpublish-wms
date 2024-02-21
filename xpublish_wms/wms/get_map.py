@@ -59,7 +59,6 @@ class GetMap:
         """
         Return the WMS map for the dataset and given parameters
         """
-        #self.timings.clear()
         # Decode request params
         #start_time = time.perf_counter()
         self.ensure_query_types(ds, query)
@@ -69,7 +68,7 @@ class GetMap:
         #da = self.select_time(da)
         da = self.select_elevation(ds, da)
         # da = self.select_custom_dim(da)
-        #self.timings.append((time.perf_counter()-start_time)*1000)
+
         #print(f'Selecting data: {(time.time()-start_time)*1000}')
 
         # Render the data using the render that matches the dataset type
@@ -80,10 +79,6 @@ class GetMap:
         render_result = self.render(ds, da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
-        #self.timings.append(sum(self.timings))
-        #f = open('/home/nicholas/Desktop/MQPTestingServer/get_map_results.csv', 'a')
-        #f.write(f"{self.timings[0]}, {self.timings[1]}, {self.timings[2]}, {self.timings[3]}, {self.timings[4]}\n")
-        #f.close()
 
         return StreamingResponse(image_buffer, media_type="image/png")
 
@@ -254,12 +249,8 @@ class GetMap:
         # For now, try to render everything as a quad grid
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
-        timings=[]
-        projection_start = time.perf_counter()
         da = ds.gridded.project(da, self.crs) # This is blocking?
         #print(f"Projection time: {time.time() - projection_start}")
-        timings.append((time.perf_counter() - projection_start)*1000)
-        #self.timings[1] = (time.time() - projection_start)*1000
 
         if minmax_only:
             da = da.persist()
@@ -290,8 +281,6 @@ class GetMap:
         da.y.persist()
         da.x.persist()
         #print(f"dask compute: {time.time() - start_dask}")
-        #self.timings[2] = (time.time() - start_dask)*1000
-        timings.append((time.perf_counter() - start_dask)*1000)
 
         start_shade = time.perf_counter()
         cvs = dsh.Canvas(
@@ -327,11 +316,6 @@ class GetMap:
             span=(vmin, vmax),
         )
         #print(f"Shade time: {time.time() - start_shade}")
-        #self.timings[3] = (time.time() - start_shade)*1000
-        timings.append((time.perf_counter() - start_shade)*1000)
-        f = open('/home/nicholas/Desktop/MQPTestingServer/get_map_results.csv', 'a')
-        f.write(f"{timings[0]}, {timings[1]}, {timings[2]}, {sum(timings)}\n")
-        f.close()
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")

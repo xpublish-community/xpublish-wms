@@ -555,22 +555,18 @@ class HYCOMGrid(Grid):
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
         #da = self.mask(da)
-        da = da[0:,:-1,] # Drop lng>500
+        da = da[0:,:-1,]  # Drop lng>500
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
         mask_0 = xr.where(da.cf["longitude"] <= 180, 1, 0)
-        computedMask = mask_0.compute() # Compute once use twice
+        computedMask = mask_0.compute()
         da_0 = da.where(computedMask == 1, drop=True)
-
-        #mask_1 = xr.where(da.cf["longitude"] > 180, 1, 0)
 
         da_1 = da.where(computedMask != 1, drop=True)
         da_1.cf["longitude"][:] = da_1.cf["longitude"][:] - 360
 
         # put the 2 DataArrays back together in the proper order
-        #startTime = time.time()
         da = xr.concat([da_1, da_0], dim="X")
-        #print(str(time.time() - startTime))
 
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
