@@ -28,6 +28,7 @@ def wms_handler(
 ) -> Response:
     query_params = lower_case_keys(request.query_params)
     method = query_params.get("request", "").lower()
+    logger.debug(f"Received wms request: {request.url}")
     logger.info(f"WMS: {method}")
     if method == "getcapabilities":
         return get_capabilities(dataset, request, query_params)

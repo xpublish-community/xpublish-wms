@@ -264,10 +264,18 @@ class GetMap:
             # x_sel = x[inds].flatten()
             # y_sel = y[inds].flatten()
             data_sel = data[inds].flatten()
-            return {
-                "min": float(np.nanmin(data_sel)),
-                "max": float(np.nanmax(data_sel)),
-            }
+
+            try:
+                return {
+                    "min": float(np.nanmin(data_sel)),
+                    "max": float(np.nanmax(data_sel)),
+                }
+            except Exception as e:
+                logger.error(f"Error computing minmax: {e}, falling back to full layer minmax")
+                return {
+                    "min": float(da.min()),
+                    "max": float(da.max())
+                }
 
         if not self.autoscale:
             vmin, vmax = self.colorscalerange
