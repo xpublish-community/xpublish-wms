@@ -247,7 +247,15 @@ class GetMap:
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
-        da = ds.gridded.project(da, self.crs)
+
+        try:
+            da = ds.gridded.project(da, self.crs)
+        except Exception as e:
+            logger.warning(f"Projection failed: {e}")
+            if minmax_only:
+                logger.warning("Falling back to default minmax")
+                return {"min": float(da.min()), "max": float(da.max())}
+
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
         if minmax_only:
