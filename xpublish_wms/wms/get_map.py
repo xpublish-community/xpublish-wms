@@ -271,11 +271,10 @@ class GetMap:
                     "max": float(np.nanmax(data_sel)),
                 }
             except Exception as e:
-                logger.error(f"Error computing minmax: {e}, falling back to full layer minmax")
-                return {
-                    "min": float(da.min()),
-                    "max": float(da.max())
-                }
+                logger.error(
+                    f"Error computing minmax: {e}, falling back to full layer minmax",
+                )
+                return {"min": float(da.min()), "max": float(da.max())}
 
         if not self.autoscale:
             vmin, vmax = self.colorscalerange
