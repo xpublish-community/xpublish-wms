@@ -1,5 +1,6 @@
 black
 check-manifest
+dask[complete]
 doctr
 flake8
 flake8-builtins
