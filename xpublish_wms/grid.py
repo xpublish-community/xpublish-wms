@@ -226,15 +226,22 @@ class NonDimensionalGrid(Grid):
             )
             y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
+            if da.chunks:
+                x_coord_array = dask_array.from_array(x, chunks=x_chunks)
+                y_coord_array = dask_array.from_array(y, chunks=y_chunks)
+            else:
+                x_coord_array = x
+                y_coord_array = y
+
             da = da.assign_coords(
                 {
                     "x": (
                         da.cf["longitude"].dims,
-                        dask_array.from_array(x, chunks=x_chunks),
+                        x_coord_array,
                     ),
                     "y": (
                         da.cf["latitude"].dims,
-                        dask_array.from_array(y, chunks=y_chunks),
+                        y_coord_array,
                     ),
                 },
             )
