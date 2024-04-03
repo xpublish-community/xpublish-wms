@@ -564,29 +564,15 @@ class HYCOMGrid(Grid):
         return da.where(np_mask.mask == 0)
 
     def project(self, da: xr.DataArray, crs: str) -> Any:
-        da = self.mask(da)
+        # da = self.mask(da)
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
         mask_0 = xr.where(da.cf["longitude"] <= 180, 1, 0)
-        temp_da_0 = da.where(mask_0.compute() == 1, drop=True)
-        da_0 = xr.DataArray(
-            data=temp_da_0,
-            dims=temp_da_0.dims,
-            name=temp_da_0.name,
-            coords=temp_da_0.coords,
-            attrs=temp_da_0.attrs,
-        )
+        computedMask = mask_0.compute()
+        da_0 = da.where(computedMask == 1, drop=True)
 
-        mask_1 = xr.where(da.cf["longitude"] > 180, 1, 0)
-        temp_da_1 = da.where(mask_1.compute() == 1, drop=True)
-        temp_da_1.cf["longitude"][:] = temp_da_1.cf["longitude"][:] - 360
-        da_1 = xr.DataArray(
-            data=temp_da_1,
-            dims=temp_da_1.dims,
-            name=temp_da_1.name,
-            coords=temp_da_1.coords,
-            attrs=temp_da_1.attrs,
-        )
+        da_1 = da.where(computedMask != 1, drop=True)
+        da_1.cf["longitude"][:] = da_1.cf["longitude"][:] - 360
 
         # put the 2 DataArrays back together in the proper order
         da = xr.concat([da_1, da_0], dim="X")
