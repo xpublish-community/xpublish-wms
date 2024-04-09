@@ -838,7 +838,6 @@ class FVCOMGrid(Grid):
         )
 
         # new dataset
-        # MARK: ERROR
         subset = xr.Dataset(data_vars=temp_arrays, coords=coords, attrs=subset.attrs)
 
         # cut the dataset down to 1 point, the values are adjusted anyhow so doesn't matter the point
