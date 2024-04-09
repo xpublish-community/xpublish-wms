@@ -775,10 +775,10 @@ class FVCOMGrid(Grid):
 
         subset = self.mask(subset)
 
-        if 'siglay' in subset.dims:
-            subset = subset.rename_dims({'siglay': 'sigma'})
-        elif 'siglev' in subset.dims:
-            subset = subset.rename_dims({'siglev': 'sigmaa'})
+        if "siglay" in subset.dims:
+            subset = subset.rename_dims({"siglay": "sigma"})
+        elif "siglev" in subset.dims:
+            subset = subset.rename_dims({"siglev": "sigmaa"})
 
         temp_arrays = dict()
         # create new dataarrays so that nele variables can be adjusted appropriately
