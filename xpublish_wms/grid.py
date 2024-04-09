@@ -775,6 +775,11 @@ class FVCOMGrid(Grid):
 
         subset = self.mask(subset)
 
+        if 'siglay' in subset.dims:
+            subset = subset.rename_dims({'siglay': 'sigma'})
+        elif 'siglev' in subset.dims:
+            subset = subset.rename_dims({'siglev': 'sigmaa'})
+
         temp_arrays = dict()
         # create new dataarrays so that nele variables can be adjusted appropriately
         for parameter in parameters:
@@ -824,13 +829,16 @@ class FVCOMGrid(Grid):
             self.ds.lon.values,
             subset[lng_name].attrs,
         )
+
         # new lat array
         coords[lat_name] = (
             subset[lat_name].dims,
             self.ds.lat.values,
             subset[lat_name].attrs,
         )
+
         # new dataset
+        # MARK: ERROR
         subset = xr.Dataset(data_vars=temp_arrays, coords=coords, attrs=subset.attrs)
 
         # cut the dataset down to 1 point, the values are adjusted anyhow so doesn't matter the point
