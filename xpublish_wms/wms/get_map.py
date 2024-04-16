@@ -15,7 +15,7 @@ import rioxarray  # noqa
 import xarray as xr
 from fastapi.responses import StreamingResponse
 
-from xpublish_wms.grid import RenderMethod
+from xpublish_wms.grids import RenderMethod
 from xpublish_wms.utils import parse_float
 
 logger = logging.getLogger("uvicorn")
@@ -291,6 +291,7 @@ class GetMap:
 
         start_dask = time.time()
         da.persist()
+        print(da)
         da.y.persist()
         da.x.persist()
         logger.debug(f"dask compute: {time.time() - start_dask}")

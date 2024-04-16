@@ -133,7 +133,6 @@ def get_menu(ds: xr.Dataset):
 
     for var in ds.data_vars:
         da = ds[var]
-
         results["children"].append(
             {
                 "plottable": "longitude" in da.cf.coords,
