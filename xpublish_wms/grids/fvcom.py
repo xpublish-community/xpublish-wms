@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 import dask.array as dask_array
 import matplotlib.tri as tri
