@@ -108,8 +108,13 @@ class Grid(ABC):
         return da
 
     @abstractmethod
-    def project(self, da: xr.DataArray, crs: str) -> any:
-        """Project the given data array from this dataset and grid to the given crs"""
+    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
+        """Project the given data array from this dataset and grid to the given crs
+        
+        returns the projected data array and optionally the x and y coordinates if they are required for triangulation
+        TODO: This is a leaky abstraction and should be refactored. It was added specifically for odd FVCOM datasets 
+        that do not have the neighbor connectivity information in the dataset.
+        """
         pass
 
     def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:

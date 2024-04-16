@@ -268,25 +268,10 @@ class FVCOMGrid(Grid):
 
         return da
 
-    def project(self, da: xr.DataArray, crs: str) -> any:
+    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         data = da.values
-
-        # create new data by getting values from the surrounding edges
-        # if "nele" in da.dims:
-        # if "time" in self.ds.ntve.coords:
-        #     elem_count = self.ds.ntve.isel(time=0).values
-        # else:
-        #     elem_count = self.ds.ntve.values
-
-        # if "time" in self.ds.nbve.coords:
-        #     neighbors = self.ds.nbve.isel(time=0).values
-        # else:
-        #     neighbors = self.ds.nbve.values
-
-        # mask = neighbors[:, :] > 0
-        # data = np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
 
         coords = dict()
         # need to create new x & y coordinates with dataset values while dropping the old ones
@@ -295,18 +280,46 @@ class FVCOMGrid(Grid):
             if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
                 coords[coord] = da.coords[coord]
 
-        # build new x coordinate
-        coords["x"] = (
-            da.cf["longitude"].dims,
-            self.ds.lon.values,
-            da.cf["longitude"].attrs,
-        )
-        # build new y coordinate
-        coords["y"] = (
-            da.cf["latitude"].dims,
-            self.ds.lat.values,
-            da.cf["latitude"].attrs,
-        )
+        # create new data by getting values from the surrounding edges if the metadata is available 
+        # and the variable is zonal
+        if "nele" in da.dims and "ntve" in self.ds:
+            if "time" in self.ds.ntve.coords:
+                elem_count = self.ds.ntve.isel(time=0).values
+            else:
+                elem_count = self.ds.ntve.values
+
+            if "time" in self.ds.nbve.coords:
+                neighbors = self.ds.nbve.isel(time=0).values
+            else:
+                neighbors = self.ds.nbve.values
+
+            mask = neighbors[:, :] > 0
+            data = np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
+
+            coords["x"] = (
+                da.cf["longitude"].dims,
+                self.ds.lon.values,
+                da.cf["longitude"].attrs,
+            )
+            coords["y"] = (
+                da.cf["latitude"].dims,
+                self.ds.lat.values,
+                da.cf["latitude"].attrs,
+            )
+            tri_x = None
+            tri_y = None
+        else:
+            # build new x coordinate
+            coords["x"] = da.cf['longitude']
+            # build new y coordinate
+            coords["y"] = da.cf['latitude']
+
+            if 'nele' in da.dims:
+                tri_x = self.ds.lon
+                tri_y = self.ds.lat
+            else: 
+                tri_x = None
+                tri_y = None
 
         # build new data array
         da = xr.DataArray(
@@ -319,6 +332,8 @@ class FVCOMGrid(Grid):
 
         if crs == "EPSG:4326":
             da.__setitem__(da.cf["longitude"].name, da.cf["longitude"] - 360)
+            if tri_x is not None:
+                tri_x -= 360
         elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
@@ -342,16 +357,27 @@ class FVCOMGrid(Grid):
             )
 
             da = da.unify_chunks()
-        return da
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+            if tri_x is not None:
+                x, y = to_mercator.transform(tri_x, tri_y)
+                tri_x = dask_array.from_array(x)
+                tri_y = dask_array.from_array(y)
+
+                return da, tri_x, tri_y
+    
+        return da, None, None
+
+    def tessellate(self, da: xr.DataArray) -> np.ndarray:
         nv = self.ds.nv
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
-        return tri.Triangulation(
-            da.cf["longitude"],
-            da.cf["latitude"],
-            nv.T - 1,
-        ).triangles
+        if 'nele' in da.dims:
+            return nv.T - 1
+        else:
+            return tri.Triangulation(
+                da.cf["longitude"],
+                da.cf["latitude"],
+                nv.T - 1,
+            ).triangles

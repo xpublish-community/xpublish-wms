@@ -1,3 +1,4 @@
+from typing import Optional
 import xarray as xr
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
@@ -24,7 +25,7 @@ class RegularGrid(Grid):
     def crs(self) -> str:
         return "EPSG:4326"
 
-    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         coords = dict()
@@ -54,4 +55,4 @@ class RegularGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da
+        return da, None, None

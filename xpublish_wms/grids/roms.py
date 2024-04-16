@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import dask.array as dask_array
 import numpy as np
@@ -51,7 +51,7 @@ class ROMSGrid(Grid):
 
         return da.where(mask == 1)
 
-    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         if crs == "EPSG:4326":
@@ -78,7 +78,7 @@ class ROMSGrid(Grid):
 
             da = da.unify_chunks()
 
-        return da
+        return da, None, None
 
     def sel_lat_lng(
         self,

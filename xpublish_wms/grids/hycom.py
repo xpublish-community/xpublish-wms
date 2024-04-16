@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import xarray as xr
@@ -73,7 +73,7 @@ class HYCOMGrid(Grid):
 
         return da.where(np_mask.mask == 0)
 
-    def project(self, da: xr.DataArray, crs: str) -> any:
+    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array
@@ -109,7 +109,7 @@ class HYCOMGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da
+        return da, None, None
 
     def sel_lat_lng(
         self,
