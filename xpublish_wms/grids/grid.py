@@ -109,7 +109,9 @@ class Grid(ABC):
 
     @abstractmethod
     def project(
-        self, da: xr.DataArray, crs: str,
+        self,
+        da: xr.DataArray,
+        crs: str,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         """Project the given data array from this dataset and grid to the given crs
 
