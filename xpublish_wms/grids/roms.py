@@ -51,7 +51,9 @@ class ROMSGrid(Grid):
 
         return da.where(mask == 1)
 
-    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
+    def project(
+        self, da: xr.DataArray, crs: str,
+    ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         if crs == "EPSG:4326":

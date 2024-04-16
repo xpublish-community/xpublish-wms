@@ -268,7 +268,9 @@ class FVCOMGrid(Grid):
 
         return da
 
-    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
+    def project(
+        self, da: xr.DataArray, crs: str,
+    ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         data = da.values
@@ -280,7 +282,7 @@ class FVCOMGrid(Grid):
             if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
                 coords[coord] = da.coords[coord]
 
-        # create new data by getting values from the surrounding edges if the metadata is available 
+        # create new data by getting values from the surrounding edges if the metadata is available
         # and the variable is zonal
         if "nele" in da.dims and "ntve" in self.ds:
             if "time" in self.ds.ntve.coords:
@@ -310,14 +312,14 @@ class FVCOMGrid(Grid):
             tri_y = None
         else:
             # build new x coordinate
-            coords["x"] = da.cf['longitude']
+            coords["x"] = da.cf["longitude"]
             # build new y coordinate
-            coords["y"] = da.cf['latitude']
+            coords["y"] = da.cf["latitude"]
 
-            if 'nele' in da.dims:
+            if "nele" in da.dims:
                 tri_x = self.ds.lon
                 tri_y = self.ds.lat
-            else: 
+            else:
                 tri_x = None
                 tri_y = None
 
@@ -364,7 +366,7 @@ class FVCOMGrid(Grid):
                 tri_y = dask_array.from_array(y)
 
                 return da, tri_x, tri_y
-    
+
         return da, None, None
 
     def tessellate(self, da: xr.DataArray) -> np.ndarray:
@@ -373,7 +375,7 @@ class FVCOMGrid(Grid):
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
-        if 'nele' in da.dims:
+        if "nele" in da.dims:
             return nv.T - 1
         else:
             return tri.Triangulation(

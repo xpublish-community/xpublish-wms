@@ -259,7 +259,7 @@ class GetMap:
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
         start_dask = time.time()
-        
+
         da.persist()
         if x is not None and y is not None:
             x.persist()
@@ -267,7 +267,7 @@ class GetMap:
         else:
             da.x.persist()
             da.y.persist()
-        
+
         logger.debug(f"dask compute: {time.time() - start_dask}")
 
         if minmax_only:

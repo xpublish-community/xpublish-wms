@@ -73,7 +73,9 @@ class HYCOMGrid(Grid):
 
         return da.where(np_mask.mask == 0)
 
-    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
+    def project(
+        self, da: xr.DataArray, crs: str,
+    ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array

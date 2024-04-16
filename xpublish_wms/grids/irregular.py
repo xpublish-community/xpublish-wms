@@ -1,4 +1,5 @@
 from typing import Optional
+
 import dask.array as dask_array
 import numpy as np
 import xarray as xr
@@ -36,7 +37,9 @@ class IrregularGrid(Grid):
     def crs(self) -> str:
         return "EPSG:4326"
 
-    def project(self, da: xr.DataArray, crs: str) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
+    def project(
+        self, da: xr.DataArray, crs: str,
+    ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
         if crs == "EPSG:4326":

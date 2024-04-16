@@ -2,9 +2,9 @@ import logging
 import math
 from typing import Union
 
+import cartopy.geodesic
 import numpy as np
 import xarray as xr
-import cartopy.geodesic
 from pyproj import Transformer
 
 logger = logging.getLogger("uvicorn")

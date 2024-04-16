@@ -12,7 +12,6 @@ from xpublish_wms.grids.regular import RegularGrid
 from xpublish_wms.grids.roms import ROMSGrid
 from xpublish_wms.grids.selfe import SELFEGrid
 
-
 _grid_impls = [
     HYCOMGrid,
     FVCOMGrid,
@@ -149,5 +148,3 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.sel_lat_lng(subset, lng, lat, parameters)
-
-
