@@ -103,7 +103,7 @@ class FVCOMGrid(Grid):
             return self.sel_lat_lng_nele(subset, lng, lat, parameters)
         else:
             return self.sel_lat_lng_node(subset, lng, lat, parameters)
-    
+
     def sel_lat_lng_node(
         self,
         subset: xr.Dataset,
@@ -289,7 +289,7 @@ class FVCOMGrid(Grid):
                 )
         else:
             ret_subset = subset.isel(nele=valid_tri[0])
-        
+
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
         return ret_subset, x_axis, y_axis
