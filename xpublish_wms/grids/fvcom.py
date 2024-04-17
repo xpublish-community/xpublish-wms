@@ -1,4 +1,4 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 import dask.array as dask_array
 import matplotlib.tri as tri
@@ -9,6 +9,7 @@ from xpublish_wms.grids.grid import Grid, RenderMethod
 from xpublish_wms.utils import (
     barycentric_weights,
     lat_lng_find_tri,
+    lat_lng_find_tri_ind,
     strip_float,
     to_mercator,
 )
@@ -98,6 +99,18 @@ class FVCOMGrid(Grid):
         elif "siglev" in subset.dims:
             subset = subset.rename_dims({"siglev": "sigmaa"})
 
+        if "nele" in subset.dims:
+            return self.sel_lat_lng_nele(subset, lng, lat, parameters)
+        else:
+            return self.sel_lat_lng_node(subset, lng, lat, parameters)
+    
+    def sel_lat_lng_node(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> tuple[xr.Dataset, list, list]:
         temp_arrays = dict()
         # create new dataarrays so that nele variables can be adjusted appropriately
         for parameter in parameters:
@@ -185,9 +198,14 @@ class FVCOMGrid(Grid):
         lng_values = subset.cf["longitude"].values
         lat_values = subset.cf["latitude"].values
 
+        if lng < 0 and np.min(lng_values) > 0:
+            lng += 360
+        elif lng > 180 and np.min(lng_values) < 0:
+            lng -= 360
+
         # find if the selected lng/lat is within a triangle
         valid_tri = lat_lng_find_tri(
-            lng + 360,
+            lng,
             lat,
             lng_values,
             lat_values,
@@ -209,7 +227,7 @@ class FVCOMGrid(Grid):
             p1 = [lng_values[valid_tri[0]], lat_values[valid_tri[0]]]
             p2 = [lng_values[valid_tri[1]], lat_values[valid_tri[1]]]
             p3 = [lng_values[valid_tri[2]], lat_values[valid_tri[2]]]
-            w1, w2, w3 = barycentric_weights([lng + 360, lat], p1, p2, p3)
+            w1, w2, w3 = barycentric_weights([lng, lat], p1, p2, p3)
 
             for parameter in parameters:
                 values = subset[parameter].values
@@ -228,6 +246,50 @@ class FVCOMGrid(Grid):
                     ),
                 )
 
+        x_axis = [strip_float(ret_subset.cf["longitude"])]
+        y_axis = [strip_float(ret_subset.cf["latitude"])]
+        return ret_subset, x_axis, y_axis
+
+    def sel_lat_lng_nele(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> tuple[xr.Dataset, list, list]:
+        lng_values = self.ds.lon.values
+        lat_values = self.ds.lat.values
+
+        if lng < 0 and np.max(lng_values) > 180:
+            lng += 360
+        elif lng > 180 and np.min(lng_values) < 0:
+            lng -= 360
+
+        # find if the selected lng/lat is within a triangle
+        valid_tri = lat_lng_find_tri_ind(
+            lng,
+            lat,
+            lng_values,
+            lat_values,
+            self.tessellate(subset),
+        )
+
+        ret_subset = subset.isel(nele=0)
+
+        # if no -> set all values to nan
+        if valid_tri is None:
+            for parameter in parameters:
+                ret_subset.__setitem__(
+                    parameter,
+                    (
+                        ret_subset[parameter].dims,
+                        np.full(ret_subset[parameter].shape, np.nan),
+                        ret_subset[parameter].attrs,
+                    ),
+                )
+        else:
+            ret_subset = subset.isel(nele=valid_tri[0])
+        
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
         return ret_subset, x_axis, y_axis
@@ -371,7 +433,7 @@ class FVCOMGrid(Grid):
 
         return da, None, None
 
-    def tessellate(self, da: xr.DataArray) -> np.ndarray:
+    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
         nv = self.ds.nv
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
