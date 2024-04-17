@@ -15,7 +15,7 @@ import rioxarray  # noqa
 import xarray as xr
 from fastapi.responses import StreamingResponse
 
-from xpublish_wms.grid import RenderMethod
+from xpublish_wms.grids import RenderMethod
 from xpublish_wms.utils import parse_float
 
 logger = logging.getLogger("uvicorn")
@@ -249,7 +249,7 @@ class GetMap:
         projection_start = time.time()
 
         try:
-            da = ds.gridded.project(da, self.crs)
+            da, x, y = ds.gridded.project(da, self.crs)
         except Exception as e:
             logger.warning(f"Projection failed: {e}")
             if minmax_only:
@@ -257,6 +257,18 @@ class GetMap:
                 return {"min": float(da.min()), "max": float(da.max())}
 
         logger.debug(f"Projection time: {time.time() - projection_start}")
+
+        start_dask = time.time()
+
+        da.persist()
+        if x is not None and y is not None:
+            x.persist()
+            y.persist()
+        else:
+            da.x.persist()
+            da.y.persist()
+
+        logger.debug(f"dask compute: {time.time() - start_dask}")
 
         if minmax_only:
             da = da.persist()
@@ -289,12 +301,6 @@ class GetMap:
         else:
             vmin, vmax = [None, None]
 
-        start_dask = time.time()
-        da.persist()
-        da.y.persist()
-        da.x.persist()
-        logger.debug(f"dask compute: {time.time() - start_dask}")
-
         start_shade = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
@@ -314,8 +320,15 @@ class GetMap:
             )
         elif ds.gridded.render_method == RenderMethod.Triangle:
             triangles = ds.gridded.tessellate(da)
-            verts = pd.DataFrame({"x": da.x, "y": da.y, "z": da})
-            tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
+            if x is not None:
+                # We are coloring the triangles by the data values
+                verts = pd.DataFrame({"x": x, "y": y})
+                tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
+                tris = tris.assign(z=da.values)
+            else:
+                # We are coloring the vertices by the data values
+                verts = pd.DataFrame({"x": da.x, "y": da.y, "z": da})
+                tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
 
             mesh = cvs.trimesh(
                 verts,
@@ -333,50 +346,3 @@ class GetMap:
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
         return True
-
-    # def render_quad_grid(
-    #     self,
-    #     da: xr.DataArray,
-    #     buffer: io.BytesIO,
-    #     minmax_only: bool,
-    # ) -> Union[bool, dict]:
-    #     """
-    #     Render the data array into an image buffer when the dataset is using a
-    #     2d grid
-    #     :param da:
-    #     :return:
-    #     """
-    #     projection_start = time.time()
-    #     if self.crs == "EPSG:3857":
-    #         if (
-    #             self.grid_type == GridType.NON_DIMENSIONAL
-    #             or self.grid_type == GridType.SGRID
-    #         ):
-    #             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
-    #             x_chunks = (
-    #                 da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-    #             )
-    #             y_chunks = (
-    #                 da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
-    #             )
-
-    #             da = da.assign_coords(
-    #                 {
-    #                     "x": (
-    #                         da.cf["longitude"].dims,
-    #                         dask_array.from_array(x, chunks=x_chunks),
-    #                     ),
-    #                     "y": (
-    #                         da.cf["latitude"].dims,
-    #                         dask_array.from_array(y, chunks=y_chunks),
-    #                     ),
-    #                 },
-    #             )
-
-    #             da = da.unify_chunks()
-    #         elif self.grid_type == GridType.REGULAR:
-    #             da = da.rio.reproject("EPSG:3857")
-    #     else:
-    #         da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
-
-    #     logger.debug(f"Projection time: {time.time() - projection_start}")
