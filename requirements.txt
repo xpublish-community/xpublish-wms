@@ -4,7 +4,5 @@ cf_xarray
 datashader
 matplotlib
 Pillow
-rioxarray>=0.12.2
-scikit-learn
 xarray
 xpublish>=0.3.0,<0.4.0
