@@ -11,7 +11,6 @@ import datashader.transfer_functions as tf
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
-import rioxarray  # noqa
 import xarray as xr
 from fastapi.responses import StreamingResponse
 
