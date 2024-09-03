@@ -1,6 +1,5 @@
 import logging
 import math
-from typing import Union
 
 import cartopy.geodesic
 import numpy as np
