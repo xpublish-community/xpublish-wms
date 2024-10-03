@@ -247,6 +247,8 @@ class GetMap:
         # return self.render_quad_grid(da, buffer, minmax_only)
         projection_start = time.time()
 
+        x = None
+        y = None
         try:
             da, x, y = ds.gridded.project(da, self.crs)
         except Exception as e:
