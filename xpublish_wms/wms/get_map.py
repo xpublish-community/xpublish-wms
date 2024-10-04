@@ -15,7 +15,7 @@ import xarray as xr
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
-from xpublish_wms.utils import mask_data_within_bbox, parse_float
+from xpublish_wms.utils import filter_data_within_bbox, parse_float
 
 logger = logging.getLogger("uvicorn")
 
@@ -275,7 +275,7 @@ class GetMap:
 
         if minmax_only:
             da = da.persist()
-            data_sel = mask_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
+            data_sel = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
 
             try:
                 return {

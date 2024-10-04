@@ -483,11 +483,13 @@ def lat_lng_find_quad(lng, lat, lng_values, lat_values):
         ]
 
 
-def mask_data_within_bbox(
-    da: xr.DataArray, bbox: list[float], buffer: Optional[float] = 0.0,
+def filter_data_within_bbox(
+    da: xr.DataArray,
+    bbox: list[float],
+    buffer: Optional[float] = 0.0,
 ) -> xr.DataArray:
     """
-    Mask a DataArray to include only the data within a specified bounding
+    Filter a DataArray to include only the data within a specified bounding
     box, optionally expanded by a buffer.
 
     This function filters the input DataArray based on geographical coordinates,
