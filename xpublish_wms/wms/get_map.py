@@ -15,7 +15,7 @@ import xarray as xr
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
-from xpublish_wms.utils import parse_float
+from xpublish_wms.utils import filter_data_within_bbox, parse_float
 
 logger = logging.getLogger("uvicorn")
 
@@ -30,6 +30,8 @@ class GetMap:
     DEFAULT_CRS: str = "EPSG:3857"
     DEFAULT_STYLE: str = "raster/default"
     DEFAULT_PALETTE: str = "turbo"
+
+    BBOX_BUFFER = 0.18
 
     cache: cachey.Cache
 
@@ -273,18 +275,7 @@ class GetMap:
 
         if minmax_only:
             da = da.persist()
-            x = np.array(da.x.values)
-            y = np.array(da.y.values)
-            data = np.array(da.values)
-            inds = np.where(
-                (x >= (self.bbox[0] - 0.18))
-                & (x <= (self.bbox[2] + 0.18))
-                & (y >= (self.bbox[1] - 0.18))
-                & (y <= (self.bbox[3] + 0.18)),
-            )
-            # x_sel = x[inds].flatten()
-            # y_sel = y[inds].flatten()
-            data_sel = data[inds].flatten()
+            data_sel = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
 
             try:
                 return {

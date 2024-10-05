@@ -1,5 +1,6 @@
 import logging
 import math
+from typing import Optional
 
 import cartopy.geodesic
 import numpy as np
@@ -480,3 +481,45 @@ def lat_lng_find_quad(lng, lat, lng_values, lat_values):
             [top_left_index[0][0], top_left_index[1][0]],
             [top_left_index[0][0] + 1, top_left_index[1][0] + 1],
         ]
+
+
+def filter_data_within_bbox(
+    da: xr.DataArray,
+    bbox: list[float],
+    buffer: Optional[float] = 0.0,
+) -> xr.DataArray:
+    """
+    Filter a DataArray to include only the data within a specified bounding
+    box, optionally expanded by a buffer.
+
+    This function filters the input DataArray based on geographical coordinates,
+    returning a subset of the data that lies within the given bounding box. The
+    bounding box can be expanded by a specified buffer (in degrees) to ensure
+    inclusivity of data points on the boundaries.
+
+    Parameters:
+    - da (xr.DataArray): The DataArray to be filtered.
+    - bbox (list[float]): A list of four floats representing the geographical
+        bounding box in the order [min_longitude, min_latitude, max_longitude,
+        max_latitude].
+    - buffer (float, optional): The amount by which to expand the bounding box
+        on all sides. Default is 0.0, which means no expansion.
+
+    Returns:
+    - xr.DataArray: The filtered DataArray containing only the data within the
+        expanded bounding box.
+
+    Note:
+    - This function is only meant for use with EPSG:4326 (lon/lat) gridded data.
+    """
+
+    # Get the x and y values
+    x = np.array(da.x.values)
+    y = np.array(da.y.values)
+
+    # Find the indices of the data within the bounding box
+    x_inds = np.where((x >= (bbox[0] - buffer)) & (x <= (bbox[2] + buffer)))[0]
+    y_inds = np.where((y >= (bbox[1] - buffer)) & (y <= (bbox[3] + buffer)))[0]
+
+    # Select and return the data within the bounding box
+    return da.isel(x=x_inds, y=y_inds)
