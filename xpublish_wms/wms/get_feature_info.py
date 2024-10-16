@@ -134,6 +134,9 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     any_has_vertical_axis = True in has_vertical_axis
 
     crs = query.get("crs", None) or query.get("srs")
+    if crs != "EPSG:4326":
+        raise HTTPException(501, "Only EPSG:4326 is supported")
+
     bbox = [float(x) for x in query["bbox"].split(",")]
     width = int(query["width"])
     height = int(query["height"])
