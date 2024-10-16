@@ -49,13 +49,6 @@ def speed_and_dir_for_uv(u, v):
     return [speed, dir]
 
 
-def normalize_longitude_in_place(longitude):
-    """
-    Normalize longitude to be between -180 and 180
-    """
-    longitude[:] = (longitude + 180) % 360 - 180
-
-
 def lnglat_to_cartesian(longitude, latitude):
     """
     Converts latitude and longitude to cartesian coordinates
