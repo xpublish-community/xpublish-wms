@@ -66,3 +66,20 @@ class RegularGrid(Grid):
             da = da.unify_chunks()
 
         return da, None, None
+    
+    def sel_lat_lng(
+        self,
+        subset: xr.Dataset,
+        lng,
+        lat,
+        parameters,
+    ) -> tuple[xr.Dataset, list, list]:
+        # normalize longitude to be between -180 and 180
+        subset = subset.cf.assign_coords(
+            longitude=(((subset.cf['longitude'] + 180) % 360) - 180)
+        ).sortby(subset.cf['longitude'].name)
+
+        if lng > 180:
+            lng = (lng + 180) % 360 - 180
+        
+        return super().sel_lat_lng(subset, lng, lat, parameters)
