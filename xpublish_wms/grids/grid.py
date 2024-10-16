@@ -136,7 +136,7 @@ class Grid(ABC):
         subset = self.mask(subset[parameters])
 
         subset = subset.cf.interp(
-            longitude=lng, 
+            longitude=lng,
             latitude=lat,
         )
 
