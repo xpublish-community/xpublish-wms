@@ -40,6 +40,11 @@ class RegularGrid(Grid):
             if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
                 coords[coord] = da.coords[coord]
 
+        # normalize longitude to be between -180 and 180
+        da = da.cf.assign_coords(
+            longitude=(((da.cf['longitude'] + 180) % 360) - 180)
+        ).sortby(da.cf['longitude'].name)
+
         # build new x coordinate
         coords["x"] = ("x", da.cf["longitude"].values, da.cf["longitude"].attrs)
         # build new y coordinate
@@ -55,7 +60,7 @@ class RegularGrid(Grid):
 
         # convert to mercator
         if crs == "EPSG:3857":
-            lng, lat = lnglat_to_mercator(da.cf["longitude"], da.cf["latitude"])
+            lng, lat = lnglat_to_mercator(da.cf['longitude'], da.cf["latitude"])
 
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()

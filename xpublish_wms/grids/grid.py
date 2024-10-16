@@ -133,9 +133,12 @@ class Grid(ABC):
         parameters,
     ) -> tuple[xr.Dataset, list, list]:
         """Select the given dataset by the given lon/lat and optional elevation"""
+        subset = self.mask(subset[parameters])
 
-        subset = self.mask(subset)
-        subset = subset.cf.interp(longitude=lng, latitude=lat)
+        subset = subset.cf.interp(
+            longitude=lng, 
+            latitude=lat,
+        )
 
         x_axis = [strip_float(subset.cf["longitude"])]
         y_axis = [strip_float(subset.cf["latitude"])]
