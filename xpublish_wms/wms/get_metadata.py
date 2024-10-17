@@ -110,6 +110,11 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
     else:
         timesteps = None
 
+    additional_coords = ds.gridded.additional_coords(da)
+    additional_coord_values = {
+        coord: da.cf.coords[coord].values.tolist() for coord in additional_coords
+    }
+
     return {
         "layerName": da.name,
         "standard_name": da.cf.attrs.get("standard_name", da.name),
@@ -121,6 +126,8 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
         "elevation_positive": elevation_positive,
         "elevation_units": elevation_units,
         "timesteps": timesteps,
+        "additional_coords": additional_coords,
+        **additional_coord_values,
     }
 
 

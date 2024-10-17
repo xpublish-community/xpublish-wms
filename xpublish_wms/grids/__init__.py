@@ -116,6 +116,12 @@ class GridDatasetAccessor:
         else:
             return self._grid.select_by_elevation(da, elevations)
 
+    def additional_coords(self, da: xr.DataArray) -> list[str]:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.additional_coords(da)
+
     def mask(
         self,
         da: Union[xr.DataArray, xr.Dataset],

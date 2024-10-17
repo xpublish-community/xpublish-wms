@@ -176,12 +176,16 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
         create_text_element(
             layer,
             "Title",
-            attrs.get("long_name", attrs.get("name", var)),
+            attrs.get("standard_name", attrs.get("name", var)),
         )
+        long_name = attrs.get("long_name", None)
+        if long_name is not None or type(long_name) is not str:
+            long_name = attrs.get("name", var)
+
         create_text_element(
             layer,
             "Abstract",
-            attrs.get("long_name", attrs.get("name", var)),
+            long_name,
         )
         create_text_element(layer, crs_tag, "EPSG:4326")
         create_text_element(layer, crs_tag, "EPSG:3857")
@@ -202,7 +206,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
-        if "time" in da.cf.coords:
+        if "time" in da.cf.coords and "time" in da.cf.indexes:
             times = format_timestamp(da.cf["time"])
             default_time = format_timestamp(
                 da.cf["time"].cf.sel(time=current_date, method="nearest"),
@@ -239,6 +243,21 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
                 },
             )
             elevation_dimension_element.text = ",".join(elevations)
+
+        additonal_coords = ds.gridded.additional_coords(da)
+        for coord in additonal_coords:
+            values = da.cf.coords[coord].values
+            units = da.cf.coords[coord].attrs.get("units", "")
+            coord_element = ET.SubElement(
+                layer,
+                "Dimension",
+                attrib={
+                    "name": coord,
+                    "units": units,
+                    "default": str(values[0]),
+                },
+            )
+            coord_element.text = ",".join([str(v) for v in values])
 
         for style in styles:
             style_element = ET.SubElement(

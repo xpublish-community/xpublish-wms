@@ -100,6 +100,32 @@ class Grid(ABC):
 
         return da
 
+    def additional_coords(self, da: xr.DataArray) -> list[str]:
+        """Return the additional coordinate dimensions for the given data array
+
+        Given a data array with a shape of (time, latitude, longitude),
+        this function would return [].
+
+        Given a data array with a shape of (time, latitude, longitude, vertical),
+        this function would return [].
+
+        Given a data array with a shape of (band, latitude, longitude),
+        this function would return ["band"].
+        """
+        lat_dim = da.cf["latitude"].name
+        lng_dim = da.cf["longitude"].name
+        filter_dims = [lat_dim, lng_dim]
+
+        time_dim = da.cf.coords.get("time", None)
+        if time_dim is not None:
+            filter_dims.append(time_dim.name)
+
+        elevation_dim = da.cf.coords.get("vertical", None)
+        if elevation_dim is not None:
+            filter_dims.append(elevation_dim.name)
+
+        return [dim for dim in da.dims if dim not in filter_dims]
+
     def mask(
         self,
         da: Union[xr.DataArray, xr.Dataset],
