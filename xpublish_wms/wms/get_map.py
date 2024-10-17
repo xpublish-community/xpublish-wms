@@ -9,6 +9,7 @@ import cf_xarray  # noqa
 import datashader as dsh
 import datashader.transfer_functions as tf
 import matplotlib.cm as cm
+import mercantile
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -87,7 +88,7 @@ class GetMap:
         entire_layer = False
         if "bbox" not in query:
             # When BBOX is not specified, we are just going to slice the layer in time and elevation
-            # and return the min and max values for the entire layer so bbox can just be the whoel world
+            # and return the min and max values for the entire layer so bbox can just be the whole world
             entire_layer = True
             query["bbox"] = "-180,-90,180,90"
             query["width"] = 1
@@ -134,7 +135,12 @@ class GetMap:
 
         # Grid
         self.crs = query.get("crs", None) or query.get("srs")
-        self.bbox = [float(x) for x in query["bbox"].split(",")]
+        tile = query.get("tile", None)
+        if tile is not None:
+            tile = [float(x) for x in query["tile"].split(",")]
+            self.bbox = mercantile.xy_bounds(*tile)
+        else:
+            self.bbox = [float(x) for x in query["bbox"].split(",")]
         self.width = int(query["width"])
         self.height = int(query["height"])
 
