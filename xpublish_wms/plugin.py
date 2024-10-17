@@ -31,6 +31,7 @@ class CfWmsPlugin(Plugin):
             tags=self.dataset_router_tags,
         )
 
+        @router.get("", include_in_schema=False)
         @router.get("/")
         def wms_root(
             request: Request,
