@@ -99,11 +99,11 @@ class Grid(ABC):
                 return da.cf.sel(vertical=0, method="nearest")
 
         return da
-    
+
     def additional_coords(self, da: xr.DataArray) -> list[str]:
         """Return the additional coordinate dimensions for the given data array
-        
-        Given a data array with a shape of (time, latitude, longitude), 
+
+        Given a data array with a shape of (time, latitude, longitude),
         this function would return [].
 
         Given a data array with a shape of (time, latitude, longitude, vertical),
@@ -115,11 +115,11 @@ class Grid(ABC):
         lat_dim = da.cf["latitude"].name
         lng_dim = da.cf["longitude"].name
         filter_dims = [lat_dim, lng_dim]
-        
+
         time_dim = da.cf.coords.get("time", None)
         if time_dim is not None:
             filter_dims.append(time_dim.name)
-        
+
         elevation_dim = da.cf.coords.get("vertical", None)
         if elevation_dim is not None:
             filter_dims.append(elevation_dim.name)
