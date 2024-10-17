@@ -21,6 +21,7 @@ def create_parameter_feature_data(
     z_axis,
     x_axis,
     y_axis,
+    extra_axes: dict = None,
     values=None,
     name=None,
     id=None,
@@ -56,6 +57,8 @@ def create_parameter_feature_data(
         axis_names.append("t")
     if z_axis is not None:
         axis_names.append("z")
+    if extra_axes is not None:
+        axis_names.extend(extra_axes.keys())
     axis_names.extend(["x", "y"])
 
     values = values if values is not None else ds[parameter]
@@ -65,6 +68,9 @@ def create_parameter_feature_data(
         shape.append(len(t_axis))
     if z_axis is not None:
         shape.append(len(z_axis))
+    if extra_axes is not None:
+        for _axis in extra_axes.values():
+            shape.append(1)
 
     if isinstance(values, float):
         shape.extend([1, 1])
@@ -215,6 +221,16 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         else:
             z_axis = selected_ds.cf["vertical"].values.tolist()
 
+    additional_queries = {}
+    queries = set(query.keys())
+    for param in parameters:
+        available_coords = selected_ds.gridded.additional_coords(selected_ds[param])
+        valid_quiries = list(set(available_coords) & queries)
+        for q in valid_quiries:
+            additional_queries[q] = query[q]
+
+    selected_ds = selected_ds.sel(additional_queries)
+        
     parameter_info = {}
     ranges = {}
 
@@ -226,6 +242,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             z_axis,
             x_axis,
             y_axis,
+            extra_axes=additional_queries,
         )
         parameter_info[parameter] = info
         ranges[parameter] = range
@@ -243,6 +260,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             z_axis,
             x_axis,
             y_axis,
+            additional_queries,
             speed,
             "Magnitude of velocity",
             "magnitude_of_velocity",
@@ -258,6 +276,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             z_axis,
             x_axis,
             y_axis,
+            additional_queries,
             direction,
             "Direction of velocity",
             "direction_of_velocity",
@@ -266,15 +285,22 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         parameter_info[direction_parameter_name] = direction_info
         ranges[direction_parameter_name] = direction_range
 
-    axis = {
-        "t": {"values": t_axis} if any_has_time_axis else {},
-        "x": {"values": x_axis},
-        "y": {"values": y_axis},
-        "z": {"values": z_axis} if any_has_vertical_axis else {},
-    }
+    axis = {}
 
     referencing = []
+
+    if len(additional_queries) > 0:
+        for key, value in additional_queries.items():
+            axis[key] = {"values": [value]}
+            referencing.append(
+                {
+                    "coordinates": [key],
+                    "id": "custom",
+                },
+            )
+
     if any_has_time_axis:
+        axis["t"] = {"values": t_axis}
         referencing.append(
             {
                 "coordinates": ["t"],
@@ -285,6 +311,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             },
         )
     if any_has_vertical_axis:
+        axis["z"] = {"values": z_axis}
         referencing.append(
             {
                 "coordinates": ["z"],
@@ -303,6 +330,8 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             },
         )
 
+    axis["x"] = {"values": x_axis}
+    axis["y"] = {"values": y_axis}
     referencing.append(
         {
             "coordinates": ["x", "y"],
