@@ -179,7 +179,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             attrs.get("standard_name", attrs.get("name", var)),
         )
         long_name = attrs.get("long_name", None)
-        if long_name is not None or type(long_name) is not str: 
+        if long_name is not None or type(long_name) is not str:
             long_name = attrs.get("name", var)
 
         create_text_element(
@@ -206,7 +206,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         ET.SubElement(layer, "BoundingBox", attrib=bounds)
 
-        if "time" in da.cf.coords and 'time' in da.cf.indexes:
+        if "time" in da.cf.coords and "time" in da.cf.indexes:
             times = format_timestamp(da.cf["time"])
             default_time = format_timestamp(
                 da.cf["time"].cf.sel(time=current_date, method="nearest"),
