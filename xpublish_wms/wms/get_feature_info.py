@@ -230,7 +230,7 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             additional_queries[q] = query[q]
 
     selected_ds = selected_ds.sel(additional_queries)
-        
+
     parameter_info = {}
     ranges = {}
 
