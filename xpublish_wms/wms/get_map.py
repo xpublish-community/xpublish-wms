@@ -42,6 +42,7 @@ class GetMap:
     has_time: bool
     elevation: float = None
     has_elevation: bool
+    dim_selectors: dict
 
     # Grid
     crs: str
@@ -68,7 +69,7 @@ class GetMap:
         da = self.select_layer(ds)
         da = self.select_time(da)
         da = self.select_elevation(ds, da)
-        # da = self.select_custom_dim(da)
+        da = self.select_custom_dim(da)
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
@@ -162,6 +163,28 @@ class GetMap:
         ]
         self.autoscale = query.get("autoscale", "false") == "true"
 
+        available_selectors = [
+            k
+            for k in query.keys()
+            if k
+            not in [
+                "layers",
+                "time",
+                "elevation",
+                "crs",
+                "bbox",
+                "width",
+                "height",
+                "styles",
+                "colorscalerange",
+                "autoscale",
+            ]
+        ]
+
+        self.dim_selectors = {
+            k: query[k] for k in available_selectors if k in ds[self.parameter].dims
+        }
+
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
         Select Dataset variable, according to WMS layers request
@@ -224,19 +247,27 @@ class GetMap:
         :param da:
         :return:
         """
+        # Filter dimension from custom query, if any
+        for dim, value in self.dim_selectors.items():
+            if dim in da.dims:
+                dtype = da[dim].dtype
+                if np.issubdtype(dtype, np.integer):
+                    value = int(value)
+                elif np.issubdtype(dtype, np.floating):
+                    value = float(value)
+                da = da.sel({dim: value})
+
         # Squeeze single value dimensions
         da = da.squeeze()
 
-        # TODO: Filter dimension from custom query, if any
-
         # Squeeze multiple values dimensions, by selecting the last value
-        for key in da.cf.coordinates.keys():
-            if key in ("latitude", "longitude", "X", "Y"):
-                continue
+        # for key in da.cf.coordinates.keys():
+        #     if key in ("latitude", "longitude", "X", "Y"):
+        #         continue
 
-            coord = da.cf.coords[key]
-            if coord.size > 1:
-                da = da.cf.isel({key: -1})
+        #     coord = da.cf.coords[key]
+        #     if coord.size > 1:
+        #         da = da.cf.isel({key: -1})
 
         return da
 
@@ -309,6 +340,8 @@ class GetMap:
 
         # Squeeze single value dimensions
         da = da.squeeze()
+
+        print(da.values)
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
