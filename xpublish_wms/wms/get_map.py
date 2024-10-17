@@ -102,6 +102,7 @@ class GetMap:
         da = self.select_layer(ds)
         da = self.select_time(da)
         da = self.select_elevation(ds, da)
+        da = self.select_custom_dim(da)
 
         # Prepare the data as if we are going to render it, but instead grab the min and max
         # values from the data to represent the range of values in the given area
@@ -163,26 +164,9 @@ class GetMap:
         ]
         self.autoscale = query.get("autoscale", "false") == "true"
 
-        available_selectors = [
-            k
-            for k in query.keys()
-            if k
-            not in [
-                "layers",
-                "time",
-                "elevation",
-                "crs",
-                "bbox",
-                "width",
-                "height",
-                "styles",
-                "colorscalerange",
-                "autoscale",
-            ]
-        ]
-
+        available_selectors = ds.gridded.additional_coords(ds[self.parameter])
         self.dim_selectors = {
-            k: query[k] for k in available_selectors if k in ds[self.parameter].dims
+            k: query[k] for k in available_selectors
         }
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
@@ -249,7 +233,7 @@ class GetMap:
         """
         # Filter dimension from custom query, if any
         for dim, value in self.dim_selectors.items():
-            if dim in da.dims:
+            if dim in da.coords:
                 dtype = da[dim].dtype
                 if np.issubdtype(dtype, np.integer):
                     value = int(value)
