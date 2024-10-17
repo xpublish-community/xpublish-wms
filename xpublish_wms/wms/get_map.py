@@ -341,8 +341,6 @@ class GetMap:
         # Squeeze single value dimensions
         da = da.squeeze()
 
-        print(da.values)
-
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
                 da,
