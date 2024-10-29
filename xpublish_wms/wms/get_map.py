@@ -233,11 +233,13 @@ class GetMap:
         for dim, value in self.dim_selectors.items():
             if dim in da.coords:
                 dtype = da[dim].dtype
-                if np.issubdtype(dtype, np.integer):
+                if 'timedelta' in str(dtype):
+                    value = pd.to_timedelta(value)
+                elif np.issubdtype(dtype, np.integer):
                     value = int(value)
                 elif np.issubdtype(dtype, np.floating):
                     value = float(value)
-                da = da.sel({dim: value})
+                da = da.sel({dim: value}, method="nearest")
 
         # Squeeze single value dimensions
         da = da.squeeze()

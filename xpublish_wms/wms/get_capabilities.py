@@ -246,8 +246,8 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         additonal_coords = ds.gridded.additional_coords(da)
         for coord in additonal_coords:
-            values = da.cf.coords[coord].values
-            units = da.cf.coords[coord].attrs.get("units", "")
+            values = da[coord].values
+            units = da[coord].attrs.get("units", "")
             coord_element = ET.SubElement(
                 layer,
                 "Dimension",
