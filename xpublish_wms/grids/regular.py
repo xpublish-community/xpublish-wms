@@ -50,9 +50,15 @@ class RegularGrid(Grid):
         # build new y coordinate
         coords["y"] = ("y", da.cf["latitude"].values, da.cf["latitude"].attrs)
         # build new data array
+        shape = da.shape
+        if shape == (len(da.cf["latitude"]), len(da.cf["longitude"])):
+            dims = ("y", "x")
+        else:
+            dims = ("x", "y")
+
         da = xr.DataArray(
             data=da,
-            dims=("y", "x"),
+            dims=dims,
             coords=coords,
             name=da.name,
             attrs=da.attrs,
