@@ -284,13 +284,13 @@ class GetMap:
 
         start_dask = time.time()
 
-        da.persist()
+        da = da.persist()
         if x is not None and y is not None:
-            x.persist()
-            y.persist()
+            x = x.persist()
+            y = y.persist()
         else:
-            da.x.persist()
-            da.y.persist()
+            da["x"] = da.x.persist()
+            da["y"] = da.y.persist()
 
         logger.debug(f"dask compute: {time.time() - start_dask}")
 
