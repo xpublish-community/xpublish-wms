@@ -2,6 +2,7 @@
 OGC WMS router for datasets with CF convention metadata
 """
 
+import asyncio
 import logging
 
 import cachey
@@ -21,7 +22,7 @@ from .get_metadata import get_metadata
 logger = logging.getLogger("uvicorn")
 
 
-def wms_handler(
+async def wms_handler(
     request: Request,
     dataset: xr.Dataset = Depends(get_dataset),
     cache: cachey.Cache = Depends(get_cache),
@@ -32,19 +33,19 @@ def wms_handler(
     logger.info(f"WMS: {method}")
 
     if method == "getcapabilities":
-        return get_capabilities(dataset, request, query_params)
+        return await asyncio.to_thread(get_capabilities, dataset, request, query_params)
     elif method == "getmap":
         getmap_service = GetMap(cache=cache)
-        return getmap_service.get_map(dataset, query_params)
+        return await getmap_service.get_map(dataset, query_params)
     elif method == "getfeatureinfo" or method == "gettimeseries":
-        return get_feature_info(dataset, query_params)
+        return await asyncio.to_thread(get_feature_info, dataset, query_params)
     elif method == "getverticalprofile":
         query_params["elevation"] = "all"
-        return get_feature_info(dataset, query_params)
+        return await asyncio.to_thread(get_feature_info, dataset, query_params)
     elif method == "getmetadata":
-        return get_metadata(dataset, cache, query_params)
+        return await get_metadata(dataset, cache, query_params)
     elif method == "getlegendgraphic":
-        return get_legend_info(dataset, query_params)
+        return await asyncio.to_thread(get_legend_info, dataset, query_params)
     else:
         raise HTTPException(
             status_code=404,

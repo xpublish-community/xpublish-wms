@@ -33,11 +33,11 @@ class CfWmsPlugin(Plugin):
 
         @router.get("", include_in_schema=False)
         @router.get("/")
-        def wms_root(
+        async def wms_root(
             request: Request,
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
-            return wms_handler(request, dataset, cache)
+            return await wms_handler(request, dataset, cache)
 
         return router

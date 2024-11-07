@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import time
@@ -32,8 +33,6 @@ class GetMap:
     DEFAULT_STYLE: str = "raster/default"
     DEFAULT_PALETTE: str = "turbo"
 
-    BBOX_BUFFER = 0.18
-
     cache: cachey.Cache
 
     # Data selection
@@ -58,7 +57,7 @@ class GetMap:
     def __init__(self, cache: cachey.Cache):
         self.cache = cache
 
-    def get_map(self, ds: xr.Dataset, query: dict) -> StreamingResponse:
+    async def get_map(self, ds: xr.Dataset, query: dict) -> StreamingResponse:
         """
         Return the WMS map for the dataset and given parameters
         """
@@ -76,13 +75,13 @@ class GetMap:
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
-        render_result = self.render(ds, da, image_buffer, False)
+        render_result = await self.render(ds, da, image_buffer, False)
         if render_result:
             image_buffer.seek(0)
 
         return StreamingResponse(image_buffer, media_type="image/png")
 
-    def get_minmax(self, ds: xr.Dataset, query: dict) -> dict:
+    async def get_minmax(self, ds: xr.Dataset, query: dict) -> dict:
         """
         Return the range of values for the dataset and given parameters
         """
@@ -109,7 +108,7 @@ class GetMap:
         if entire_layer:
             return {"min": float(da.min()), "max": float(da.max())}
         else:
-            return self.render(ds, da, None, minmax_only=True)
+            return await self.render(ds, da, None, minmax_only=True)
 
     def ensure_query_types(self, ds: xr.Dataset, query: dict):
         """
@@ -255,7 +254,7 @@ class GetMap:
 
         return da
 
-    def render(
+    async def render(
         self,
         ds: xr.Dataset,
         da: xr.DataArray,
@@ -280,28 +279,41 @@ class GetMap:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
 
+        # x and y are only set for triangle grids, we dont subset the data for triangle grids
+        # at this time.
+        if x is None:
+            try:
+                # Grab a buffer around the bbox to ensure we have enough data to render
+                # TODO: Base this on actual data resolution?
+                if self.crs == "EPSG:4326":
+                    coord_buffer = 0.5  # degrees
+                elif self.crs == "EPSG:3857":
+                    coord_buffer = 30000  # meters
+                else:
+                    # Default to 0.5, this should never happen
+                    coord_buffer = 0.5
+
+                # Filter the data to only include the data within the bbox + buffer so
+                # we don't have to render a ton of empty space or pull down more chunks
+                # than we need
+                da = filter_data_within_bbox(da, self.bbox, coord_buffer)
+            except Exception as e:
+                logger.error(f"Error filtering data within bbox: {e}")
+                logger.warning("Falling back to full layer")
+
         logger.debug(f"Projection time: {time.time() - projection_start}")
 
         start_dask = time.time()
 
-        da = da.persist()
-        if x is not None and y is not None:
-            x = x.persist()
-            y = y.persist()
-        else:
-            da["x"] = da.x.persist()
-            da["y"] = da.y.persist()
+        da = await asyncio.to_thread(da.compute)
 
         logger.debug(f"dask compute: {time.time() - start_dask}")
 
         if minmax_only:
-            da = da.persist()
-            data_sel = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
-
             try:
                 return {
-                    "min": float(np.nanmin(data_sel)),
-                    "max": float(np.nanmax(data_sel)),
+                    "min": float(np.nanmin(da)),
+                    "max": float(np.nanmax(da)),
                 }
             except Exception as e:
                 logger.error(
