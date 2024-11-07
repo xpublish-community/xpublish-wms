@@ -280,28 +280,41 @@ class GetMap:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
 
-        logger.debug(f"Projection time: {time.time() - projection_start}")
+        # x and y are only set for triangle grids, we dont subset the data for triangle grids
+        # at this time.
+        if x is None:
+            try:
+                # Grab a buffer around the bbox to ensure we have enough data to render
+                diff = (da.x[1] - da.x[0]).values
+                diff = diff * 1.05
+
+                # Filter the data to only include the data within the bbox + buffer so
+                # we don't have to render a ton of empty space or pull down more chunks
+                # than we need
+                da = filter_data_within_bbox(da, self.bbox, diff)
+            except Exception as e:
+                print(f"Error filtering data within bbox: {e}")
+                print("Falling back to full layer")
+
+        # Squeeze single value dimensions
+        da = da.squeeze()
+
+        logger.info(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
         start_dask = time.time()
 
-        da = da.persist()
+        da = da.compute()
         if x is not None and y is not None:
-            x = x.persist()
-            y = y.persist()
-        else:
-            da["x"] = da.x.persist()
-            da["y"] = da.y.persist()
+            x = x.compute()
+            y = y.compute()
 
-        logger.debug(f"dask compute: {time.time() - start_dask}")
+        logger.info(f"WMS GetMap dask compute: {time.time() - start_dask}")
 
         if minmax_only:
-            da = da.persist()
-            data_sel = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
-
             try:
                 return {
-                    "min": float(np.nanmin(data_sel)),
-                    "max": float(np.nanmax(data_sel)),
+                    "min": float(np.nanmin(da)),
+                    "max": float(np.nanmax(da)),
                 }
             except Exception as e:
                 logger.error(
@@ -321,9 +334,6 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
-
-        # Squeeze single value dimensions
-        da = da.squeeze()
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
@@ -354,7 +364,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        logger.debug(f"Shade time: {time.time() - start_shade}")
+        logger.info(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
