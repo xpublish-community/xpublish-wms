@@ -286,17 +286,17 @@ class GetMap:
                 # Grab a buffer around the bbox to ensure we have enough data to render
                 # TODO: Base this on actual data resolution?
                 if self.crs == "EPSG:4326":
-                    buffer = 0.5  # degrees
+                    coord_buffer = 0.5  # degrees
                 elif self.crs == "EPSG:3857":
-                    buffer = 30000  # meters
+                    coord_buffer = 30000  # meters
                 else:
                     # Default to 0.5, this should never happen
-                    buffer = 0.5
+                    coord_buffer = 0.5
 
                 # Filter the data to only include the data within the bbox + buffer so
                 # we don't have to render a ton of empty space or pull down more chunks
                 # than we need
-                da = filter_data_within_bbox(da, self.bbox, buffer)
+                da = filter_data_within_bbox(da, self.bbox, coord_buffer)
             except Exception as e:
                 logger.error(f"Error filtering data within bbox: {e}")
                 logger.warning("Falling back to full layer")
