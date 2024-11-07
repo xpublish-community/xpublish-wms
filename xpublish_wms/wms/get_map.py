@@ -33,8 +33,6 @@ class GetMap:
     DEFAULT_STYLE: str = "raster/default"
     DEFAULT_PALETTE: str = "turbo"
 
-    BBOX_BUFFER = 30_000  # meters
-
     cache: cachey.Cache
 
     # Data selection
@@ -280,36 +278,38 @@ class GetMap:
             if minmax_only:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
-            
-        try:
-            da = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
-        except Exception as e:
-            logger.error(f"Error filtering data within bbox: {e}")
-            logger.warning("Falling back to full layer")
 
-        print(f"Projection time: {time.time() - projection_start}")
+        # x and y are only set for triangle grids, we dont subset the data for triangle grids
+        # at this time.
+        if x is None:
+            try:
+                # Grab a buffer around the bbox to ensure we have enough data to render
+                # TODO: Base this on actual data resolution?
+                if self.crs == "EPSG:4326":
+                    buffer = 0.5  # degrees
+                elif self.crs == "EPSG:3857":
+                    buffer = 30000  # meters
+                else:
+                    # Default to 0.5, this should never happen
+                    buffer = 0.5
+
+                # Filter the data to only include the data within the bbox + buffer so
+                # we don't have to render a ton of empty space or pull down more chunks
+                # than we need
+                da = filter_data_within_bbox(da, self.bbox, buffer)
+            except Exception as e:
+                logger.error(f"Error filtering data within bbox: {e}")
+                logger.warning("Falling back to full layer")
+
+        logger.debug(f"Projection time: {time.time() - projection_start}")
 
         start_dask = time.time()
 
         da = await asyncio.to_thread(da.compute)
 
-        # da = da.persist()
-        # if x is not None and y is not None:
-        #     x = x.persist()
-        #     y = y.persist()
-        # else:
-        #     da["x"] = da.x.persist()
-        #     da["y"] = da.y.persist()
-
-        print(da.x[1].values -da.x[0].values)
-        print(da.y[1].values - da.y[0].values)
-
-        print(f"dask compute: {time.time() - start_dask}")
+        logger.debug(f"dask compute: {time.time() - start_dask}")
 
         if minmax_only:
-            # da = da.persist()
-            # data_sel = filter_data_within_bbox(da, self.bbox, self.BBOX_BUFFER)
-
             try:
                 return {
                     "min": float(np.nanmin(da)),
@@ -366,7 +366,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        print(f"Shade time: {time.time() - start_shade}")
+        logger.debug(f"Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")

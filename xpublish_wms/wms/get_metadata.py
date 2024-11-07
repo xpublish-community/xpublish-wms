@@ -11,7 +11,7 @@ from xpublish_wms.utils import format_timestamp
 from .get_map import GetMap
 
 
-def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
+async def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     """
     Return the WMS metadata for the dataset
 
@@ -39,7 +39,7 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
         da = ds[layer_name]
         payload = get_timesteps(da, params)
     elif metadata_type == "minmax":
-        payload = get_minmax(ds, cache, params)
+        payload = await get_minmax(ds, cache, params)
     else:
         raise HTTPException(
             status_code=400,
@@ -79,14 +79,14 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
     }
 
 
-def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
+async def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
     """
     Returns the min and max range of values for a given layer in a given area
 
     If BBOX is not specified, the entire selected temporal and elevation range is used.
     """
     getmap = GetMap(cache=cache)
-    return getmap.get_minmax(ds, params)
+    return await getmap.get_minmax(ds, params)
 
 
 def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
