@@ -279,25 +279,19 @@ class GetMap:
             if minmax_only:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
-            
+
         # x and y are only set for triangle grids, we dont subset the data for triangle grids
         # at this time.
         if x is None:
             try:
                 # Grab a buffer around the bbox to ensure we have enough data to render
-                # TODO: Base this on actual data resolution?
-                if self.crs == "EPSG:4326":
-                    coord_buffer = 0.5  # degrees
-                elif self.crs == "EPSG:3857":
-                    coord_buffer = 30000  # meters
-                else:
-                    # Default to 0.5, this should never happen
-                    coord_buffer = 0.5
+                diff = (da.x[1] - da.x[0]).values
+                diff = diff * 1.05
 
                 # Filter the data to only include the data within the bbox + buffer so
                 # we don't have to render a ton of empty space or pull down more chunks
                 # than we need
-                da = filter_data_within_bbox(da, self.bbox, coord_buffer)
+                da = filter_data_within_bbox(da, self.bbox, diff)
             except Exception as e:
                 print(f"Error filtering data within bbox: {e}")
                 print("Falling back to full layer")
@@ -305,7 +299,7 @@ class GetMap:
         # Squeeze single value dimensions
         da = da.squeeze()
 
-        logger.warning(f"Projection time: {time.time() - projection_start}")
+        logger.info(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
         start_dask = time.time()
 
@@ -314,7 +308,7 @@ class GetMap:
             x = x.compute()
             y = y.compute()
 
-        logger.warning(f"dask compute: {time.time() - start_dask}")
+        logger.warning(f"WMS GetMap dask compute: {time.time() - start_dask}")
 
         if minmax_only:
             try:
@@ -370,7 +364,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        logger.warning(f"Shade time: {time.time() - start_shade}")
+        logger.warning(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
