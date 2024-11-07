@@ -308,7 +308,7 @@ class GetMap:
             x = x.compute()
             y = y.compute()
 
-        logger.warning(f"WMS GetMap dask compute: {time.time() - start_dask}")
+        logger.info(f"WMS GetMap dask compute: {time.time() - start_dask}")
 
         if minmax_only:
             try:
@@ -364,7 +364,7 @@ class GetMap:
             how="linear",
             span=(vmin, vmax),
         )
-        logger.warning(f"WMS GetMap Shade time: {time.time() - start_shade}")
+        logger.info(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
