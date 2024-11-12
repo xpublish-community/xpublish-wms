@@ -15,15 +15,21 @@ class WMSBaseQuery(BaseModel):
 class WMSGetCapabilitiesQuery(WMSBaseQuery):
     """WMS GetCapabilities query"""
 
-    request: Literal["GetCapabilities"] = Query(..., description="Request type")
+    request: Literal["GetCapabilities"] = Field(..., description="Request type")
 
 
 class WMSGetMetadataQuery(WMSBaseQuery):
     """WMS GetMetadata query"""
 
-    request: Literal["GetMetadata"] = Query(..., description="Request type")
-    layername: str
-    item: Literal["layerdetails", "timesteps", "minmax", "menu"]
+    request: Literal["GetMetadata"] = Field(..., description="Request type")
+    layername: Optional[str] = Field(
+        None,
+        description="Name of the layer to get metadata for",
+    )
+    item: Literal["layerdetails", "timesteps", "minmax", "menu"] = Field(
+        ...,
+        description="The type of GetMetadata request",
+    )
     day: Optional[str] = Field(
         None,
         description="Optional day to get timesteps for in Y-m-d format. Only valid when item=timesteps and layer has a time dimension",
@@ -249,6 +255,9 @@ def wms_query(
             item=item,
             day=day,
             range=range,
+            bbox=bbox,
+            time=time,
+            elevation=elevation,
         )
     elif request == "GetMap":
         return WMSGetMapQuery(
