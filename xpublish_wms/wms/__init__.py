@@ -7,9 +7,17 @@ import logging
 import cachey
 import cf_xarray  # noqa
 import xarray as xr
-from fastapi import Depends, HTTPException, Request, Response
-from xpublish.dependencies import get_cache, get_dataset
+from fastapi import HTTPException, Request, Response
 
+from xpublish_wms.query import (
+    WMS_FILTERED_QUERY_PARAMS,
+    WMSGetCapabilitiesQuery,
+    WMSGetFeatureInfoQuery,
+    WMSGetLegendInfoQuery,
+    WMSGetMapQuery,
+    WMSGetMetadataQuery,
+    WMSQuery,
+)
 from xpublish_wms.utils import lower_case_keys
 from xpublish_wms.wms.get_map import GetMap
 
@@ -23,30 +31,31 @@ logger = logging.getLogger("uvicorn")
 
 def wms_handler(
     request: Request,
-    dataset: xr.Dataset = Depends(get_dataset),
-    cache: cachey.Cache = Depends(get_cache),
+    query: WMSQuery,
+    dataset: xr.Dataset,
+    cache: cachey.Cache,
 ) -> Response:
     query_params = lower_case_keys(request.query_params)
-    method = query_params.get("request", "").lower()
-    logger.debug(f"Received wms request: {request.url}")
-    logger.info(f"WMS: {method}")
+    query_keys = list(query_params.keys())
+    for query in query_keys:
+        if query in WMS_FILTERED_QUERY_PARAMS:
+            del query_params[query]
 
-    if method == "getcapabilities":
-        return get_capabilities(dataset, request, query_params)
-    elif method == "getmap":
+    logger.debug(f"Received wms request: {request.url}")
+
+    if isinstance(query, WMSGetCapabilitiesQuery):
+        return get_capabilities(dataset, request, query)
+    elif isinstance(query, WMSGetMetadataQuery):
+        return get_metadata(dataset, cache, query)
+    elif isinstance(query, WMSGetMapQuery):
         getmap_service = GetMap(cache=cache)
-        return getmap_service.get_map(dataset, query_params)
-    elif method == "getfeatureinfo" or method == "gettimeseries":
-        return get_feature_info(dataset, query_params)
-    elif method == "getverticalprofile":
-        query_params["elevation"] = "all"
-        return get_feature_info(dataset, query_params)
-    elif method == "getmetadata":
-        return get_metadata(dataset, cache, query_params)
-    elif method == "getlegendgraphic":
-        return get_legend_info(dataset, query_params)
+        return getmap_service.get_map(dataset, query, query_params)
+    elif isinstance(query, WMSGetFeatureInfoQuery):
+        return get_feature_info(dataset, query, query_params)
+    elif isinstance(query, WMSGetLegendInfoQuery):
+        return get_legend_info(dataset, query)
     else:
         raise HTTPException(
             status_code=404,
-            detail=f"{method} is not a valid option for REQUEST",
+            detail=f"Unknown WMS request: {request.query_params}",
         )

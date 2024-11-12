@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
+from xpublish_wms.query import WMSGetCapabilitiesQuery
 from xpublish_wms.utils import format_timestamp
 
 # WMS Styles declaration
@@ -53,21 +54,24 @@ def create_capability_element(
     return cap
 
 
-def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Response:
+def get_capabilities(
+    ds: xr.Dataset,
+    request: Request,
+    query: WMSGetCapabilitiesQuery,
+) -> Response:
     """
     Return the WMS capabilities for the dataset
     """
     wms_url = f'{request.base_url}{request.url.path.removeprefix("/")}'
-    version = query_params.get("version", "1.3.0")
 
-    if version == "1.1.1":
+    if query.version == "1.1.1":
         root = ET.Element(
             "WMT_MS_Capabilities",
             version="1.1.1",
         )
         name = "OGC:WMS"
         crs_tag = "SRS"
-    elif version == "1.3.0":
+    elif query.version == "1.3.0":
         root = ET.Element(
             "WMS_Capabilities",
             version="1.3.0",
@@ -81,7 +85,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Version {version} is not supported",
+            detail=f"Version {query.version} is not supported",
         )
 
     service = ET.SubElement(root, "Service")
@@ -162,7 +166,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
             "maxy": f"{bbox[3]}",
         }
 
-        if version == "1.1.1":
+        if query.version == "1.1.1":
             ll_bounds = {
                 "minx": f"{bbox[0]}",
                 "miny": f"{bbox[1]}",
@@ -201,7 +205,7 @@ def get_capabilities(ds: xr.Dataset, request: Request, query_params: dict) -> Re
 
         # Not sure if this can be copied, its possible variables have different extents within
         # a given dataset probably, but for now...
-        if version == "1.1.1":
+        if query.version == "1.1.1":
             ET.SubElement(layer, "LatLonBoundingBox", attrib=ll_bounds)
 
         ET.SubElement(layer, "BoundingBox", attrib=bounds)

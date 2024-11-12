@@ -6,19 +6,25 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
 from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
 
 
-def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
+def get_metadata(
+    ds: xr.Dataset,
+    cache: cachey.Cache,
+    query: WMSGetMetadataQuery,
+    query_params: dict,
+) -> Response:
     """
     Return the WMS metadata for the dataset
 
     This is compliant subset of ncwms2's GetMetadata handler. Specifically, layerdetails, timesteps and minmax are supported.
     """
-    layer_name = params.get("layername", None)
-    metadata_type = params.get("item", "layerdetails").lower()
+    layer_name = query.layername
+    metadata_type = query.item
 
     if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
         raise HTTPException(
@@ -37,9 +43,9 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
         payload = get_layer_details(ds, layer_name)
     elif metadata_type == "timesteps":
         da = ds[layer_name]
-        payload = get_timesteps(da, params)
+        payload = get_timesteps(da, query)
     elif metadata_type == "minmax":
-        payload = get_minmax(ds, cache, params)
+        payload = get_minmax(ds, cache, query, query_params)
     else:
         raise HTTPException(
             status_code=400,
@@ -49,7 +55,7 @@ def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
     return JSONResponse(content=payload)
 
 
-def get_timesteps(da: xr.DataArray, params: dict) -> dict:
+def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:
     """
     Returns the timesteps for a given layer
     """
@@ -59,14 +65,14 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
             detail=f"layer {da.name} does not have a time dimension",
         )
 
-    day = params.get("day", None)
+    day = query.day
     if day:
         day_start = dt.datetime.strptime(day, "%Y-%m-%d")
         day_start = day_start.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + dt.timedelta(days=1)
         da = da.cf.sel(time=slice(day_start, day_end))
 
-    range = params.get("range", None)
+    range = query.range
     if range:
         start, end = range.split("/")
         start = dt.datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
@@ -79,14 +85,31 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
     }
 
 
-def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
+def get_minmax(
+    ds: xr.Dataset,
+    cache: cachey.Cache,
+    query: WMSGetMetadataQuery,
+    query_params: dict,
+) -> dict:
     """
     Returns the min and max range of values for a given layer in a given area
 
     If BBOX is not specified, the entire selected temporal and elevation range is used.
     """
+    entire_layer = query.bbox is None
+    getmap_query = WMSGetMapQuery(
+        bbox=query.bbox if not entire_layer else "-180,-90,180,90",
+        width=1 if entire_layer else 512,
+        height=1 if entire_layer else 512,
+        crs="EPSG:4326",
+        time=query.time,
+        elevation=query.elevation,
+        styles="raster/default",
+        colorscalerange="nan,nan",
+    )
+
     getmap = GetMap(cache=cache)
-    return getmap.get_minmax(ds, params)
+    return getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
 
 
 def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:

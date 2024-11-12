@@ -7,10 +7,11 @@ from fastapi import Response
 from matplotlib import cm
 from PIL import Image
 
+from xpublish_wms.query import WMSGetLegendInfoQuery
 from xpublish_wms.utils import parse_float
 
 
-def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
+def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Response:
     """
     Return the WMS legend graphic for the dataset and given parameters
     """
