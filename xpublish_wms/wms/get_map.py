@@ -16,6 +16,7 @@ import xarray as xr
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
+from xpublish_wms.query import WMSGetMapQuery
 from xpublish_wms.utils import filter_data_within_bbox, parse_float
 
 logger = logging.getLogger("uvicorn")
@@ -58,12 +59,17 @@ class GetMap:
     def __init__(self, cache: cachey.Cache):
         self.cache = cache
 
-    def get_map(self, ds: xr.Dataset, query: dict) -> StreamingResponse:
+    def get_map(
+        self,
+        ds: xr.Dataset,
+        query: WMSGetMapQuery,
+        query_params: dict,
+    ) -> StreamingResponse:
         """
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
-        self.ensure_query_types(ds, query)
+        self.ensure_query_types(ds, query, query_params)
 
         # Select data according to request
         da = self.select_layer(ds)
@@ -82,21 +88,18 @@ class GetMap:
 
         return StreamingResponse(image_buffer, media_type="image/png")
 
-    def get_minmax(self, ds: xr.Dataset, query: dict) -> dict:
+    def get_minmax(
+        self,
+        ds: xr.Dataset,
+        query: WMSGetMapQuery,
+        query_params: dict,
+        entire_layer: bool,
+    ) -> dict:
         """
         Return the range of values for the dataset and given parameters
         """
-        entire_layer = False
-        if "bbox" not in query:
-            # When BBOX is not specified, we are just going to slice the layer in time and elevation
-            # and return the min and max values for the entire layer so bbox can just be the whole world
-            entire_layer = True
-            query["bbox"] = "-180,-90,180,90"
-            query["width"] = 1
-            query["height"] = 1
-
         # Decode request params
-        self.ensure_query_types(ds, query)
+        self.ensure_query_types(ds, query, query_params)
 
         # Select data according to request
         da = self.select_layer(ds)
@@ -111,7 +114,12 @@ class GetMap:
         else:
             return self.render(ds, da, None, minmax_only=True)
 
-    def ensure_query_types(self, ds: xr.Dataset, query: dict):
+    def ensure_query_types(
+        self,
+        ds: xr.Dataset,
+        query: WMSGetMapQuery,
+        query_params: dict,
+    ):
         """
         Decode request params
 
@@ -119,8 +127,8 @@ class GetMap:
         :return:
         """
         # Data selection
-        self.parameter = query["layers"]
-        self.time_str = query.get("time", None)
+        self.parameter = query.layers
+        self.time_str = query.time
 
         if self.time_str:
             self.time = pd.to_datetime(self.time_str).tz_localize(None)
@@ -128,7 +136,7 @@ class GetMap:
             self.time = None
         self.has_time = self.TIME_CF_NAME in ds[self.parameter].cf.coords
 
-        self.elevation_str = query.get("elevation", None)
+        self.elevation_str = query.elevation
         if self.elevation_str:
             self.elevation = float(self.elevation_str)
         else:
@@ -136,18 +144,19 @@ class GetMap:
         self.has_elevation = self.ELEVATION_CF_NAME in ds[self.parameter].cf.coords
 
         # Grid
-        self.crs = query.get("crs", None) or query.get("srs")
-        tile = query.get("tile", None)
+        self.crs = query.crs
+        tile = query.tile
         if tile is not None:
-            tile = [float(x) for x in query["tile"].split(",")]
+            tile = [float(x) for x in query.tile.split(",")]
             self.bbox = mercantile.xy_bounds(*tile)
+            self.crs = "EPSG:3857"  # tiles are always mercator
         else:
-            self.bbox = [float(x) for x in query["bbox"].split(",")]
-        self.width = int(query["width"])
-        self.height = int(query["height"])
+            self.bbox = [float(x) for x in query.bbox.split(",")]
+        self.width = query.width
+        self.height = query.height
 
         # Output style
-        self.style = query.get("styles", self.DEFAULT_STYLE)
+        self.style = query.styles
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
         # Otherwise default to rainbow
         try:
@@ -160,12 +169,12 @@ class GetMap:
                 self.palettename = self.DEFAULT_PALETTE
 
         self.colorscalerange = [
-            parse_float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
+            parse_float(x) for x in query.colorscalerange.split(",")
         ]
-        self.autoscale = query.get("autoscale", "false") == "true"
+        self.autoscale = query.autoscale
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])
-        self.dim_selectors = {k: query[k] for k in available_selectors}
+        self.dim_selectors = {k: query_params[k] for k in available_selectors}
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
@@ -293,8 +302,8 @@ class GetMap:
                 # than we need
                 da = filter_data_within_bbox(da, self.bbox, diff)
             except Exception as e:
-                print(f"Error filtering data within bbox: {e}")
-                print("Falling back to full layer")
+                logger.error(f"Error filtering data within bbox: {e}")
+                logger.warning("Falling back to full layer")
 
         # Squeeze single value dimensions
         da = da.squeeze()
@@ -334,6 +343,8 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
+
+        print(da)
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(

@@ -7,26 +7,25 @@ from fastapi import Response
 from matplotlib import cm
 from PIL import Image
 
+from xpublish_wms.query import WMSGetLegendInfoQuery
 from xpublish_wms.utils import parse_float
 
 
-def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
+def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Response:
     """
     Return the WMS legend graphic for the dataset and given parameters
     """
-    parameter = query["layers"]
-    width: int = int(query["width"])
-    height: int = int(query["height"])
-    vertical = query.get("vertical", "false") == "true"
+    parameter = query.layers
+    width = query.width
+    height = query.height
+    vertical = query.vertical
     # colorbaronly = query.get("colorbaronly", "False") == "True"
-    colorscalerange = [
-        parse_float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
-    ]
+    colorscalerange = [parse_float(x) for x in query.colorscalerange.split(",")]
     if isnan(colorscalerange[0]):
         autoscale = True
     else:
-        autoscale = query.get("autoscale", "false") != "false"
-    style = query["styles"]
+        autoscale = query.autoscale
+    style = query.styles
     stylename, palettename = style.split("/")
 
     ds = dataset.squeeze()

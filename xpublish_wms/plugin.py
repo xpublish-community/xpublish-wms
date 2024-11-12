@@ -1,10 +1,19 @@
 import logging
-from typing import List
+from typing import List, Union
 
 import cachey
 import xarray as xr
 from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
+
+from xpublish_wms.query import (
+    WMSGetCapabilitiesQuery,
+    WMSGetFeatureInfoQuery,
+    WMSGetLegendInfoQuery,
+    WMSGetMapQuery,
+    WMSGetMetadataQuery,
+    wms_query,
+)
 
 from .wms import wms_handler
 
@@ -35,9 +44,16 @@ class CfWmsPlugin(Plugin):
         @router.get("/")
         def wms_root(
             request: Request,
+            wms_query: Union[
+                WMSGetCapabilitiesQuery,
+                WMSGetMetadataQuery,
+                WMSGetMapQuery,
+                WMSGetFeatureInfoQuery,
+                WMSGetLegendInfoQuery,
+            ] = Depends(wms_query),
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
-            return wms_handler(request, dataset, cache)
+            return wms_handler(request, wms_query, dataset, cache)
 
         return router
