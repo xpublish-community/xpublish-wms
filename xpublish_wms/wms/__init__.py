@@ -3,6 +3,7 @@ OGC WMS router for datasets with CF convention metadata
 """
 
 import logging
+from typing import Union
 
 import cachey
 import cf_xarray  # noqa
@@ -16,7 +17,6 @@ from xpublish_wms.query import (
     WMSGetLegendInfoQuery,
     WMSGetMapQuery,
     WMSGetMetadataQuery,
-    WMSQuery,
 )
 from xpublish_wms.utils import lower_case_keys
 from xpublish_wms.wms.get_map import GetMap
@@ -31,15 +31,21 @@ logger = logging.getLogger("uvicorn")
 
 def wms_handler(
     request: Request,
-    query: WMSQuery,
+    query: Union[
+        WMSGetCapabilitiesQuery,
+        WMSGetMetadataQuery,
+        WMSGetMapQuery,
+        WMSGetFeatureInfoQuery,
+        WMSGetLegendInfoQuery,
+    ],
     dataset: xr.Dataset,
     cache: cachey.Cache,
 ) -> Response:
     query_params = lower_case_keys(request.query_params)
     query_keys = list(query_params.keys())
-    for query in query_keys:
-        if query in WMS_FILTERED_QUERY_PARAMS:
-            del query_params[query]
+    for query_key in query_keys:
+        if query_key in WMS_FILTERED_QUERY_PARAMS:
+            del query_params[query_key]
 
     logger.debug(f"Received wms request: {request.url}")
 

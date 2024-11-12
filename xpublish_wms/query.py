@@ -1,4 +1,4 @@
-from typing import Literal, Optional, TypeAlias, Union
+from typing import Literal, Optional, Union
 
 from fastapi import Query
 from pydantic import BaseModel, Field
@@ -144,15 +144,6 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     styles: str = "raster/default"
 
 
-WMSQuery: TypeAlias = Union[
-    WMSGetCapabilitiesQuery,
-    WMSGetMetadataQuery,
-    WMSGetMapQuery,
-    WMSGetFeatureInfoQuery,
-    WMSGetLegendInfoQuery,
-]
-
-
 def wms_query(
     service: Literal["WMS"] = Query(..., description="Service type. Must be WMS"),
     version: Literal["1.1.1", "1.3.0"] = Query(
@@ -221,11 +212,11 @@ def wms_query(
         description="Tile to use for the query in the format 'x,y,z'. If specified, bbox is ignored. Only valid for GetMap requests",
     ),
     width: Optional[int] = Query(
-        ...,
+        None,
         description="Valid for GetMap, GetLegendInfo, and GetFeatureInfo requests. For GetMap and GetFeatureInfo this is the width of the image to return in pixels. For GetLegendInfo this is the number of points in the x dimension to select from the dataset",
     ),
     height: Optional[int] = Query(
-        ...,
+        None,
         description="Valid for GetMap, GetLegendInfo, and GetFeatureInfo requests. For GetMap and GetFeatureInfo this is the height of the image to return in pixels. For GetLegendInfo this is the number of points in the y dimension to select from the dataset",
     ),
     colorscalerange: Optional[str] = Query(
@@ -236,7 +227,13 @@ def wms_query(
         False,
         description="Whether to automatically scale the color scale range based on the data. When specified, colorscalerange is ignored. Only valid for GetMap and GetFeatureInfo requests",
     ),
-) -> WMSQuery:
+) -> Union[
+    WMSGetCapabilitiesQuery,
+    WMSGetMetadataQuery,
+    WMSGetMapQuery,
+    WMSGetFeatureInfoQuery,
+    WMSGetLegendInfoQuery,
+]:
     if request == "GetCapabilities":
         return WMSGetCapabilitiesQuery(
             service=service,
