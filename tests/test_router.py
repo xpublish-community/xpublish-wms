@@ -83,3 +83,34 @@ def test_cf_get_metadata(xpublish_client):
     ), "Minmax response did not return successfully"
     minmax_data = minmax_response.json()
     assert minmax_data == {"min": 227.0, "max": 302.6}
+
+
+def test_get_map(xpublish_client):
+    response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetMap&layers=air&styles=raster/default&crs=EPSG:4326&bbox=-160.0,15.0,-30.0,75.0&width=512&height=513&format=image/png&colorscalerange=227.0,302.6",
+    )
+    assert response.status_code == 200, "Response did not return successfully"
+    assert response.headers["content-type"] == "image/png", "Response is not an image"
+
+
+def test_get_feature_info(xpublish_client):
+    response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetFeatureInfo&crs=EPSG:4326&bbox=-100.0,30.0,-101.0,31.0&width=50&height=50&query_layers=air&x=25&y=25&time=2013-01-01T00:00:00",
+    )
+
+    assert response.status_code == 200, "Response did not return successfully"
+    assert (
+        response.headers["content-type"] == "application/json"
+    ), "Response is not json"
+
+    data = response.json()
+    assert data["ranges"]["air"]["values"] == [287.005456059975]
+
+
+def test_get_legend_graphic(xpublish_client):
+    response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetLegendGraphic&layers=air&format=image/png&colorscalerange=227.0,302.6&width=200&height=50",
+    )
+
+    assert response.status_code == 200, "Response did not return successfully"
+    assert response.headers["content-type"] == "image/png", "Response is not an image"

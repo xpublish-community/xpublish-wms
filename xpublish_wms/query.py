@@ -135,6 +135,14 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         ...,
         description="Height of the image to query against. This is the number of points between miny and maxy",
     )
+    x: int = Field(
+        ...,
+        description="The x coordinate of the point to query. This is the index of the point in the x dimension",
+    )
+    y: int = Field(
+        ...,
+        description="The y coordinate of the point to query. This is the index of the point in the y dimension",
+    )
 
 
 class WMSGetLegendInfoQuery(WMSBaseQuery):
@@ -163,6 +171,7 @@ def wms_query(
         "GetFeatureInfo",
         "GetTimeseries",
         "GetVerticalProfile",
+        "GetLegendInfo",
         "GetLegendGraphic",
     ] = Query(..., description="Request type"),
     layername: Optional[str] = Query(
@@ -224,6 +233,14 @@ def wms_query(
     height: Optional[int] = Query(
         None,
         description="Valid for GetMap, GetLegendInfo, and GetFeatureInfo requests. For GetMap and GetFeatureInfo this is the height of the image to return in pixels. For GetLegendInfo this is the number of points in the y dimension to select from the dataset",
+    ),
+    x: Optional[int] = Query(
+        None,
+        description="The x coordinate of the point to query. This is the index of the point in the x dimension. Only valid for GetFeatureInfo requests",
+    ),
+    y: Optional[int] = Query(
+        None,
+        description="The y coordinate of the point to query. This is the index of the point in the y dimension. Only valid for GetFeatureInfo requests",
     ),
     colorscalerange: Optional[str] = Query(
         None,
@@ -292,8 +309,10 @@ def wms_query(
             bbox=bbox,
             width=width,
             height=height,
+            x=x,
+            y=y,
         )
-    elif request == "GetLegendInfo":
+    elif request == "GetLegendInfo" or request == "GetLegendGraphic":
         return WMSGetLegendInfoQuery(
             service=service,
             version=version,
