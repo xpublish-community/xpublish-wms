@@ -149,7 +149,7 @@ class GetMap:
         if tile is not None:
             tile = [float(x) for x in query.tile.split(",")]
             self.bbox = mercantile.xy_bounds(*tile)
-            self.crs = "EPSG:3857" # tiles are always mercator
+            self.crs = "EPSG:3857"  # tiles are always mercator
         else:
             self.bbox = [float(x) for x in query.bbox.split(",")]
         self.width = query.width
