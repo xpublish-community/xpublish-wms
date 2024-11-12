@@ -98,6 +98,10 @@ def get_minmax(
     """
     entire_layer = query.bbox is None
     getmap_query = WMSGetMapQuery(
+        service=query.service,
+        version=query.version,
+        request="GetMap",
+        layers=query.layername,
         bbox=query.bbox if not entire_layer else "-180,-90,180,90",
         width=1 if entire_layer else 512,
         height=1 if entire_layer else 512,

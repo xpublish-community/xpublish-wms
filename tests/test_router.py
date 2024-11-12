@@ -40,11 +40,46 @@ def test_cf_get_capabilities(xpublish_client):
 
 
 def test_cf_get_metadata(xpublish_client):
-    response = xpublish_client.get(
+    # pragma: item=menu
+    menu_response = xpublish_client.get(
         "datasets/air/wms?version=1.3.0&service=WMS&request=GetMetadata&item=menu",
     )
+    assert menu_response.status_code == 200, "Menu response did not return successfully"
+    menu_data = menu_response.json()
+    assert len(menu_data["children"]) == 1
+    assert menu_data["children"][0]["id"] == "air"
 
-    assert response.status_code == 200, "Response did not return successfully"
+    # pragma: item=layerdetails
+    layerdetails_response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetMetadata&item=layerdetails&layername=air",
+    )
+    assert (
+        layerdetails_response.status_code == 200
+    ), "Layer details response did not return successfully"
+    layerdetails_data = layerdetails_response.json()
+    assert layerdetails_data["layerName"] == "air"
+    assert layerdetails_data["bbox"] == [-160.0, 15.0, -30.0, 75.0]
+    assert len(layerdetails_data["timesteps"]) > 0
+    assert layerdetails_data["additional_coords"] == []
 
-    raw_data = response.json()
-    print(raw_data)
+    # pragma: item=timesteps
+    timesteps_response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetMetadata&item=timesteps&layername=air",
+    )
+    assert (
+        timesteps_response.status_code == 200
+    ), "Timestamps response did not return successfully"
+    timesteps_data = timesteps_response.json()
+    assert len(timesteps_data["timesteps"]) > 0
+    assert timesteps_data["timesteps"][0] == "2013-01-01T00:00:00Z"
+    assert timesteps_data["timesteps"][-1] == "2014-12-31T18:00:00Z"
+
+    # pragma: item=minmax
+    minmax_response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetMetadata&item=minmax&layername=air&time=2013-01-01T00:00:00",
+    )
+    assert (
+        minmax_response.status_code == 200
+    ), "Minmax response did not return successfully"
+    minmax_data = minmax_response.json()
+    assert minmax_data == {"min": 227.0, "max": 302.6}
