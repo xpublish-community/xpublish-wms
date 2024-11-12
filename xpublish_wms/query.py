@@ -206,8 +206,8 @@ def wms_query(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
     ),
-    srs: Literal["EPSG:4326", "EPSG:3857"] = Query(
-        "EPSG:4326",
+    srs: Optional[Literal["EPSG:4326", "EPSG:3857"]] = Query(
+        None,
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
     ),
     time: Optional[str] = Query(

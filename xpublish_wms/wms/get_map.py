@@ -149,6 +149,7 @@ class GetMap:
         if tile is not None:
             tile = [float(x) for x in query.tile.split(",")]
             self.bbox = mercantile.xy_bounds(*tile)
+            self.crs = "EPSG:3857" # tiles are always mercator
         else:
             self.bbox = [float(x) for x in query.bbox.split(",")]
         self.width = query.width
@@ -301,8 +302,8 @@ class GetMap:
                 # than we need
                 da = filter_data_within_bbox(da, self.bbox, diff)
             except Exception as e:
-                print(f"Error filtering data within bbox: {e}")
-                print("Falling back to full layer")
+                logger.error(f"Error filtering data within bbox: {e}")
+                logger.warning("Falling back to full layer")
 
         # Squeeze single value dimensions
         da = da.squeeze()
@@ -342,6 +343,8 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
+
+        print(da)
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
