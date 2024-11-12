@@ -175,7 +175,7 @@ def get_feature_info(
         else:
             try:
                 selected_ds = selected_ds.cf.isel(time=0)
-            except:
+            except Exception:
                 # Skip it, time isn't a dimension, even though it is a coordinate
                 pass
 
