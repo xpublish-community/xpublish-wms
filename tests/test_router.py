@@ -106,6 +106,31 @@ def test_get_feature_info(xpublish_client):
     data = response.json()
     assert data["ranges"]["air"]["values"] == [287.005456059975]
 
+    response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetFeatureInfo&crs=EPSG:4326&bbox=-100.0,30.0,-101.0,31.0&width=50&height=50&query_layers=air&x=25&y=25&time=2013-01-01T00:00:00/2013-01-02T00:00:00",
+    )
+
+    assert response.status_code == 200, "Response did not return successfully"
+    assert (
+        response.headers["content-type"] == "application/json"
+    ), "Response is not json"
+
+    data = response.json()
+    assert data["domain"]["axes"]["t"]["values"] == [
+        "2013-01-01T00:00:00Z",
+        "2013-01-01T06:00:00Z",
+        "2013-01-01T12:00:00Z",
+        "2013-01-01T18:00:00Z",
+        "2013-01-02T00:00:00Z",
+    ]
+    assert data["ranges"]["air"]["values"] == [
+        287.005456059975,
+        281.3892503123699,
+        278.29012911286964,
+        279.74098292378176,
+        282.26759683465224,
+    ]
+
 
 def test_get_legend_graphic(xpublish_client):
     response = xpublish_client.get(
