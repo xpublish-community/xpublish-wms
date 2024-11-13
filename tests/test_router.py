@@ -92,6 +92,14 @@ def test_get_map(xpublish_client):
     assert response.status_code == 200, "Response did not return successfully"
     assert response.headers["content-type"] == "image/png", "Response is not an image"
 
+    autoscale_response = xpublish_client.get(
+        "datasets/air/wms?version=1.3.0&service=WMS&request=GetMap&layers=air&styles=raster/default&crs=EPSG:4326&bbox=-160.0,15.0,-30.0,75.0&width=512&height=513&format=image/png&colorscalerange=227.0,302.6&autoscale=True",
+    )
+    assert autoscale_response.status_code == 200, "Response did not return successfully"
+    assert (
+        autoscale_response.headers["content-type"] == "image/png"
+    ), "Response is not an image"
+
 
 def test_get_feature_info(xpublish_client):
     response = xpublish_client.get(

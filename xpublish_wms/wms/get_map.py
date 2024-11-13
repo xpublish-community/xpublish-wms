@@ -332,9 +332,9 @@ class GetMap:
                 return {"min": float(da.min()), "max": float(da.max())}
 
         if not self.autoscale:
-            vmin, vmax = self.colorscalerange
+            span = (self.colorscalerange[0], self.colorscalerange[1])
         else:
-            vmin, vmax = [None, None]
+            span = None
 
         start_shade = time.time()
         cvs = dsh.Canvas(
@@ -343,8 +343,6 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
-
-        print(da)
 
         if ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
@@ -373,7 +371,7 @@ class GetMap:
             mesh,
             cmap=cm.get_cmap(self.palettename),
             how="linear",
-            span=(vmin, vmax),
+            span=span,
         )
         logger.info(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
