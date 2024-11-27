@@ -242,7 +242,7 @@ class GetMap:
         for dim, value in self.dim_selectors.items():
             if dim in da.coords:
                 dtype = da[dim].dtype
-                method=None
+                method = None
                 if "timedelta" in str(dtype):
                     value = pd.to_timedelta(value)
                 elif np.issubdtype(dtype, np.integer):
