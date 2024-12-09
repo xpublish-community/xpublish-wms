@@ -9,6 +9,7 @@ from xpublish_wms.utils import strip_float
 
 
 class RenderMethod(Enum):
+    Raster = "raster"
     Quad = "quad"
     Triangle = "triangle"
 

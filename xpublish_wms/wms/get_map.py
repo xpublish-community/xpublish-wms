@@ -347,7 +347,11 @@ class GetMap:
             y_range=(self.bbox[1], self.bbox[3]),
         )
 
-        if ds.gridded.render_method == RenderMethod.Quad:
+        if ds.gridded.render_method == RenderMethod.Raster:
+            mesh = cvs.raster(
+                da,
+            )
+        elif ds.gridded.render_method == RenderMethod.Quad:
             mesh = cvs.quadmesh(
                 da,
                 x="x",
