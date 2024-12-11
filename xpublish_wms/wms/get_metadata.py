@@ -139,7 +139,7 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
 
     additional_coords = ds.gridded.additional_coords(da)
     additional_coord_values = {
-        coord: da.cf.coords[coord].values.tolist() for coord in additional_coords
+        coord: (da.cf.coords[coord] if coord in da.cf.coords else da[coord]).values.tolist() for coord in additional_coords
     }
 
     return {
