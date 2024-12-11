@@ -44,6 +44,10 @@ class WMSGetMetadataQuery(WMSBaseQuery):
             description="Bounding box to use for calculating min and max in the format 'minx,miny,maxx,maxy'",
         ),
     )
+    crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
+        "EPSG:4326",
+        description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
+    )
     time: Optional[str] = (
         Field(
             None,
@@ -273,6 +277,7 @@ def wms_query(
             day=day,
             range=range,
             bbox=bbox,
+            crs=crs if srs is None else srs,
             time=time,
             elevation=elevation,
         )
