@@ -20,7 +20,7 @@ class RegularGrid(Grid):
 
     @property
     def render_method(self) -> RenderMethod:
-        return RenderMethod.Raster
+        return RenderMethod.Quad
 
     @property
     def crs(self) -> str:
