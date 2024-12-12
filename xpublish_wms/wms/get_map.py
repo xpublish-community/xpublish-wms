@@ -174,7 +174,7 @@ class GetMap:
         self.autoscale = query.autoscale
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])
-        self.dim_selectors = {k: query_params[k] for k in available_selectors}
+        self.dim_selectors = {k: query_params[k] if k in query_params else None for k in available_selectors}
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
@@ -235,23 +235,34 @@ class GetMap:
     def select_custom_dim(self, da: xr.DataArray) -> xr.DataArray:
         """
         Select other dimension, ensuring a 2D array
+
+        If dimension is provided :
+            - use xarray to access custom coord
+            - method nearest to ensure at least one result
+
+        Otherwise:
+            - Get first value of coord
+
         :param da:
         :return:
         """
         # Filter dimension from custom query, if any
         for dim, value in self.dim_selectors.items():
             if dim in da.coords:
-                dtype = da[dim].dtype
-                method = None
-                if "timedelta" in str(dtype):
-                    value = pd.to_timedelta(value)
-                elif np.issubdtype(dtype, np.integer):
-                    value = int(value)
-                    method = "nearest"
-                elif np.issubdtype(dtype, np.floating):
-                    value = float(value)
-                    method = "nearest"
-                da = da.sel({dim: value}, method=method)
+                if value is None:
+                    da = da.isel({dim: 0})
+                else:
+                    dtype = da[dim].dtype
+                    method = None
+                    if "timedelta" in str(dtype):
+                        value = pd.to_timedelta(value)
+                    elif np.issubdtype(dtype, np.integer):
+                        value = int(value)
+                        method = "nearest"
+                    elif np.issubdtype(dtype, np.floating):
+                        value = float(value)
+                        method = "nearest"
+                    da = da.sel({dim: value}, method=method)
 
         # Squeeze single value dimensions
         da = da.squeeze()
