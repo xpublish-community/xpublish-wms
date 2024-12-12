@@ -352,11 +352,17 @@ class GetMap:
                 da,
             )
         elif ds.gridded.render_method == RenderMethod.Quad:
-            mesh = cvs.quadmesh(
-                da,
-                x="x",
-                y="y",
-            )
+            try:
+                mesh = cvs.quadmesh(
+                    da,
+                    x="x",
+                    y="y",
+                )
+            except Exception as e:
+                logger.warning(f"Error rendering quadmesh: {e}, falling back to raster")
+                mesh = cvs.raster(
+                    da,
+                )
         elif ds.gridded.render_method == RenderMethod.Triangle:
             triangles = ds.gridded.tessellate(da)
             if x is not None:
