@@ -105,7 +105,7 @@ def get_minmax(
         bbox=query.bbox if not entire_layer else "-180,-90,180,90",
         width=1 if entire_layer else 512,
         height=1 if entire_layer else 512,
-        crs="EPSG:4326",
+        crs=query.crs,
         time=query.time,
         elevation=query.elevation,
         styles="raster/default",
@@ -139,7 +139,10 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
 
     additional_coords = ds.gridded.additional_coords(da)
     additional_coord_values = {
-        coord: da.cf.coords[coord].values.tolist() for coord in additional_coords
+        coord: (
+            da.cf.coords[coord] if coord in da.cf.coords else da[coord]
+        ).values.tolist()
+        for coord in additional_coords
     }
 
     return {
