@@ -174,7 +174,10 @@ class GetMap:
         self.autoscale = query.autoscale
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])
-        self.dim_selectors = {k: query_params[k] if k in query_params else None for k in available_selectors}
+        self.dim_selectors = {
+            k: query_params[k] if k in query_params else None
+            for k in available_selectors
+        }
 
     def select_layer(self, ds: xr.Dataset) -> xr.DataArray:
         """
