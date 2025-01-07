@@ -31,6 +31,11 @@ class CfWmsPlugin(Plugin):
     dataset_router_prefix: str = "/wms"
     dataset_router_tags: List[str] = ["wms"]
 
+    # Limit for rendering arrays in get_map after subsetting to the requested
+    # bounding box. If the array is larger than this threshold, an error will be thrown.
+    # Default is 1e9 bytes (1 GB)
+    array_get_map_render_threshold_bytes: int = 1e9
+
     @hookimpl
     def dataset_router(self, deps: Dependencies) -> APIRouter:
         """Register dataset level router for WMS endpoints"""
@@ -60,7 +65,7 @@ class CfWmsPlugin(Plugin):
                 wms_query,
                 dataset,
                 cache,
-                array_get_map_render_threshold_bytes=1e6,
+                array_get_map_render_threshold_bytes=self.array_get_map_render_threshold_bytes,
             )
 
         return router

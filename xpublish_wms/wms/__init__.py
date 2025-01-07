@@ -40,7 +40,7 @@ def wms_handler(
     ],
     dataset: xr.Dataset,
     cache: cachey.Cache,
-    array_get_map_render_threshold_bytes: int = 1e6,
+    array_get_map_render_threshold_bytes: int,
 ) -> Response:
     query_params = lower_case_keys(request.query_params)
     query_keys = list(query_params.keys())

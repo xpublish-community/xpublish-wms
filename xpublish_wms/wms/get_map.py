@@ -57,7 +57,7 @@ class GetMap:
     colorscalerange: List[float]
     autoscale: bool
 
-    def __init__(self, cache: cachey.Cache, *, array_render_threshold_bytes: int = 1e6):
+    def __init__(self, cache: cachey.Cache, array_render_threshold_bytes: int):
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes
 
