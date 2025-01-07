@@ -327,14 +327,18 @@ class GetMap:
 
         logger.info(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
+        # Print the size of the da in megabytes
+        da_size_mb = da.nbytes / (1024 * 1024)
+        logger.info(f"WMS GetMap loading DataArray size: {da_size_mb:.2f} MB")
+
         start_dask = time.time()
 
-        da = da.compute()
+        da = da.load()
         if x is not None and y is not None:
-            x = x.compute()
-            y = y.compute()
+            x = x.load()
+            y = y.load()
 
-        logger.info(f"WMS GetMap dask compute: {time.time() - start_dask}")
+        logger.info(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if minmax_only:
             try:
