@@ -17,6 +17,7 @@ def get_metadata(
     cache: cachey.Cache,
     query: WMSGetMetadataQuery,
     query_params: dict,
+    array_get_map_render_threshold_bytes: int,
 ) -> Response:
     """
     Return the WMS metadata for the dataset
@@ -45,7 +46,13 @@ def get_metadata(
         da = ds[layer_name]
         payload = get_timesteps(da, query)
     elif metadata_type == "minmax":
-        payload = get_minmax(ds, cache, query, query_params)
+        payload = get_minmax(
+            ds,
+            cache,
+            query,
+            query_params,
+            array_get_map_render_threshold_bytes,
+        )
     else:
         raise HTTPException(
             status_code=400,
@@ -90,6 +97,7 @@ def get_minmax(
     cache: cachey.Cache,
     query: WMSGetMetadataQuery,
     query_params: dict,
+    array_get_map_render_threshold_bytes: int,
 ) -> dict:
     """
     Returns the min and max range of values for a given layer in a given area
@@ -112,7 +120,10 @@ def get_minmax(
         colorscalerange="nan,nan",
     )
 
-    getmap = GetMap(cache=cache)
+    getmap = GetMap(
+        cache=cache,
+        array_render_threshold_bytes=array_get_map_render_threshold_bytes,
+    )
     return getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
 
 

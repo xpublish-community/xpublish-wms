@@ -53,7 +53,13 @@ def wms_handler(
     if isinstance(query, WMSGetCapabilitiesQuery):
         return get_capabilities(dataset, request, query)
     elif isinstance(query, WMSGetMetadataQuery):
-        return get_metadata(dataset, cache, query, query_params)
+        return get_metadata(
+            dataset,
+            cache,
+            query,
+            query_params,
+            array_get_map_render_threshold_bytes=array_get_map_render_threshold_bytes,
+        )
     elif isinstance(query, WMSGetMapQuery):
         getmap_service = GetMap(
             cache=cache,
