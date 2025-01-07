@@ -36,6 +36,7 @@ class GetMap:
     BBOX_BUFFER = 0.18
 
     cache: cachey.Cache
+    array_render_threshold_bytes: int
 
     # Data selection
     parameter: str
@@ -56,8 +57,9 @@ class GetMap:
     colorscalerange: List[float]
     autoscale: bool
 
-    def __init__(self, cache: cachey.Cache):
+    def __init__(self, cache: cachey.Cache, array_render_threshold_bytes: int):
         self.cache = cache
+        self.array_render_threshold_bytes = array_render_threshold_bytes
 
     def get_map(
         self,
@@ -327,14 +329,27 @@ class GetMap:
 
         logger.info(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
+        # Print the size of the da in megabytes
+        da_size = da.nbytes
+        if da_size > self.array_render_threshold_bytes:
+            logger.error(
+                f"DataArray size is {da_size:.2f} bytes, which is larger than the "
+                f"threshold of {self.array_render_threshold_bytes} bytes. "
+                f"Consider increasing the threshold in the plugin configuration.",
+            )
+            raise ValueError(
+                f"DataArray too large to render: threshold is {self.array_render_threshold_bytes} bytes, data is {da_size:.2f} bytes",
+            )
+        logger.info(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
+
         start_dask = time.time()
 
-        da = da.compute()
+        da = da.load()
         if x is not None and y is not None:
-            x = x.compute()
-            y = y.compute()
+            x = x.load()
+            y = y.load()
 
-        logger.info(f"WMS GetMap dask compute: {time.time() - start_dask}")
+        logger.info(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if minmax_only:
             try:
