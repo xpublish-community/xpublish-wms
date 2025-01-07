@@ -40,6 +40,7 @@ def wms_handler(
     ],
     dataset: xr.Dataset,
     cache: cachey.Cache,
+    array_get_map_render_threshold_bytes: int = 1e6,
 ) -> Response:
     query_params = lower_case_keys(request.query_params)
     query_keys = list(query_params.keys())
@@ -54,7 +55,10 @@ def wms_handler(
     elif isinstance(query, WMSGetMetadataQuery):
         return get_metadata(dataset, cache, query, query_params)
     elif isinstance(query, WMSGetMapQuery):
-        getmap_service = GetMap(cache=cache)
+        getmap_service = GetMap(
+            cache=cache,
+            array_render_threshold_bytes=array_get_map_render_threshold_bytes,
+        )
         return getmap_service.get_map(dataset, query, query_params)
     elif isinstance(query, WMSGetFeatureInfoQuery):
         return get_feature_info(dataset, query, query_params)

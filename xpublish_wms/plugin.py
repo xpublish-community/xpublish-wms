@@ -54,6 +54,13 @@ class CfWmsPlugin(Plugin):
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
-            return wms_handler(request, wms_query, dataset, cache)
+            # TODO: Make threshold configurable
+            return wms_handler(
+                request,
+                wms_query,
+                dataset,
+                cache,
+                array_get_map_render_threshold_bytes=1e6,
+            )
 
         return router
