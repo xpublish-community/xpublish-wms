@@ -351,6 +351,10 @@ class GetMap:
 
         logger.info(f"WMS GetMap load data: {time.time() - start_dask}")
 
+        if da.size == 0:
+            logger.warning("No data to render")
+            return False
+
         if minmax_only:
             try:
                 return {
