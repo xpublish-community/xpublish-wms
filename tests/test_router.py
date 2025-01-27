@@ -38,6 +38,16 @@ def test_cf_get_capabilities(xpublish_client):
     raw_data = response.text
     assert "WMS_Capabilities" in raw_data, "Response does not contain WMS_Capabilities"
 
+    # Try with uppercase query params
+    response = xpublish_client.get(
+        "datasets/air/wms?VERSION=1.3.0&SERVICE=WMS&REQUEST=GetCapabilities",
+    )
+
+    assert response.status_code == 200, "Response did not return successfully"
+
+    raw_data = response.text
+    assert "WMS_Capabilities" in raw_data, "Response does not contain WMS_Capabilities"
+
 
 def test_cf_get_metadata(xpublish_client):
     # pragma: item=menu
