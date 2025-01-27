@@ -1,19 +1,13 @@
 import logging
-from typing import List, Union
+from typing import List
 
 import cachey
 import xarray as xr
 from fastapi import APIRouter, Depends, Request
 from xpublish import Dependencies, Plugin, hookimpl
 
-from xpublish_wms.query import (
-    WMSGetCapabilitiesQuery,
-    WMSGetFeatureInfoQuery,
-    WMSGetLegendInfoQuery,
-    WMSGetMapQuery,
-    WMSGetMetadataQuery,
-    wms_query,
-)
+from xpublish_wms.query import WMS_FILTERED_QUERY_PARAMS, parse_wms_query
+from xpublish_wms.utils import lower_case_keys
 
 from .wms import wms_handler
 
@@ -49,20 +43,24 @@ class CfWmsPlugin(Plugin):
         @router.get("/")
         def wms_root(
             request: Request,
-            wms_query: Union[
-                WMSGetCapabilitiesQuery,
-                WMSGetMetadataQuery,
-                WMSGetMapQuery,
-                WMSGetFeatureInfoQuery,
-                WMSGetLegendInfoQuery,
-            ] = Depends(wms_query),
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
+            query_params = lower_case_keys(request.query_params)
+            query_keys = list(query_params.keys())
+            extra_query_params = {}
+            for query_key in query_keys:
+                if query_key not in WMS_FILTERED_QUERY_PARAMS:
+                    extra_query_params[query_key] = query_params[query_key]
+                    del query_params[query_key]
+
+            wms_query = parse_wms_query(query_params)
+
             # TODO: Make threshold configurable
             return wms_handler(
                 request,
                 wms_query,
+                extra_query_params,
                 dataset,
                 cache,
                 array_get_map_render_threshold_bytes=self.array_get_map_render_threshold_bytes,

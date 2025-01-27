@@ -11,14 +11,12 @@ import xarray as xr
 from fastapi import HTTPException, Request, Response
 
 from xpublish_wms.query import (
-    WMS_FILTERED_QUERY_PARAMS,
     WMSGetCapabilitiesQuery,
     WMSGetFeatureInfoQuery,
     WMSGetLegendInfoQuery,
     WMSGetMapQuery,
     WMSGetMetadataQuery,
 )
-from xpublish_wms.utils import lower_case_keys
 from xpublish_wms.wms.get_map import GetMap
 
 from .get_capabilities import get_capabilities
@@ -38,40 +36,36 @@ def wms_handler(
         WMSGetFeatureInfoQuery,
         WMSGetLegendInfoQuery,
     ],
+    extra_query_params: dict,
     dataset: xr.Dataset,
     cache: cachey.Cache,
     array_get_map_render_threshold_bytes: int,
 ) -> Response:
-    query_params = lower_case_keys(request.query_params)
-    query_keys = list(query_params.keys())
-    for query_key in query_keys:
-        if query_key in WMS_FILTERED_QUERY_PARAMS:
-            del query_params[query_key]
-
     logger.debug(f"Received wms request: {request.url}")
 
-    if isinstance(query, WMSGetCapabilitiesQuery):
-        return get_capabilities(dataset, request, query)
-    elif isinstance(query, WMSGetMetadataQuery):
-        return get_metadata(
-            dataset,
-            cache,
-            query,
-            query_params,
-            array_get_map_render_threshold_bytes=array_get_map_render_threshold_bytes,
-        )
-    elif isinstance(query, WMSGetMapQuery):
-        getmap_service = GetMap(
-            cache=cache,
-            array_render_threshold_bytes=array_get_map_render_threshold_bytes,
-        )
-        return getmap_service.get_map(dataset, query, query_params)
-    elif isinstance(query, WMSGetFeatureInfoQuery):
-        return get_feature_info(dataset, query, query_params)
-    elif isinstance(query, WMSGetLegendInfoQuery):
-        return get_legend_info(dataset, query)
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown WMS request: {request.query_params}",
-        )
+    match query:
+        case WMSGetCapabilitiesQuery():
+            return get_capabilities(dataset, request, query)
+        case WMSGetMetadataQuery():
+            return get_metadata(
+                dataset,
+                cache,
+                query,
+                extra_query_params,
+                array_get_map_render_threshold_bytes=array_get_map_render_threshold_bytes,
+            )
+        case WMSGetMapQuery():
+            getmap_service = GetMap(
+                cache=cache,
+                array_render_threshold_bytes=array_get_map_render_threshold_bytes,
+            )
+            return getmap_service.get_map(dataset, query, extra_query_params)
+        case WMSGetFeatureInfoQuery():
+            return get_feature_info(dataset, query, extra_query_params)
+        case WMSGetLegendInfoQuery():
+            return get_legend_info(dataset, query)
+        case _:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unknown WMS request: {request.query_params}",
+            )
