@@ -1,6 +1,6 @@
 black
 check-manifest
-dask[complete]
+dask[complete]<2025.1.0
 doctr
 flake8
 flake8-builtins
