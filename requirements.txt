@@ -1,6 +1,7 @@
 cachey
 cartopy
 cf_xarray
+dask[complete]
 datashader
 matplotlib
 mercantile
