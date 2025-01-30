@@ -207,9 +207,12 @@ class GetMap:
         # by using coords, we will fallback to ds.coords[self.TIME_CF_NAME]
         # if cf-xarray can't identify self.TIME_CF_NAME using attributes
         # This is a nice fallback for datasets with `"time"`
-        if time_coord := da.cf.coords.get(self.TIME_CF_NAME, None) is not None:
+        if (time_coord := da.cf.coords.get(self.TIME_CF_NAME, None)) is not None:
             time_dim = time_coord.name
-            da = da.cf.sel({time_dim: (-1 if self.time is None else self.time)}, method="nearest")
+            da = da.cf.sel(
+                {time_dim: (-1 if self.time is None else self.time)},
+                method="nearest",
+            )
         return da
 
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
