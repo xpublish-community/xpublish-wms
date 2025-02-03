@@ -1,36 +1,11 @@
-from typing import Annotated, Any, Literal, Optional, Union
-
-from pydantic import AliasChoices, BaseModel, BeforeValidator, Field
-
-
-# https://stackoverflow.com/a/78102277
-class LiteralWrapper:
-    def clean_literals(v: Any) -> Any:
-        return v
-
-    def __class_getitem__(cls, values):
-        return Annotated[Literal[values], BeforeValidator(cls.clean_literals)]
-
-
-class LowerLiteral(LiteralWrapper):
-    @staticmethod
-    def clean_literals(v: Any) -> Any:
-        if isinstance(v, str):
-            return v.lower().strip()
-        return v
-
-
-class UpperLiteral(LiteralWrapper):
-    @staticmethod
-    def clean_literals(v: Any) -> Any:
-        if isinstance(v, str):
-            return v.upper().strip()
-        return v
+from typing import Any, Literal, Optional, Union
+import json
+from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator, field_validator
 
 
 class WMSBaseQuery(BaseModel):
-    service: UpperLiteral["WMS"] = Field(..., description="Service type. Must be WMS")
-    version: LowerLiteral["1.1.1", "1.3.0"] = Field(
+    service: Literal["WMS"] = Field(..., description="Service type. Must be WMS")
+    version: Literal["1.1.1", "1.3.0"] = Field(
         ...,
         description="Version of the WMS service",
     )
@@ -39,19 +14,19 @@ class WMSBaseQuery(BaseModel):
 class WMSGetCapabilitiesQuery(WMSBaseQuery):
     """WMS GetCapabilities query"""
 
-    request: LowerLiteral["getcapabilities"] = Field(..., description="Request type")
+    request: Literal["GetCapabilities"] = Field(..., description="Request type")
 
 
 class WMSGetMetadataQuery(WMSBaseQuery):
     """WMS GetMetadata query"""
 
-    request: LowerLiteral["getmetadata"] = Field(..., description="Request type")
+    request: Literal["GetMetadata"] = Field(..., description="Request type")
     layername: Optional[str] = Field(
         None,
         description="Name of the layer to get metadata for",
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
-    item: LowerLiteral["layerdetails", "timesteps", "minmax", "menu"] = Field(
+    item: Literal["layerdetails", "timesteps", "minmax", "menu"] = Field(
         ...,
         description="The type of GetMetadata request",
     )
@@ -67,7 +42,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
         None,
         description="Bounding box to use for calculating min and max in the format 'minx,miny,maxx,maxy'",
     )
-    crs: UpperLiteral["EPSG:4326", "EPSG:3857"] = Field(
+    crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
         validation_alias=AliasChoices("crs", "srs"),
@@ -85,7 +60,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
 class WMSGetMapQuery(WMSBaseQuery):
     """WMS GetMap query"""
 
-    request: LowerLiteral["getmap"] = Field(..., description="Request type")
+    request: Literal["GetMap"] = Field(..., description="Request type")
     layers: str = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
@@ -93,7 +68,7 @@ class WMSGetMapQuery(WMSBaseQuery):
         "raster/default",
         description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
     )
-    crs: UpperLiteral["EPSG:4326", "EPSG:3857"] = Field(
+    crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
         validation_alias=AliasChoices("crs", "srs"),
@@ -135,7 +110,7 @@ class WMSGetMapQuery(WMSBaseQuery):
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
     """WMS GetFeatureInfo query"""
 
-    request: LowerLiteral["getfeatureinfo", "gettimeseries", "getverticalprofile"] = (
+    request: Literal["GetFeatureInfo", "GetTimeseries", "GetVerticalProfile"] = (
         Field(
             ...,
             description="Request type",
@@ -152,7 +127,7 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         None,
         description="Optional elevation to get feature info for. Only valid when the layer has an elevation dimension. To get all elevations, use 'all', to get a range of elevations, use 'start/end'",
     )
-    crs: UpperLiteral["EPSG:4326"] = Field(
+    crs: Literal["EPSG:4326"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. Currently only EPSG:4326 is supported for this request",
         validation_alias=AliasChoices("crs", "srs"),
@@ -182,7 +157,7 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
 class WMSGetLegendInfoQuery(WMSBaseQuery):
     """WMS GetLegendInfo query"""
 
-    request: LowerLiteral["getlegendgraphic"] = Field(..., description="Request type")
+    request: Literal["GetLegendGraphic"] = Field(..., description="Request type")
     layers: str = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
@@ -194,32 +169,35 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     styles: str = "raster/default"
 
 
-def parse_wms_query(query_params: dict) -> Union[
+WMSQueryType = Union[
     WMSGetCapabilitiesQuery,
     WMSGetMetadataQuery,
     WMSGetMapQuery,
     WMSGetFeatureInfoQuery,
     WMSGetLegendInfoQuery,
-]:
-    request_type = query_params.get("request", None)
-    if not request_type:
-        raise ValueError("Missing WMS 'request' parameter")
-    elif not isinstance(request_type, str):
-        raise ValueError(f"Unknown WMS request type: {query_params['request']}")
+]
 
-    match request_type.lower():
-        case "getcapabilities":
-            return WMSGetCapabilitiesQuery(**query_params)
-        case "getmetadata":
-            return WMSGetMetadataQuery(**query_params)
-        case "getmap":
-            return WMSGetMapQuery(**query_params)
-        case "getfeatureinfo" | "gettimeseries" | "getverticalprofile":
-            return WMSGetFeatureInfoQuery(**query_params)
-        case "getlegendgraphic":
-            return WMSGetLegendInfoQuery(**query_params)
-        case _:
-            raise ValueError(f"Unknown WMS request type: {query_params['request']}")
+
+class WMSQuery(RootModel):
+    root: WMSQueryType = Field(discriminator="request")
+
+    @model_validator(mode="before")
+    def lower_case_dict(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            ret_dict = dict()
+            for k, v in values.items():
+                ret_k = k.lower()
+                ret_v = v
+
+                if isinstance(ret_v, str):
+                    if ret_k == "item": 
+                        ret_v = ret_v.lower()
+                    elif ret_k == "crs" or ret_k == "srs":
+                        ret_v = ret_v.upper()
+
+                ret_dict[ret_k] = ret_v
+            return ret_dict
+        return values
 
 
 # These params are used for GetMap and GetFeatureInfo requests, and can be filtered out of the query params for any requests that are handled

@@ -1,12 +1,12 @@
 import logging
-from typing import List
+from typing import Annotated, List
 
 import cachey
 import xarray as xr
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from xpublish import Dependencies, Plugin, hookimpl
 
-from xpublish_wms.query import WMS_FILTERED_QUERY_PARAMS, parse_wms_query
+from xpublish_wms.query import WMS_FILTERED_QUERY_PARAMS, WMSQuery
 from xpublish_wms.utils import lower_case_keys
 
 from .wms import wms_handler
@@ -43,6 +43,7 @@ class CfWmsPlugin(Plugin):
         @router.get("/")
         def wms_root(
             request: Request,
+            wms_query: Annotated[WMSQuery, Query()],
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
@@ -54,12 +55,10 @@ class CfWmsPlugin(Plugin):
                     extra_query_params[query_key] = query_params[query_key]
                     del query_params[query_key]
 
-            wms_query = parse_wms_query(query_params)
-
             # TODO: Make threshold configurable
             return wms_handler(
                 request,
-                wms_query,
+                wms_query.root,
                 extra_query_params,
                 dataset,
                 cache,
