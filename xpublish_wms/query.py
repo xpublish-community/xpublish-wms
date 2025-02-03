@@ -1,12 +1,6 @@
 from typing import Any, Literal, Optional, Union
 
-from pydantic import (
-    AliasChoices,
-    BaseModel,
-    Field,
-    RootModel,
-    model_validator,
-)
+from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator
 
 
 class WMSBaseQuery(BaseModel):
