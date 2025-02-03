@@ -200,6 +200,10 @@ class SELFEGrid(Grid):
             da = da.cf.isel(vertical=elevation_index)
 
         return da
+    
+    def additional_coords(self, da):
+        filter_dims = ["siglay", "siglev", "nele", "node"]
+        return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(self, da: xr.DataArray, crs: str) -> any:
         da = self.mask(da)
