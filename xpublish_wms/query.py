@@ -1,6 +1,6 @@
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 
 class WMSBaseQuery(BaseModel):
@@ -157,26 +157,23 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     styles: str = "raster/default"
 
 
-def parse_wms_query(query_params: dict) -> Union[
+WMSQueryType = Union[
     WMSGetCapabilitiesQuery,
     WMSGetMetadataQuery,
     WMSGetMapQuery,
     WMSGetFeatureInfoQuery,
     WMSGetLegendInfoQuery,
-]:
-    match query_params["request"]:
-        case "GetCapabilities":
-            return WMSGetCapabilitiesQuery(**query_params)
-        case "GetMetadata":
-            return WMSGetMetadataQuery(**query_params)
-        case "GetMap":
-            return WMSGetMapQuery(**query_params)
-        case "GetFeatureInfo":
-            return WMSGetFeatureInfoQuery(**query_params)
-        case "GetLegendGraphic":
-            return WMSGetLegendInfoQuery(**query_params)
-        case _:
-            raise ValueError(f"Unknown WMS request type: {query_params['request']}")
+]
+
+
+class WMSQuery(RootModel):
+    root: WMSQueryType = Field(discriminator="request")
+
+    @model_validator(mode="before")
+    def lower_case_dict(cls, values: Any) -> Any:
+        if isinstance(values, dict):
+            return {k.lower(): v for k, v in values.items()}
+        return values
 
 
 # These params are used for GetMap and GetFeatureInfo requests, and can be filtered out of the query params for any requests that are handled
