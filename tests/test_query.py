@@ -1,4 +1,11 @@
-from xpublish_wms.query import WMSGetCapabilitiesQuery, WMSGetFeatureInfoQuery, WMSGetLegendInfoQuery, WMSGetMapQuery, WMSGetMetadataQuery, WMSQuery
+from xpublish_wms.query import (
+    WMSGetCapabilitiesQuery,
+    WMSGetFeatureInfoQuery,
+    WMSGetLegendInfoQuery,
+    WMSGetMapQuery,
+    WMSGetMetadataQuery,
+    WMSQuery,
+)
 
 
 def test_wms_query_discriminator():
