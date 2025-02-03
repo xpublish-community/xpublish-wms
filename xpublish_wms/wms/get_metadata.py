@@ -25,7 +25,7 @@ def get_metadata(
     This is compliant subset of ncwms2's GetMetadata handler. Specifically, layerdetails, timesteps and minmax are supported.
     """
     layer_name = query.layername
-    metadata_type = query.item
+    metadata_type = query.item.lower()
 
     if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
         raise HTTPException(

@@ -1,6 +1,6 @@
 from typing import Any, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, RootModel, model_validator
+from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator
 
 
 class WMSBaseQuery(BaseModel):
@@ -24,6 +24,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
     layername: Optional[str] = Field(
         None,
         description="Name of the layer to get metadata for",
+        validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
     item: Literal["layerdetails", "timesteps", "minmax", "menu"] = Field(
         ...,
@@ -44,6 +45,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
+        validation_alias=AliasChoices("crs", "srs"),
     )
     time: Optional[str] = Field(
         None,
@@ -59,7 +61,9 @@ class WMSGetMapQuery(WMSBaseQuery):
     """WMS GetMap query"""
 
     request: Literal["GetMap"] = Field(..., description="Request type")
-    layers: str
+    layers: str = Field(
+        validation_alias=AliasChoices("layername", "layers", "query_layers"),
+    )
     styles: str = Field(
         "raster/default",
         description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
@@ -67,6 +71,7 @@ class WMSGetMapQuery(WMSBaseQuery):
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. EPSG:4326 and EPSG:3857 are supported for this request",
+        validation_alias=AliasChoices("crs", "srs"),
     )
     time: Optional[str] = Field(
         None,
@@ -109,7 +114,9 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         ...,
         description="Request type",
     )
-    query_layers: str
+    query_layers: str = Field(
+        validation_alias=AliasChoices("layername", "layers", "query_layers"),
+    )
     time: Optional[str] = Field(
         None,
         description="Optional time to get feature info for in Y-m-dTH:M:SZ format. Only valid when the layer has a time dimension. To get a range of times, use 'start/end'",
@@ -121,6 +128,7 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
     crs: Literal["EPSG:4326"] = Field(
         "EPSG:4326",
         description="Coordinate reference system to use for the query. Currently only EPSG:4326 is supported for this request",
+        validation_alias=AliasChoices("crs", "srs"),
     )
     bbox: str = Field(
         ...,
@@ -148,12 +156,14 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     """WMS GetLegendInfo query"""
 
     request: Literal["GetLegendGraphic"] = Field(..., description="Request type")
-    layers: str
+    layers: str = Field(
+        validation_alias=AliasChoices("layername", "layers", "query_layers"),
+    )
     width: int
     height: int
     vertical: bool = False
     colorscalerange: str = "nan,nan"
-    autoscale: bool = True
+    autoscale: bool = False
     styles: str = "raster/default"
 
 
@@ -172,7 +182,19 @@ class WMSQuery(RootModel):
     @model_validator(mode="before")
     def lower_case_dict(cls, values: Any) -> Any:
         if isinstance(values, dict):
-            return {k.lower(): v for k, v in values.items()}
+            ret_dict = dict()
+            for k, v in values.items():
+                ret_k = k.lower()
+                ret_v = v
+
+                if isinstance(ret_v, str):
+                    if ret_k == "item":
+                        ret_v = ret_v.lower()
+                    elif ret_k == "crs" or ret_k == "srs":
+                        ret_v = ret_v.upper()
+
+                ret_dict[ret_k] = ret_v
+            return ret_dict
         return values
 
 

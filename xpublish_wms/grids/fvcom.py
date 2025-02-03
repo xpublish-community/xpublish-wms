@@ -97,7 +97,7 @@ class FVCOMGrid(Grid):
         if "siglay" in subset.dims:
             subset = subset.rename_dims({"siglay": "sigma"})
         elif "siglev" in subset.dims:
-            subset = subset.rename_dims({"siglev": "sigmaa"})
+            subset = subset.rename_dims({"siglev": "sigma"})
 
         if "nele" in subset.dims:
             return self.sel_lat_lng_nele(subset, lng, lat, parameters)
@@ -329,6 +329,10 @@ class FVCOMGrid(Grid):
             da = da.cf.isel(vertical=elevation_index)
 
         return da
+
+    def additional_coords(self, da):
+        filter_dims = ["siglay", "siglev", "nele", "node"]
+        return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(
         self,
