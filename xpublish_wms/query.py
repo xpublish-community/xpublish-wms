@@ -1,6 +1,14 @@
-from typing import Any, Literal, Optional, Union
 import json
-from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator, field_validator
+from typing import Any, Literal, Optional, Union
+
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
 
 
 class WMSBaseQuery(BaseModel):
@@ -110,11 +118,9 @@ class WMSGetMapQuery(WMSBaseQuery):
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
     """WMS GetFeatureInfo query"""
 
-    request: Literal["GetFeatureInfo", "GetTimeseries", "GetVerticalProfile"] = (
-        Field(
-            ...,
-            description="Request type",
-        )
+    request: Literal["GetFeatureInfo", "GetTimeseries", "GetVerticalProfile"] = Field(
+        ...,
+        description="Request type",
     )
     query_layers: str = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
@@ -190,7 +196,7 @@ class WMSQuery(RootModel):
                 ret_v = v
 
                 if isinstance(ret_v, str):
-                    if ret_k == "item": 
+                    if ret_k == "item":
                         ret_v = ret_v.lower()
                     elif ret_k == "crs" or ret_k == "srs":
                         ret_v = ret_v.upper()
