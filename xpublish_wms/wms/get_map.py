@@ -323,7 +323,7 @@ class GetMap:
         # Squeeze single value dimensions
         da = da.squeeze()
 
-        logger.info(f"WMS GetMap Projection time: {time.time() - projection_start}")
+        logger.debug(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
         # Print the size of the da in megabytes
         da_size = da.nbytes
@@ -336,7 +336,7 @@ class GetMap:
             raise ValueError(
                 f"DataArray too large to render: threshold is {self.array_render_threshold_bytes} bytes, data is {da_size:.2f} bytes",
             )
-        logger.info(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
+        logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
         start_dask = time.time()
 
@@ -345,7 +345,7 @@ class GetMap:
             x = x.load()
             y = y.load()
 
-        logger.info(f"WMS GetMap load data: {time.time() - start_dask}")
+        logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if da.size == 0:
             logger.warning("No data to render")
@@ -375,6 +375,28 @@ class GetMap:
             x_range=(self.bbox[0], self.bbox[2]),
             y_range=(self.bbox[1], self.bbox[3]),
         )
+
+        # numba only supports float32 and float64. Cast everything else
+        if da.dtype.kind == "f" and da.dtype.itemsize != 4 and da.dtype.itemsize != 8:
+            logger.warning(
+                f"DataArray dtype is {da.dtype}, which is not a floating point type "
+                f"of size 32 or 64. This will result in a slow render.",
+            )
+            if da.dtype.itemsize < 4:
+                logger.warning(
+                    "DataArray dtype is 16-bit. This must be converted to 32-bit before rendering.",
+                )
+                da = da.astype(np.float32)
+            elif da.dtype.itemsize < 8:
+                logger.warning(
+                    "DataArray dtype is 32-bit. This must be converted to 64-bit before rendering.",
+                )
+                da = da.astype(np.float64)
+            else:
+                raise ValueError(
+                    f"DataArray dtype is {da.dtype}, which is not a floating point type "
+                    f"greater than 64-bit. This is not currently supported.",
+                )
 
         if ds.gridded.render_method == RenderMethod.Raster:
             mesh = cvs.raster(
@@ -415,7 +437,7 @@ class GetMap:
             how="linear",
             span=span,
         )
-        logger.info(f"WMS GetMap Shade time: {time.time() - start_shade}")
+        logger.debug(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
         im = shaded.to_pil()
         im.save(buffer, format="PNG")
