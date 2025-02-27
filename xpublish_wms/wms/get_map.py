@@ -212,7 +212,7 @@ class GetMap:
         if self.time is None:
             return da.cf.isel({self.TIME_CF_NAME: -1})
         else:
-            return da.cf.sel({self.TIME_CF_NAME: self.time})
+            return da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
 
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
         """
@@ -368,7 +368,7 @@ class GetMap:
         else:
             span = None
 
-        start_shade = time.time()
+        start_mesh = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
@@ -431,6 +431,9 @@ class GetMap:
                 tris,
             )
 
+        logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
+
+        start_shade = time.time()
         shaded = tf.shade(
             mesh,
             cmap=cm.get_cmap(self.palettename),

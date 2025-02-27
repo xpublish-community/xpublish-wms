@@ -401,9 +401,15 @@ class FVCOMGrid(Grid):
         )
 
         if crs == "EPSG:4326":
-            da.__setitem__(da.cf["longitude"].name, da.cf["longitude"] - 360)
+            adjust_lng = 0
+            if np.min(da.cf["longitude"]) < -180:
+                adjust_lng = 360
+            elif np.max(da.cf["longitude"]) > 180:
+                adjust_lng = -360
+
+            da.__setitem__(da.cf["longitude"].name, da.cf["longitude"] + adjust_lng)
             if tri_x is not None:
-                tri_x -= 360
+                tri_x += adjust_lng
         elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
             x_chunks = (
