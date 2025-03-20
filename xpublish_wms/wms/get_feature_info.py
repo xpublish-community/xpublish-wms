@@ -134,11 +134,11 @@ def get_feature_info(
 
     elevation_str = query.elevation
     if elevation_str == "all":
-        elevation = "all"
+        elevation_list = "all"
     elif elevation_str:
-        elevation = list([float(e) for e in elevation_str.split("/")])
+        elevation_list = list([[float(x) for x in e.split("/")] for e in elevation_str.split(",")])
     else:
-        elevation = []
+        elevation_list = []
     has_vertical_axis = [
         ds.gridded.has_elevation(ds[parameter]) for parameter in parameters
     ]
@@ -182,9 +182,20 @@ def get_feature_info(
     # TODO: This is really difficult when we have multiple parameters
     # with different vertical dimensions, and even some without indexes
     if any_has_vertical_axis:
-        if elevation == "all":
+        all_elevations = ds.gridded.elevations(selected_ds)
+        if elevation_list == "all":
             # Dont select an elevation, just keep all elevation coords
-            elevation = ds.gridded.elevations(selected_ds)
+            elevation = all_elevations
+        else:
+            elevation = []
+            for e in elevation_list:
+                if isinstance(e, list):
+                    if len(e) > 1:
+                        elevation.extend(list(filter(lambda x: min(e) <= x <= max(e), all_elevations)))
+                    else:
+                        elevation.extend(e)
+                else:
+                    elevation.append(e)
 
         selected_ds = ds.gridded.select_by_elevation(selected_ds, elevation)
 
