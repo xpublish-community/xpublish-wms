@@ -61,8 +61,8 @@ class CfWmsPlugin(Plugin):
                 wms_query.root,
                 extra_query_params,
                 dataset,
+                self.array_get_map_render_threshold_bytes,
                 cache,
-                array_get_map_render_threshold_bytes=self.array_get_map_render_threshold_bytes,
             )
 
         return router

@@ -57,7 +57,7 @@ class GetMap:
     colorscalerange: List[float]
     autoscale: bool
 
-    def __init__(self, cache: cachey.Cache, array_render_threshold_bytes: int):
+    def __init__(self, array_render_threshold_bytes: int, cache: cachey.Cache | None = None):
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes
 
@@ -292,6 +292,27 @@ class GetMap:
         # For now, try to render everything as a quad grid
         # TODO: FVCOM and other grids
         # return self.render_quad_grid(da, buffer, minmax_only)
+        filter_start = time.time()
+        try:
+            # Grab a buffer around the bbox to ensure we have enough data to render
+            # TODO - maybe not raw 2 deg for buffer
+            bbox_buffer = 2
+            bbox = [
+                self.bbox[0] - bbox_buffer,
+                self.bbox[1] - bbox_buffer,
+                self.bbox[2] + bbox_buffer,
+                self.bbox[3] + bbox_buffer
+            ]
+
+            # Filter the data to only include the data within the bbox + buffer so
+            # we don't have to render a ton of empty space or pull down more chunks
+            # than we need
+            da = ds.gridded.filter_by_bbox(da, bbox, self.crs)
+        except Exception as e:
+            logger.error(f"Error filtering data within bbox: {e}")
+            logger.warning("Falling back to full layer")
+
+        logger.debug(f"WMS GetMap BBOX Filter time: {time.time() - filter_start}")
         projection_start = time.time()
 
         x = None
@@ -303,22 +324,6 @@ class GetMap:
             if minmax_only:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
-
-        # x and y are only set for triangle grids, we dont subset the data for triangle grids
-        # at this time.
-        if x is None:
-            try:
-                # Grab a buffer around the bbox to ensure we have enough data to render
-                diff = (da.x[1] - da.x[0]).values
-                diff = diff * 1.05
-
-                # Filter the data to only include the data within the bbox + buffer so
-                # we don't have to render a ton of empty space or pull down more chunks
-                # than we need
-                da = filter_data_within_bbox(da, self.bbox, diff)
-            except Exception as e:
-                logger.error(f"Error filtering data within bbox: {e}")
-                logger.warning("Falling back to full layer")
 
         # Squeeze single value dimensions
         da = da.squeeze()
