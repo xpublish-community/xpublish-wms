@@ -338,6 +338,7 @@ class FVCOMGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        **kwargs
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
@@ -439,21 +440,23 @@ class FVCOMGrid(Grid):
                 tri_x = dask_array.from_array(x)
                 tri_y = dask_array.from_array(y)
 
-                return da, tri_x, tri_y
+        if tri_x is not None:
+            kwargs["x"] = tri_x
+            kwargs["y"] = tri_y
 
-        return da, None, None
+        return da, kwargs
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], **kwargs) -> np.ndarray:
         nv = self.ds.nv
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
         if "nele" in da.dims:
-            return nv.T - 1
+            return nv.T - 1, kwargs
         else:
             return tri.Triangulation(
                 da.cf["longitude"],
                 da.cf["latitude"],
                 nv.T - 1,
-            ).triangles
+            ).triangles, kwargs

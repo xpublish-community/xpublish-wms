@@ -289,9 +289,10 @@ class GetMap:
         """
         Render the data array into an image buffer
         """
-        # For now, try to render everything as a quad grid
-        # TODO: FVCOM and other grids
-        # return self.render_quad_grid(da, buffer, minmax_only)
+
+        # default kwargs object to pass around between grid functions
+        kwargs = dict()
+        
         filter_start = time.time()
         try:
             # Grab a buffer around the bbox to ensure we have enough data to render
@@ -307,7 +308,7 @@ class GetMap:
             # Filter the data to only include the data within the bbox + buffer so
             # we don't have to render a ton of empty space or pull down more chunks
             # than we need
-            da = ds.gridded.filter_by_bbox(da, bbox, self.crs)
+            da, kwargs = ds.gridded.filter_by_bbox(da, bbox, self.crs, **kwargs)
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
             logger.warning("Falling back to full layer")
@@ -315,10 +316,8 @@ class GetMap:
         logger.debug(f"WMS GetMap BBOX Filter time: {time.time() - filter_start}")
         projection_start = time.time()
 
-        x = None
-        y = None
         try:
-            da, x, y = ds.gridded.project(da, self.crs)
+            da, kwargs = ds.gridded.project(da, self.crs, **kwargs)
         except Exception as e:
             logger.warning(f"Projection failed: {e}")
             if minmax_only:
@@ -344,12 +343,7 @@ class GetMap:
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
         start_dask = time.time()
-
         da = da.load()
-        if x is not None and y is not None:
-            x = x.load()
-            y = y.load()
-
         logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if da.size == 0:
@@ -420,10 +414,12 @@ class GetMap:
                     da,
                 )
         elif ds.gridded.render_method == RenderMethod.Triangle:
-            triangles = ds.gridded.tessellate(da)
-            if x is not None:
+            triangles, kwargs = ds.gridded.tessellate(da, **kwargs)
+
+            # TODO - maybe this discrepency between coloring by verts v tris should be part of the grid?
+            if "x" in kwargs and "y" in kwargs:
                 # We are coloring the triangles by the data values
-                verts = pd.DataFrame({"x": x, "y": y})
+                verts = pd.DataFrame({"x": kwargs["x"], "y": kwargs["y"]})
                 tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
                 tris = tris.assign(z=da.values)
             else:

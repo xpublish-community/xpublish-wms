@@ -205,7 +205,12 @@ class SELFEGrid(Grid):
         filter_dims = ["siglay", "siglev", "nele", "node"]
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
-    def project(self, da: xr.DataArray, crs: str) -> any:
+    def project(
+        self, 
+        da: xr.DataArray, 
+        crs: str,
+        **kwargs
+    ) -> any:
         da = self.mask(da)
 
         if crs == "EPSG:4326":
@@ -231,9 +236,9 @@ class SELFEGrid(Grid):
             )
 
             da = da.unify_chunks()
-        return da
+        return da, kwargs
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], **kwargs) -> np.ndarray:
         ele = self.ds.ele
         if len(ele.shape) > 2:
             for i in range(len(ele.shape) - 2):
@@ -243,4 +248,4 @@ class SELFEGrid(Grid):
             da.cf["longitude"],
             da.cf["latitude"],
             ele.T - 1,
-        ).triangles
+        ).triangles, kwargs

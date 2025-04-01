@@ -1,4 +1,5 @@
 from typing import Optional, Sequence, Union
+from scipy.stats import rankdata
 
 import dask.array as dask_array
 import matplotlib.tri as tri
@@ -166,6 +167,7 @@ class TriangularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        **kwargs
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
         
@@ -203,39 +205,45 @@ class TriangularGrid(Grid):
 
         da = da.unify_chunks()
 
-        return da, None, None
+        return da, kwargs
     
     def filter_by_bbox(self, 
         da: Union[xr.DataArray, xr.Dataset], 
         bbox: tuple[float, float, float, float],
-        crs: str
+        crs: str,
+        **kwargs
     ) -> Union[xr.DataArray, xr.Dataset]:
-        # if crs == "EPSG:3857":
-        #     bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        #     bbox = np.array(bbox).flatten().tolist()
+        if crs == "EPSG:3857":
+            bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
-        # adjust_lng = 0
-        # if np.min(da.cf["longitude"]) < -180:
-        #     adjust_lng = 360
-        # elif np.max(da.cf["longitude"]) > 180:
-        #     adjust_lng = -360
+        adjust_lng = 0
+        if np.min(da.cf["longitude"]) < -180:
+            adjust_lng = 360
+        elif np.max(da.cf["longitude"]) > 180:
+            adjust_lng = -360
 
-        # x = da.cf["longitude"] + adjust_lng
-        # y = da.cf["latitude"]
+        x = da.cf["longitude"] + adjust_lng
+        y = da.cf["latitude"]
 
-        # x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
-        # y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
+        x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
-        # e = self.ds.element.values
-        # e_ind = np.intersect1d(x, y)
-        # node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
+        e = self.ds.element.values
 
-        # da = da.isel(node=np.unique(node_ind.flat))
-        # da = da.unify_chunks()
-        return da
+        e_ind = np.intersect1d(x, y) + 1
+        node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)].astype(int)
+        node_ind_flat = np.array(node_ind.flat)
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
-        nv = self.ds.element
+        norm_node_ind = rankdata(node_ind_flat, method="dense")
+        kwargs["nv"] = norm_node_ind.reshape(node_ind.shape)
+
+        da = da.isel(node=np.unique(node_ind_flat) - 1)
+        da = da.unify_chunks()
+        return da, kwargs
+
+    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], **kwargs) -> np.ndarray:
+        nv = kwargs.get("nv", self.ds.element)
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
@@ -244,4 +252,4 @@ class TriangularGrid(Grid):
             da.cf["longitude"],
             da.cf["latitude"],
             nv - 1,
-        ).triangles
+        ).triangles, kwargs

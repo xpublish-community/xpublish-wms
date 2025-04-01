@@ -30,6 +30,7 @@ class RegularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        **kwargs
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
@@ -71,7 +72,7 @@ class RegularGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da, None, None
+        return da, kwargs
 
     def sel_lat_lng(
         self,
