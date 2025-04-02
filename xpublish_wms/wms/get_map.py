@@ -397,9 +397,9 @@ class GetMap:
             )
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
-        start_dask = time.time()
-        da = da.load()
-        logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
+        # start_dask = time.time()
+        # da = da.load()
+        # logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if da.size == 0:
             logger.warning("No data to render")
