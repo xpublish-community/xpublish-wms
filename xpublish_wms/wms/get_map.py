@@ -424,7 +424,7 @@ class GetMap:
         elif ds.gridded.render_method == RenderMethod.Triangle:
             triangles, kwargs = ds.gridded.tessellate(da, **kwargs)
 
-            # TODO - maybe this discrepency between coloring by verts v tris should be part of the grid?
+            # TODO - maybe this discrepancy between coloring by verts v tris should be part of the grid?
             if "x" in kwargs and "y" in kwargs:
                 # We are coloring the triangles by the data values
                 verts = pd.DataFrame({"x": kwargs["x"], "y": kwargs["y"]})
