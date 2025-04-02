@@ -28,6 +28,24 @@ def validate_colorscalerange(v: str | None) -> tuple[float, float]:
     return (min_val, max_val)
 
 
+def validate_tile(v: str | None) -> tuple[int, int, int] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) != 3:
+        raise ValueError("tile must be in the format 'x,y,z'")
+
+    try:
+        tile = tuple(int(x) for x in values)
+    except ValueError:
+        raise ValueError(
+            "tile must be in the format 'x,y,z' where x, y and z are valid integers",
+        )
+
+    return tile
+
+
 class WMSBaseQuery(BaseModel):
     service: Literal["WMS"] = Field(..., description="Service type. Must be WMS")
     version: Literal["1.1.1", "1.3.0"] = Field(
@@ -110,9 +128,9 @@ class WMSGetMapQuery(WMSBaseQuery):
         None,
         description="Bounding box to use for the query in the format 'minx,miny,maxx,maxy'",
     )
-    tile: Optional[str] = Field(
+    tile: Optional[tuple[int, int, int]] = Field(
         None,
-        description="Tile to use for the query in the format 'x,y,z'. If specified, bbox is ignored",
+        description="Tile to use for the query in the format 'x,y,z' where x, y and z are valid integers. If specified, bbox is ignored",
     )
     width: int = Field(
         ...,
@@ -135,6 +153,11 @@ class WMSGetMapQuery(WMSBaseQuery):
     @classmethod
     def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
         return validate_colorscalerange(v)
+
+    @field_validator("tile", mode="before")
+    @classmethod
+    def validate_tile(cls, v: str | None) -> tuple[int, int, int] | None:
+        return validate_tile(v)
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
