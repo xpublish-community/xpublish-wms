@@ -2,7 +2,6 @@
 OGC WMS router for datasets with CF convention metadata
 """
 
-import logging
 from typing import Union
 
 import cachey
@@ -10,6 +9,7 @@ import cf_xarray  # noqa
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 
+from xpublish_wms.logger import logger
 from xpublish_wms.query import (
     WMSGetCapabilitiesQuery,
     WMSGetFeatureInfoQuery,
@@ -23,8 +23,6 @@ from .get_capabilities import get_capabilities
 from .get_feature_info import get_feature_info
 from .get_legend_info import get_legend_info
 from .get_metadata import get_metadata
-
-logger = logging.getLogger("uvicorn")
 
 
 def wms_handler(
