@@ -13,6 +13,7 @@ import mercantile
 import numpy as np
 import pandas as pd
 import xarray as xr
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
@@ -71,20 +72,65 @@ class GetMap:
         Return the WMS map for the dataset and given parameters
         """
         # Decode request params
-        self.ensure_query_types(ds, query, query_params)
+        try:
+            self.ensure_query_types(ds, query, query_params)
+        except Exception as e:
+            logger.error(f"Error decoding request params: {e}")
+            raise HTTPException(
+                422,
+                "Error decoding request params, please check the request is valid. See the logs for more details.",
+            )
 
         # Select data according to request
-        da = self.select_layer(ds)
-        da = self.select_time(da)
-        da = self.select_elevation(ds, da)
-        da = self.select_custom_dim(da)
+        try:
+            da = self.select_layer(ds)
+        except Exception as e:
+            logger.error(f"Error selecting layer: {e}")
+            raise HTTPException(
+                422,
+                "Error selecting layer, please check the layer name is correct and the dataset has a variable with that name. See the logs for more details.",
+            )
+
+        try:
+            da = self.select_time(da)
+        except Exception as e:
+            logger.error(f"Error selecting time: {e}")
+            raise HTTPException(
+                422,
+                "Error selecting time, please check the time format is correct and the time dimension exists in the dataset. See the logs for more details.",
+            )
+
+        try:
+            da = self.select_elevation(ds, da)
+        except Exception as e:
+            logger.error(f"Error selecting elevation: {e}")
+            raise HTTPException(
+                422,
+                "Error selecting elevation, please check the elevation format is correct and the vertical dimension exists in the dataset. See the logs for more details.",
+            )
+
+        try:
+            da = self.select_custom_dim(da)
+        except Exception as e:
+            logger.error(f"Error selecting custom dimensions: {e}")
+            raise HTTPException(
+                422,
+                "Error selecting custom dimensions, please check all custom selectors are valid and the dimensions exists in the dataset. See the logs for more details.",
+            )
 
         # Render the data using the render that matches the dataset type
         # The data selection and render are coupled because they are both driven by
         # The grid type for now. This can be revisited if we choose to interpolate or
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
-        render_result = self.render(ds, da, image_buffer, False)
+        try:
+            render_result = self.render(ds, da, image_buffer, False)
+        except Exception as e:
+            logger.error(f"Error rendering data: {e}")
+            raise HTTPException(
+                422,
+                "Error rendering data, please check the data is valid and the render method is supported for the dataset type. See the logs for more details.",
+            )
         if render_result:
             image_buffer.seek(0)
 
