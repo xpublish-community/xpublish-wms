@@ -64,6 +64,19 @@ def validate_bbox(v: str | None) -> tuple[float, float, float, float] | None:
     return bbox
 
 
+def validate_style(v: str | None) -> tuple[str, str] | None:
+    if v is None:
+        return None
+
+    values = v.split("/")
+    if len(values) != 2:
+        raise ValueError(
+            "style must be in the format 'stylename/palettename'. A common default for this is 'raster/default'",
+        )
+
+    return (values[0], values[1])
+
+
 class WMSBaseQuery(BaseModel):
     service: Literal["WMS"] = Field(..., description="Service type. Must be WMS")
     version: Literal["1.1.1", "1.3.0"] = Field(
@@ -130,8 +143,8 @@ class WMSGetMapQuery(WMSBaseQuery):
     layers: str = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
-    styles: str = Field(
-        "raster/default",
+    styles: tuple[str, str] = Field(
+        ("raster", "default"),
         description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
     )
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
@@ -186,6 +199,11 @@ class WMSGetMapQuery(WMSBaseQuery):
     @classmethod
     def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
         return validate_bbox(v)
+
+    @field_validator("styles", mode="before")
+    @classmethod
+    def validate_style(cls, v: str | None) -> tuple[str, str] | None:
+        return validate_style(v)
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
@@ -253,12 +271,20 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
         description="Color scale range to use for the query in the format 'min,max'",
     )
     autoscale: bool = False
-    styles: str = "raster/default"
+    styles: tuple[str, str] = Field(
+        ("raster", "default"),
+        description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
+    )
 
     @field_validator("colorscalerange", mode="before")
     @classmethod
     def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
         return validate_colorscalerange(v)
+
+    @field_validator("styles", mode="before")
+    @classmethod
+    def validate_style(cls, v: str | None) -> tuple[str, str] | None:
+        return validate_style(v)
 
 
 WMSQueryType = Union[

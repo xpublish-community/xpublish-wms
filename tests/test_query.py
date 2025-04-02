@@ -106,6 +106,25 @@ def test_wms_query_discriminator():
             autoscale=True,
         )
 
+    # Fail because style is not valid
+    with pytest.raises(
+        ValueError,
+        match="style must be in the format 'stylename/palettename'",
+    ):
+        WMSQuery(
+            service="WMS",
+            version="1.3.0",
+            request="GetMap",
+            layers="layer1",
+            styles="raster",
+            crs="EPSG:3857",
+            tile="1,1,1",
+            width=100,
+            height=100,
+            colorscalerange="0,100",
+            autoscale=True,
+        )
+
     getmetadata_query = WMSQuery(
         service="WMS",
         version="1.3.0",

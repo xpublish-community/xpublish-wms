@@ -20,8 +20,7 @@ def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Respon
     # colorbaronly = query.get("colorbaronly", "False") == "True"
     colorscalerange = query.colorscalerange
     autoscale = query.autoscale
-    style = query.styles
-    stylename, palettename = style.split("/")
+    stylename, palettename = query.styles
 
     ds = dataset.squeeze()
 
