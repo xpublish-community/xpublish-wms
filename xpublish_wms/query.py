@@ -1,6 +1,31 @@
 from typing import Any, Literal, Optional, Union
 
-from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
+
+
+def validate_colorscalerange(v: str | None) -> tuple[float, float]:
+    if v is None:
+        raise ValueError("colorscalerange is required")
+
+    values = v.split(",")
+    if len(values) != 2:
+        raise ValueError("colorscalerange must be in the format 'min,max'")
+
+    try:
+        min_val = float(values[0])
+        max_val = float(values[1])
+    except ValueError:
+        raise ValueError(
+            "colorscalerange must be in the format 'min,max' where min and max are valid floats",
+        )
+    return (min_val, max_val)
 
 
 class WMSBaseQuery(BaseModel):
@@ -97,14 +122,19 @@ class WMSGetMapQuery(WMSBaseQuery):
         ...,
         description="The height of the image to return in pixels",
     )
-    colorscalerange: str = Field(
-        None,
-        description="Optional color scale range to use for the query in the format 'min,max'",
+    colorscalerange: tuple[float, float] = Field(
+        ...,
+        description="Color scale range to use for the query in the format 'min,max'",
     )
     autoscale: bool = Field(
         False,
         description="Whether to automatically scale the color scale range based on the data. When specified, colorscalerange is ignored",
     )
+
+    @field_validator("colorscalerange", mode="before")
+    @classmethod
+    def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
+        return validate_colorscalerange(v)
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
@@ -162,9 +192,17 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     width: int
     height: int
     vertical: bool = False
-    colorscalerange: str = "nan,nan"
+    colorscalerange: tuple[float, float] = Field(
+        ...,
+        description="Color scale range to use for the query in the format 'min,max'",
+    )
     autoscale: bool = False
     styles: str = "raster/default"
+
+    @field_validator("colorscalerange", mode="before")
+    @classmethod
+    def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
+        return validate_colorscalerange(v)
 
 
 WMSQueryType = Union[

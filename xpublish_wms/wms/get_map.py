@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
 from xpublish_wms.query import WMSGetMapQuery
-from xpublish_wms.utils import filter_data_within_bbox, parse_float
+from xpublish_wms.utils import filter_data_within_bbox
 
 logger = logging.getLogger("uvicorn")
 
@@ -170,9 +170,7 @@ class GetMap:
             if self.palettename == "default":
                 self.palettename = self.DEFAULT_PALETTE
 
-        self.colorscalerange = [
-            parse_float(x) for x in query.colorscalerange.split(",")
-        ]
+        self.colorscalerange = query.colorscalerange
         self.autoscale = query.autoscale
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])

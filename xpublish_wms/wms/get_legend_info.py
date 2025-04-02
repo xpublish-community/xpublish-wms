@@ -1,5 +1,4 @@
 import io
-from math import isnan
 
 import numpy as np
 import xarray as xr
@@ -8,7 +7,6 @@ from matplotlib import cm
 from PIL import Image
 
 from xpublish_wms.query import WMSGetLegendInfoQuery
-from xpublish_wms.utils import parse_float
 
 
 def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Response:
@@ -20,11 +18,8 @@ def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Respon
     height = query.height
     vertical = query.vertical
     # colorbaronly = query.get("colorbaronly", "False") == "True"
-    colorscalerange = [parse_float(x) for x in query.colorscalerange.split(",")]
-    if isnan(colorscalerange[0]):
-        autoscale = True
-    else:
-        autoscale = query.autoscale
+    colorscalerange = query.colorscalerange
+    autoscale = query.autoscale
     style = query.styles
     stylename, palettename = style.split("/")
 
