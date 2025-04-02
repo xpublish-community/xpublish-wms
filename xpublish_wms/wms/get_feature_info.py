@@ -148,7 +148,7 @@ def get_feature_info(
     if crs != "EPSG:4326":
         raise HTTPException(501, "Only EPSG:4326 is supported")
 
-    bbox = [float(x) for x in query.bbox.split(",")]
+    bbox = query.bbox
     width = query.width
     height = query.height
     x = query.x

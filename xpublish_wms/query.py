@@ -46,6 +46,24 @@ def validate_tile(v: str | None) -> tuple[int, int, int] | None:
     return tile
 
 
+def validate_bbox(v: str | None) -> tuple[float, float, float, float] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) != 4:
+        raise ValueError("bbox must be in the format 'minx,miny,maxx,maxy'")
+
+    try:
+        bbox = tuple(float(x) for x in values)
+    except ValueError:
+        raise ValueError(
+            "bbox must be in the format 'minx,miny,maxx,maxy' where minx, miny, maxx and maxy are valid floats in the provided CRS",
+        )
+
+    return bbox
+
+
 class WMSBaseQuery(BaseModel):
     service: Literal["WMS"] = Field(..., description="Service type. Must be WMS")
     version: Literal["1.1.1", "1.3.0"] = Field(
@@ -81,7 +99,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
         None,
         description="Optional range to get timesteps for in Y-m-dTH:M:SZ/Y-m-dTH:M:SZ format. Only valid when item=timesteps and layer has a time dimension",
     )
-    bbox: Optional[str] = Field(
+    bbox: Optional[tuple[float, float, float, float]] = Field(
         None,
         description="Bounding box to use for calculating min and max in the format 'minx,miny,maxx,maxy'",
     )
@@ -98,6 +116,11 @@ class WMSGetMetadataQuery(WMSBaseQuery):
         None,
         description="Optional elevation to get the min and max for. Only valid when the layer has an elevation dimension",
     )
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
 
 
 class WMSGetMapQuery(WMSBaseQuery):
@@ -124,7 +147,7 @@ class WMSGetMapQuery(WMSBaseQuery):
         None,
         description="Optional elevation to get map for. Only valid when the layer has an elevation dimension. When not specified, the default elevation is used",
     )
-    bbox: Optional[str] = Field(
+    bbox: Optional[tuple[float, float, float, float]] = Field(
         None,
         description="Bounding box to use for the query in the format 'minx,miny,maxx,maxy'",
     )
@@ -159,6 +182,11 @@ class WMSGetMapQuery(WMSBaseQuery):
     def validate_tile(cls, v: str | None) -> tuple[int, int, int] | None:
         return validate_tile(v)
 
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
+
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
     """WMS GetFeatureInfo query"""
@@ -183,7 +211,7 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         description="Coordinate reference system to use for the query. Currently only EPSG:4326 is supported for this request",
         validation_alias=AliasChoices("crs", "srs"),
     )
-    bbox: str = Field(
+    bbox: tuple[float, float, float, float] = Field(
         ...,
         description="Bounding box to use for the query in the format 'minx,miny,maxx,maxy'",
     )
@@ -203,6 +231,11 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         ...,
         description="The y coordinate of the point to query. This is the index of the point in the y dimension",
     )
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
 
 
 class WMSGetLegendInfoQuery(WMSBaseQuery):

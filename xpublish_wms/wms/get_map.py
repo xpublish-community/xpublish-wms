@@ -8,7 +8,7 @@ import cachey
 import cf_xarray  # noqa
 import datashader as dsh
 import datashader.transfer_functions as tf
-import matplotlib.cm as cm
+import matplotlib
 import mercantile
 import numpy as np
 import pandas as pd
@@ -152,7 +152,7 @@ class GetMap:
             self.bbox = mercantile.xy_bounds(*tile)
             self.crs = "EPSG:3857"  # tiles are always mercator
         else:
-            self.bbox = [float(x) for x in query.bbox.split(",")]
+            self.bbox = query.bbox
         self.width = query.width
         self.height = query.height
 
@@ -430,7 +430,7 @@ class GetMap:
 
         shaded = tf.shade(
             mesh,
-            cmap=cm.get_cmap(self.palettename),
+            cmap=matplotlib.colormaps.get_cmap(self.palettename),
             how="linear",
             span=span,
         )

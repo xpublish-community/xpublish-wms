@@ -1,9 +1,9 @@
 import io
 
+import matplotlib
 import numpy as np
 import xarray as xr
 from fastapi import Response
-from matplotlib import cm
 from PIL import Image
 
 from xpublish_wms.query import WMSGetLegendInfoQuery
@@ -46,7 +46,9 @@ def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Respon
     # Otherwise default to rainbow
     if palettename == "default":
         palettename = "turbo"
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(data) * 255))
+    im = Image.fromarray(
+        np.uint8(matplotlib.colormaps.get_cmap(palettename)(data) * 255),
+    )
 
     image_bytes = io.BytesIO()
     im.save(image_bytes, format="PNG")
