@@ -225,14 +225,14 @@ class TriangularGrid(Grid):
         x = da.cf["longitude"] + adjust_lng
         y = da.cf["latitude"]
         e = self.ds.element
-        
+
         x.load()
         y.load()
         e.load()
 
         x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
-        
+
         e_ind = np.intersect1d(x, y) + 1
         e = e[np.any(np.isin(e.values.flat, e_ind).reshape(e.shape), axis=1)]
 
