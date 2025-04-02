@@ -136,7 +136,9 @@ def get_feature_info(
     if elevation_str == "all":
         elevation_list = "all"
     elif elevation_str:
-        elevation_list = list([[float(x) for x in e.split("/")] for e in elevation_str.split(",")])
+        elevation_list = list(
+            [[float(x) for x in e.split("/")] for e in elevation_str.split(",")],
+        )
     else:
         elevation_list = []
     has_vertical_axis = [
@@ -191,7 +193,11 @@ def get_feature_info(
             for e in elevation_list:
                 if isinstance(e, list):
                     if len(e) > 1:
-                        elevation.extend(list(filter(lambda x: min(e) <= x <= max(e), all_elevations)))
+                        elevation.extend(
+                            list(
+                                filter(lambda x: min(e) <= x <= max(e), all_elevations),
+                            ),
+                        )
                     else:
                         elevation.extend(e)
                 else:

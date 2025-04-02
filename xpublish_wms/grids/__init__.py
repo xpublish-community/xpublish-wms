@@ -133,11 +133,12 @@ class GridDatasetAccessor:
         else:
             return self._grid.mask(da)
 
-    def filter_by_bbox(self, 
-        da: Union[xr.DataArray, xr.Dataset], 
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
         bbox: tuple[float, float, float, float],
         crs: str,
-        **kwargs
+        **kwargs,
     ) -> Union[xr.DataArray, xr.Dataset]:
         """Filters the given data array by the given bbox, whose values are based on the give crs"""
         if self._grid is None:

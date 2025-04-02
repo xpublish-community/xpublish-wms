@@ -57,7 +57,9 @@ class GetMap:
     colorscalerange: List[float]
     autoscale: bool
 
-    def __init__(self, array_render_threshold_bytes: int, cache: cachey.Cache | None = None):
+    def __init__(
+        self, array_render_threshold_bytes: int, cache: cachey.Cache | None = None,
+    ):
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes
 
@@ -292,17 +294,23 @@ class GetMap:
 
         # default kwargs object to pass around between grid functions
         kwargs = dict()
-        
+
         filter_start = time.time()
         try:
             # Grab a buffer around the bbox to ensure we have enough data to render
-            x_buffer = abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2])) * 0.25
-            y_buffer = abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3])) * 0.25
+            x_buffer = (
+                abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2]))
+                * 0.25
+            )
+            y_buffer = (
+                abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3]))
+                * 0.25
+            )
             bbox = [
                 self.bbox[0] - x_buffer,
                 self.bbox[1] - y_buffer,
                 self.bbox[2] + x_buffer,
-                self.bbox[3] + y_buffer
+                self.bbox[3] + y_buffer,
             ]
 
             # Filter the data to only include the data within the bbox + buffer so

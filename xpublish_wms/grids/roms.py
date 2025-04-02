@@ -52,10 +52,7 @@ class ROMSGrid(Grid):
         return da.where(mask == 1)
 
     def project(
-        self,
-        da: xr.DataArray,
-        crs: str,
-        **kwargs
+        self, da: xr.DataArray, crs: str, **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 

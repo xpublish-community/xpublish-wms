@@ -335,10 +335,7 @@ class FVCOMGrid(Grid):
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(
-        self,
-        da: xr.DataArray,
-        crs: str,
-        **kwargs
+        self, da: xr.DataArray, crs: str, **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
@@ -455,8 +452,11 @@ class FVCOMGrid(Grid):
         if "nele" in da.dims:
             return nv.T - 1, kwargs
         else:
-            return tri.Triangulation(
-                da.cf["longitude"],
-                da.cf["latitude"],
-                nv.T - 1,
-            ).triangles, kwargs
+            return (
+                tri.Triangulation(
+                    da.cf["longitude"],
+                    da.cf["latitude"],
+                    nv.T - 1,
+                ).triangles,
+                kwargs,
+            )

@@ -38,10 +38,7 @@ class IrregularGrid(Grid):
         return "EPSG:4326"
 
     def project(
-        self,
-        da: xr.DataArray,
-        crs: str,
-        **kwargs
+        self, da: xr.DataArray, crs: str, **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 

@@ -133,22 +133,20 @@ class Grid(ABC):
     ) -> Union[xr.DataArray, xr.Dataset]:
         """Mask the given data array"""
         return da
-    
-    def filter_by_bbox(self, 
-        da: Union[xr.DataArray, xr.Dataset], 
+
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
         bbox: tuple[float, float, float, float],
         crs: str,
-        **kwargs
+        **kwargs,
     ) -> Union[xr.DataArray, xr.Dataset]:
         """Filters the given data array by the given bbox, whose values are based on the give crs"""
         return da, kwargs
 
     @abstractmethod
     def project(
-        self,
-        da: xr.DataArray,
-        crs: str,
-        **kwargs
+        self, da: xr.DataArray, crs: str, **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         """Project the given data array from this dataset and grid to the given crs
 

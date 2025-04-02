@@ -1,12 +1,11 @@
+import time
 from typing import Optional, Sequence, Union
-from scipy.stats import rankdata
 
 import dask.array as dask_array
 import matplotlib.tri as tri
 import numpy as np
 import xarray as xr
-
-import time
+from scipy.stats import rankdata
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
 from xpublish_wms.utils import (
@@ -14,13 +13,14 @@ from xpublish_wms.utils import (
     lat_lng_find_tri,
     lat_lng_find_tri_ind,
     strip_float,
+    to_lnglat,
     to_mercator,
-    to_lnglat
 )
 
 
 class TriangularGrid(Grid):
     filtered_element_ind = []
+
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
 
@@ -164,13 +164,10 @@ class TriangularGrid(Grid):
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(
-        self,
-        da: xr.DataArray,
-        crs: str,
-        **kwargs
+        self, da: xr.DataArray, crs: str, **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
-        
+
         if crs == "EPSG:4326":
             adjust_lng = 0
             if np.min(da.cf["longitude"]) < -180:
@@ -183,9 +180,7 @@ class TriangularGrid(Grid):
         elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
 
-        x_chunks = (
-            da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-        )
+        x_chunks = da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
         y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
         da = da.assign_coords(
@@ -206,12 +201,13 @@ class TriangularGrid(Grid):
         da = da.unify_chunks()
 
         return da, kwargs
-    
-    def filter_by_bbox(self, 
-        da: Union[xr.DataArray, xr.Dataset], 
+
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
         bbox: tuple[float, float, float, float],
         crs: str,
-        **kwargs
+        **kwargs,
     ) -> Union[xr.DataArray, xr.Dataset]:
         if crs == "EPSG:3857":
             bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
@@ -232,7 +228,9 @@ class TriangularGrid(Grid):
         e = self.ds.element.values
 
         e_ind = np.intersect1d(x, y) + 1
-        node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)].astype(int)
+        node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)].astype(
+            int,
+        )
         node_ind_flat = np.array(node_ind.flat)
 
         norm_node_ind = rankdata(node_ind_flat, method="dense")
@@ -248,8 +246,11 @@ class TriangularGrid(Grid):
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
-        return tri.Triangulation(
-            da.cf["longitude"],
-            da.cf["latitude"],
-            nv - 1,
-        ).triangles, kwargs
+        return (
+            tri.Triangulation(
+                da.cf["longitude"],
+                da.cf["latitude"],
+                nv - 1,
+            ).triangles,
+            kwargs,
+        )

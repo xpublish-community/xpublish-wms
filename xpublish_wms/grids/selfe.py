@@ -205,12 +205,7 @@ class SELFEGrid(Grid):
         filter_dims = ["siglay", "siglev", "nele", "node"]
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
-    def project(
-        self, 
-        da: xr.DataArray, 
-        crs: str,
-        **kwargs
-    ) -> any:
+    def project(self, da: xr.DataArray, crs: str, **kwargs) -> any:
         da = self.mask(da)
 
         if crs == "EPSG:4326":
@@ -244,8 +239,11 @@ class SELFEGrid(Grid):
             for i in range(len(ele.shape) - 2):
                 ele = ele[0]
 
-        return tri.Triangulation(
-            da.cf["longitude"],
-            da.cf["latitude"],
-            ele.T - 1,
-        ).triangles, kwargs
+        return (
+            tri.Triangulation(
+                da.cf["longitude"],
+                da.cf["latitude"],
+                ele.T - 1,
+            ).triangles,
+            kwargs,
+        )
