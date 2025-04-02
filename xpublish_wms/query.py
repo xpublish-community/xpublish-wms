@@ -1,6 +1,80 @@
 from typing import Any, Literal, Optional, Union
 
-from pydantic import AliasChoices, BaseModel, Field, RootModel, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    RootModel,
+    field_validator,
+    model_validator,
+)
+
+
+def validate_colorscalerange(v: str | None) -> tuple[float, float] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) != 2:
+        raise ValueError("colorscalerange must be in the format 'min,max'")
+
+    try:
+        min_val = float(values[0])
+        max_val = float(values[1])
+    except ValueError:
+        raise ValueError(
+            "colorscalerange must be in the format 'min,max' where min and max are valid floats",
+        )
+    return (min_val, max_val)
+
+
+def validate_tile(v: str | None) -> tuple[int, int, int] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) != 3:
+        raise ValueError("tile must be in the format 'x,y,z'")
+
+    try:
+        tile = tuple(int(x) for x in values)
+    except ValueError:
+        raise ValueError(
+            "tile must be in the format 'x,y,z' where x, y and z are valid integers",
+        )
+
+    return tile
+
+
+def validate_bbox(v: str | None) -> tuple[float, float, float, float] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) != 4:
+        raise ValueError("bbox must be in the format 'minx,miny,maxx,maxy'")
+
+    try:
+        bbox = tuple(float(x) for x in values)
+    except ValueError:
+        raise ValueError(
+            "bbox must be in the format 'minx,miny,maxx,maxy' where minx, miny, maxx and maxy are valid floats in the provided CRS",
+        )
+
+    return bbox
+
+
+def validate_style(v: str | None) -> tuple[str, str] | None:
+    if v is None:
+        return None
+
+    values = v.split("/")
+    if len(values) != 2:
+        raise ValueError(
+            "style must be in the format 'stylename/palettename'. A common default for this is 'raster/default'",
+        )
+
+    return (values[0], values[1])
 
 
 class WMSBaseQuery(BaseModel):
@@ -38,7 +112,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
         None,
         description="Optional range to get timesteps for in Y-m-dTH:M:SZ/Y-m-dTH:M:SZ format. Only valid when item=timesteps and layer has a time dimension",
     )
-    bbox: Optional[str] = Field(
+    bbox: Optional[tuple[float, float, float, float]] = Field(
         None,
         description="Bounding box to use for calculating min and max in the format 'minx,miny,maxx,maxy'",
     )
@@ -56,6 +130,11 @@ class WMSGetMetadataQuery(WMSBaseQuery):
         description="Optional elevation to get the min and max for. Only valid when the layer has an elevation dimension",
     )
 
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
+
 
 class WMSGetMapQuery(WMSBaseQuery):
     """WMS GetMap query"""
@@ -64,8 +143,8 @@ class WMSGetMapQuery(WMSBaseQuery):
     layers: str = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
-    styles: str = Field(
-        "raster/default",
+    styles: tuple[str, str] = Field(
+        ("raster", "default"),
         description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
     )
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
@@ -81,13 +160,13 @@ class WMSGetMapQuery(WMSBaseQuery):
         None,
         description="Optional elevation to get map for. Only valid when the layer has an elevation dimension. When not specified, the default elevation is used",
     )
-    bbox: Optional[str] = Field(
+    bbox: Optional[tuple[float, float, float, float]] = Field(
         None,
         description="Bounding box to use for the query in the format 'minx,miny,maxx,maxy'",
     )
-    tile: Optional[str] = Field(
+    tile: Optional[tuple[int, int, int]] = Field(
         None,
-        description="Tile to use for the query in the format 'x,y,z'. If specified, bbox is ignored",
+        description="Tile to use for the query in the format 'x,y,z' where x, y and z are valid integers. If specified, bbox is ignored",
     )
     width: int = Field(
         ...,
@@ -97,14 +176,48 @@ class WMSGetMapQuery(WMSBaseQuery):
         ...,
         description="The height of the image to return in pixels",
     )
-    colorscalerange: str = Field(
+    colorscalerange: tuple[float, float] | None = Field(
         None,
-        description="Optional color scale range to use for the query in the format 'min,max'",
+        description="Color scale range to use for the query in the format 'min,max'",
     )
     autoscale: bool = Field(
         False,
         description="Whether to automatically scale the color scale range based on the data. When specified, colorscalerange is ignored",
     )
+
+    @field_validator("colorscalerange", mode="before")
+    @classmethod
+    def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
+        return validate_colorscalerange(v)
+
+    @field_validator("tile", mode="before")
+    @classmethod
+    def validate_tile(cls, v: str | None) -> tuple[int, int, int] | None:
+        return validate_tile(v)
+
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
+
+    @field_validator("styles", mode="before")
+    @classmethod
+    def validate_style(cls, v: str | None) -> tuple[str, str] | None:
+        return validate_style(v)
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_dependent_colorscalerange(
+        cls,
+        v: "WMSGetMapQuery",
+    ) -> "WMSGetMapQuery":
+        if v.colorscalerange is None and not v.autoscale:
+            raise ValueError("colorscalerange is required when autoscale is False")
+        if v.bbox is None and v.tile is None:
+            raise ValueError("bbox or tile must be specified")
+        if v.tile is not None and v.crs != "EPSG:3857":
+            raise ValueError("tile is only supported for EPSG:3857")
+        return v
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
@@ -130,7 +243,7 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         description="Coordinate reference system to use for the query. Currently only EPSG:4326 is supported for this request",
         validation_alias=AliasChoices("crs", "srs"),
     )
-    bbox: str = Field(
+    bbox: tuple[float, float, float, float] = Field(
         ...,
         description="Bounding box to use for the query in the format 'minx,miny,maxx,maxy'",
     )
@@ -151,6 +264,11 @@ class WMSGetFeatureInfoQuery(WMSBaseQuery):
         description="The y coordinate of the point to query. This is the index of the point in the y dimension",
     )
 
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
+        return validate_bbox(v)
+
 
 class WMSGetLegendInfoQuery(WMSBaseQuery):
     """WMS GetLegendInfo query"""
@@ -162,9 +280,25 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     width: int
     height: int
     vertical: bool = False
-    colorscalerange: str = "nan,nan"
+    colorscalerange: tuple[float, float] = Field(
+        ...,
+        description="Color scale range to use for the query in the format 'min,max'",
+    )
     autoscale: bool = False
-    styles: str = "raster/default"
+    styles: tuple[str, str] = Field(
+        ("raster", "default"),
+        description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
+    )
+
+    @field_validator("colorscalerange", mode="before")
+    @classmethod
+    def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
+        return validate_colorscalerange(v)
+
+    @field_validator("styles", mode="before")
+    @classmethod
+    def validate_style(cls, v: str | None) -> tuple[str, str] | None:
+        return validate_style(v)
 
 
 WMSQueryType = Union[

@@ -1,4 +1,3 @@
-import logging
 import math
 from typing import Optional
 
@@ -7,7 +6,7 @@ import numpy as np
 import xarray as xr
 from pyproj import Transformer
 
-logger = logging.getLogger("uvicorn")
+from .logger import logger
 
 
 def lower_case_keys(d: dict) -> dict:
