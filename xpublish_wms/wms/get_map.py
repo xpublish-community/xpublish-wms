@@ -296,13 +296,13 @@ class GetMap:
         filter_start = time.time()
         try:
             # Grab a buffer around the bbox to ensure we have enough data to render
-            # TODO - maybe not raw 2 deg for buffer
-            bbox_buffer = 2
+            x_buffer = abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2])) * 0.25
+            y_buffer = abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3])) * 0.25
             bbox = [
-                self.bbox[0] - bbox_buffer,
-                self.bbox[1] - bbox_buffer,
-                self.bbox[2] + bbox_buffer,
-                self.bbox[3] + bbox_buffer
+                self.bbox[0] - x_buffer,
+                self.bbox[1] - y_buffer,
+                self.bbox[2] + x_buffer,
+                self.bbox[3] + y_buffer
             ]
 
             # Filter the data to only include the data within the bbox + buffer so
