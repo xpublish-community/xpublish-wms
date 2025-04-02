@@ -34,6 +34,21 @@ def test_wms_query_discriminator():
     assert isinstance(getmap_query.root, WMSGetMapQuery)
     assert getmap_query.root.colorscalerange == (0, 100)
 
+    getmap_query_autoscale = WMSQuery(
+        service="WMS",
+        version="1.3.0",
+        request="GetMap",
+        layers="layer1",
+        styles="raster/default",
+        crs="EPSG:3857",
+        tile="1,1,1",
+        width=100,
+        height=100,
+        autoscale=True,
+    )
+    assert isinstance(getmap_query_autoscale.root, WMSGetMapQuery)
+    assert getmap_query_autoscale.root.colorscalerange is None
+
     # Fail because colorscalerange is invalid
     with pytest.raises(
         ValueError,
@@ -56,7 +71,7 @@ def test_wms_query_discriminator():
     # Fail because colorscalerange is missing
     with pytest.raises(
         ValueError,
-        match="1 validation error for WMSQuery\nGetMap.colorscalerange\n",
+        match="colorscalerange is required when autoscale is False",
     ):
         WMSQuery(
             service="WMS",
@@ -68,7 +83,7 @@ def test_wms_query_discriminator():
             tile="1,1,1",
             width=100,
             height=100,
-            autoscale=True,
+            autoscale=False,
         )
 
     # Fail because tile is not valid

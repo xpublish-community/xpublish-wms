@@ -10,9 +10,9 @@ from pydantic import (
 )
 
 
-def validate_colorscalerange(v: str | None) -> tuple[float, float]:
+def validate_colorscalerange(v: str | None) -> tuple[float, float] | None:
     if v is None:
-        raise ValueError("colorscalerange is required")
+        return None
 
     values = v.split(",")
     if len(values) != 2:
@@ -176,8 +176,8 @@ class WMSGetMapQuery(WMSBaseQuery):
         ...,
         description="The height of the image to return in pixels",
     )
-    colorscalerange: tuple[float, float] = Field(
-        ...,
+    colorscalerange: tuple[float, float] | None = Field(
+        None,
         description="Color scale range to use for the query in the format 'min,max'",
     )
     autoscale: bool = Field(
@@ -204,6 +204,16 @@ class WMSGetMapQuery(WMSBaseQuery):
     @classmethod
     def validate_style(cls, v: str | None) -> tuple[str, str] | None:
         return validate_style(v)
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_dependent_colorscalerange(
+        cls,
+        v: "WMSGetMapQuery",
+    ) -> "WMSGetMapQuery":
+        if v.colorscalerange is None and not v.autoscale:
+            raise ValueError("colorscalerange is required when autoscale is False")
+        return v
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
