@@ -224,20 +224,21 @@ class TriangularGrid(Grid):
 
         x = da.cf["longitude"] + adjust_lng
         y = da.cf["latitude"]
+        e = self.ds.element
+        
+        x.load()
+        y.load()
+        e.load()
 
         x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
-
-        e = self.ds.element.values
-
+        
         e_ind = np.intersect1d(x, y) + 1
-        node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)].astype(
-            int,
-        )
-        node_ind_flat = np.array(node_ind.flat)
+        e = e[np.any(np.isin(e.values.flat, e_ind).reshape(e.shape), axis=1)]
 
+        node_ind_flat = np.array(e.values.astype(int).flat)
         norm_node_ind = rankdata(node_ind_flat, method="dense")
-        kwargs["nv"] = norm_node_ind.reshape(node_ind.shape)
+        kwargs["nv"] = norm_node_ind.reshape(e.shape)
 
         da = da.isel(node=np.unique(node_ind_flat) - 1)
         da = da.unify_chunks()
