@@ -1,4 +1,3 @@
-import logging
 from typing import Tuple
 
 import cf_xarray  # noqa
@@ -7,6 +6,7 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetFeatureInfoQuery
 from xpublish_wms.utils import (
     format_timestamp,
@@ -14,8 +14,6 @@ from xpublish_wms.utils import (
     speed_and_dir_for_uv,
     strip_float,
 )
-
-logger = logging.getLogger("uvicorn")
 
 
 def create_parameter_feature_data(

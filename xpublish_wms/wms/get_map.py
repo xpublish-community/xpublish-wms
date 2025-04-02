@@ -1,5 +1,4 @@
 import io
-import logging
 import time
 from datetime import datetime
 from typing import List, Union
@@ -17,10 +16,9 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from xpublish_wms.grids import RenderMethod
+from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery
 from xpublish_wms.utils import filter_data_within_bbox
-
-logger = logging.getLogger("uvicorn")
 
 
 class GetMap:

@@ -1,5 +1,4 @@
 import datetime as dt
-import logging
 
 import cachey
 import cf_xarray  # noqa
@@ -7,12 +6,11 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
 from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
-
-logger = logging.getLogger("uvicorn")
 
 
 def get_metadata(

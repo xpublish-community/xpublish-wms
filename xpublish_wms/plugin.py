@@ -1,4 +1,3 @@
-import logging
 from typing import Annotated, List
 
 import cachey
@@ -11,7 +10,6 @@ from xpublish_wms.utils import lower_case_keys
 
 from .wms import wms_handler
 
-logger = logging.getLogger("uvicorn")
 xr.set_options(keep_attrs=True)
 
 
