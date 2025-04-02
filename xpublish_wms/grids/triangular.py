@@ -228,7 +228,7 @@ class TriangularGrid(Grid):
 
         x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
-        
+
         e_ind = np.intersect1d(x, y) + 1
         e = e[np.any(np.isin(e.values.flat, e_ind).reshape(e.shape), axis=1)]
 
