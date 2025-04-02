@@ -1,3 +1,4 @@
+import logging
 from typing import Tuple
 
 import cf_xarray  # noqa
@@ -13,6 +14,8 @@ from xpublish_wms.utils import (
     speed_and_dir_for_uv,
     strip_float,
 )
+
+logger = logging.getLogger("uvicorn")
 
 
 def create_parameter_feature_data(
@@ -146,7 +149,13 @@ def get_feature_info(
 
     crs = query.crs
     if crs != "EPSG:4326":
-        raise HTTPException(501, "Only EPSG:4326 is supported")
+        logger.error(
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
+        raise HTTPException(
+            422,
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
 
     bbox = query.bbox
     width = query.width
@@ -196,7 +205,11 @@ def get_feature_info(
             parameters=parameters,
         )
     except ValueError as e:
-        raise HTTPException(500, f"Error with grid type {ds.gridded.name}: {e}")
+        logger.error(f"Error selecting lat/lng with grid type {ds.gridded.name}: {e}")
+        raise HTTPException(
+            500,
+            f"Error selecting lat/lng with grid type {ds.gridded.name}. See the logs for more details.",
+        )
 
     # When none of the parameters have data, drop it
     if any_has_time_axis:
