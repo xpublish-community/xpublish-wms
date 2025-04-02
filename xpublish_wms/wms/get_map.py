@@ -57,7 +57,9 @@ class GetMap:
     autoscale: bool
 
     def __init__(
-        self, array_render_threshold_bytes: int, cache: cachey.Cache | None = None,
+        self,
+        array_render_threshold_bytes: int,
+        cache: cachey.Cache | None = None,
     ):
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes

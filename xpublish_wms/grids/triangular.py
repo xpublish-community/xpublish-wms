@@ -164,7 +164,10 @@ class TriangularGrid(Grid):
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(
-        self, da: xr.DataArray, crs: str, **kwargs,
+        self,
+        da: xr.DataArray,
+        crs: str,
+        **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 

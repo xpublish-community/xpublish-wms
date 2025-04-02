@@ -74,7 +74,10 @@ class HYCOMGrid(Grid):
         return da.where(np_mask.mask == 0)
 
     def project(
-        self, da: xr.DataArray, crs: str, **kwargs,
+        self,
+        da: xr.DataArray,
+        crs: str,
+        **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
