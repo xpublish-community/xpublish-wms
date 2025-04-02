@@ -123,12 +123,15 @@ class GetMap:
         image_buffer = io.BytesIO()
         try:
             render_result = self.render(ds, da, image_buffer, False)
+        except HTTPException as e:
+            raise e
         except Exception as e:
             logger.error(f"Error rendering data: {e}")
             raise HTTPException(
                 422,
                 "Error rendering data, please check the data is valid and the render method is supported for the dataset type. See the logs for more details.",
             )
+
         if render_result:
             image_buffer.seek(0)
 
@@ -374,7 +377,8 @@ class GetMap:
                 f"threshold of {self.array_render_threshold_bytes} bytes. "
                 f"Consider increasing the threshold in the plugin configuration.",
             )
-            raise ValueError(
+            raise HTTPException(
+                413,
                 f"DataArray too large to render: threshold is {self.array_render_threshold_bytes} bytes, data is {da_size:.2f} bytes",
             )
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
