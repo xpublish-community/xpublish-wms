@@ -213,6 +213,10 @@ class WMSGetMapQuery(WMSBaseQuery):
     ) -> "WMSGetMapQuery":
         if v.colorscalerange is None and not v.autoscale:
             raise ValueError("colorscalerange is required when autoscale is False")
+        if v.bbox is None and v.tile is None:
+            raise ValueError("bbox or tile must be specified")
+        if v.tile is not None and v.crs != "EPSG:3857":
+            raise ValueError("tile is only supported for EPSG:3857")
         return v
 
 
