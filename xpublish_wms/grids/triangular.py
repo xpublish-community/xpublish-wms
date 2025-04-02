@@ -226,6 +226,10 @@ class TriangularGrid(Grid):
         y = da.cf["latitude"]
         e = self.ds.element
 
+        x.load()
+        y.load()
+        e.load()
+
         x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
