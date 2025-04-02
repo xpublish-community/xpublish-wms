@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 
 import cachey
 import cf_xarray  # noqa
@@ -10,6 +11,8 @@ from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
 from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
+
+logger = logging.getLogger("uvicorn")
 
 
 def get_metadata(
@@ -28,13 +31,15 @@ def get_metadata(
     metadata_type = query.item.lower()
 
     if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
+        logger.error("layerName must be specified for GetMetadata requests")
         raise HTTPException(
-            status_code=400,
+            422,
             detail="layerName must be specified",
         )
     elif layer_name not in ds and metadata_type != "minmax" and metadata_type != "menu":
+        logger.error(f"layerName {layer_name} not found in dataset")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"layerName {layer_name} not found in dataset",
         )
 
@@ -54,8 +59,9 @@ def get_metadata(
             array_get_map_render_threshold_bytes,
         )
     else:
+        logger.error(f"item {metadata_type} not supported for GetMetadata requests")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"item {metadata_type} not supported",
         )
 
@@ -67,8 +73,9 @@ def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:
     Returns the timesteps for a given layer
     """
     if "time" not in da.cf:
+        logger.error(f"layer {da.name} does not have a time dimension")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"layer {da.name} does not have a time dimension",
         )
 
