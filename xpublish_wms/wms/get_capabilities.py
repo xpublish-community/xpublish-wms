@@ -155,8 +155,6 @@ def get_capabilities(
 
         # TODO: Cache this based on variable names fetched. for now we assume every dataarray
         # can have a different bbox
-        da.cf["latitude"].persist()
-        da.cf["longitude"].persist()
         bbox = ds.gridded.bbox(da)
         bounds = {
             crs_tag: "EPSG:4326",
@@ -229,7 +227,7 @@ def get_capabilities(
             time_dimension_element.text = f"{','.join(times)}"
 
         if ds.gridded.has_elevation(da):
-            elevations_values = ds.gridded.elevations(da).persist()
+            elevations_values = ds.gridded.elevations(da)
             default_elevation_index = np.abs(elevations_values).argmin().values
             default_elevation = elevations_values[default_elevation_index].values.round(
                 5,
