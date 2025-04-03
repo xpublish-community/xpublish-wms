@@ -10,7 +10,6 @@ from scipy.stats import rankdata
 from xpublish_wms.grids.grid import Grid, RenderMethod
 from xpublish_wms.utils import (
     barycentric_weights,
-    lat_lng_find_tri,
     lat_lng_find_tri_ind,
     strip_float,
     to_lnglat,
@@ -169,7 +168,8 @@ class TriangularGrid(Grid):
         crs: str,
         **kwargs,
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        da = self.mask(da)
+        if not kwargs.get("masked", False):
+            da = self.mask(da)
 
         if crs == "EPSG:4326":
             adjust_lng = 0
@@ -212,6 +212,9 @@ class TriangularGrid(Grid):
         crs: str,
         **kwargs,
     ) -> Union[xr.DataArray, xr.Dataset]:
+        da = self.mask(da)
+        kwargs["masked"] = True
+
         if crs == "EPSG:3857":
             bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
@@ -224,15 +227,15 @@ class TriangularGrid(Grid):
 
         x = da.cf["longitude"] + adjust_lng
         y = da.cf["latitude"]
-        e = self.ds.element
-        
+        e = self.ds.element.values.astype(int)
+
         x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
         e_ind = np.intersect1d(x, y) + 1
-        e = e[np.any(np.isin(e.values.flat, e_ind).reshape(e.shape), axis=1)]
+        e = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
 
-        node_ind_flat = np.array(e.values.astype(int).flat)
+        node_ind_flat = np.array(e.flat)
         norm_node_ind = rankdata(node_ind_flat, method="dense")
         kwargs["nv"] = norm_node_ind.reshape(e.shape)
 

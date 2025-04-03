@@ -18,7 +18,6 @@ from fastapi.responses import StreamingResponse
 from xpublish_wms.grids import RenderMethod
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery
-from xpublish_wms.utils import filter_data_within_bbox
 
 
 class GetMap:
@@ -366,10 +365,9 @@ class GetMap:
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
             logger.warning("Falling back to full layer")
+        logger.debug(f"WMS GetMap BBOX filter time: {time.time() - filter_start}")
 
-        logger.debug(f"WMS GetMap BBOX Filter time: {time.time() - filter_start}")
         projection_start = time.time()
-
         try:
             da, kwargs = ds.gridded.project(da, self.crs, **kwargs)
         except Exception as e:
@@ -380,7 +378,6 @@ class GetMap:
 
         # Squeeze single value dimensions
         da = da.squeeze()
-
         logger.debug(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
         # Print the size of the da in megabytes
@@ -397,9 +394,9 @@ class GetMap:
             )
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
-        # start_dask = time.time()
-        # da = da.load()
-        # logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
+        start_dask = time.time()
+        da = da.load()
+        logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if da.size == 0:
             logger.warning("No data to render")
@@ -486,7 +483,6 @@ class GetMap:
                 verts,
                 tris,
             )
-
         logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
 
         start_shade = time.time()
