@@ -10,8 +10,8 @@ from xpublish_wms.utils import (
     lat_lng_find_quad,
     lat_lng_quad_percentage,
     strip_float,
+    to_lnglat,
     to_mercator,
-    to_lnglat
 )
 
 
@@ -86,7 +86,7 @@ class ROMSGrid(Grid):
             da = da.unify_chunks()
 
         return da, kwargs
-    
+
     def filter_by_bbox(self, da, bbox, crs, **kwargs):
         da = self.mask(da)
         kwargs["masked"] = True

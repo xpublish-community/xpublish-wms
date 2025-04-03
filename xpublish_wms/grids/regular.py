@@ -75,7 +75,7 @@ class RegularGrid(Grid):
             da = da.unify_chunks()
 
         return da, kwargs
-    
+
     def filter_by_bbox(self, da, bbox, crs, **kwargs):
         da = self.mask(da)
         kwargs["masked"] = True
