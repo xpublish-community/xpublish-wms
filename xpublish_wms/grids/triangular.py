@@ -216,7 +216,9 @@ class TriangularGrid(Grid):
         render_context["masked"] = True
 
         if crs == "EPSG:3857":
-            bbox = to_lnglat_allow_over.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]], [bbox[1], bbox[3]],
+            )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
         adjust_lng = 0
@@ -243,7 +245,11 @@ class TriangularGrid(Grid):
         da = da.unify_chunks()
         return da, render_context
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         nv = render_context.get("nv", self.ds.element)
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):

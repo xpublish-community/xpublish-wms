@@ -159,7 +159,11 @@ class Grid(ABC):
         """
         pass
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 

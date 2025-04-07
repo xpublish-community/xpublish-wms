@@ -12,8 +12,8 @@ from xpublish_wms.utils import (
     lat_lng_find_tri,
     lat_lng_find_tri_ind,
     strip_float,
+    to_lnglat_allow_over,
     to_mercator,
-    to_lnglat_allow_over
 )
 
 
@@ -452,7 +452,7 @@ class FVCOMGrid(Grid):
             render_context["tri_y"] = tri_y
 
         return da, render_context
-    
+
     def filter_by_bbox(
         self,
         da: Union[xr.DataArray, xr.Dataset],
@@ -464,7 +464,9 @@ class FVCOMGrid(Grid):
         render_context["masked"] = True
 
         if crs == "EPSG:3857":
-            bbox = to_lnglat_allow_over.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]], [bbox[1], bbox[3]],
+            )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
         lng = self.ds.lon if "nele" in da.dims else da.cf["longitude"]
@@ -501,7 +503,11 @@ class FVCOMGrid(Grid):
 
         return da, render_context
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         nv = render_context.get("nv", self.ds.nv)
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
@@ -518,4 +524,3 @@ class FVCOMGrid(Grid):
                 ).triangles,
                 render_context,
             )
-        

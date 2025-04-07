@@ -144,15 +144,23 @@ class GridDatasetAccessor:
         if self._grid is None:
             return None
         else:
-            return self._grid.filter_by_bbox(da, bbox, crs, render_context=render_context)
+            return self._grid.filter_by_bbox(
+                da, bbox, crs, render_context=render_context,
+            )
 
-    def project(self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict()) -> xr.DataArray:
+    def project(
+        self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict(),
+    ) -> xr.DataArray:
         if self._grid is None:
             return None
         else:
             return self._grid.project(da, crs, render_context=render_context)
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         if self._grid is None:
             return None
         else:

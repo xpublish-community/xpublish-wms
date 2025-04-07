@@ -205,7 +205,9 @@ class SELFEGrid(Grid):
         filter_dims = ["siglay", "siglev", "nele", "node"]
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
-    def project(self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict()) -> any:
+    def project(
+        self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict(),
+    ) -> any:
         if not render_context.get("masked", False):
             da = self.mask(da)
 
@@ -234,7 +236,11 @@ class SELFEGrid(Grid):
             da = da.unify_chunks()
         return da, render_context
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         ele = self.ds.ele
         if len(ele.shape) > 2:
             for i in range(len(ele.shape) - 2):

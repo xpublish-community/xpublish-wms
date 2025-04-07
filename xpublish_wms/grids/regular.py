@@ -81,7 +81,9 @@ class RegularGrid(Grid):
         render_context["masked"] = True
 
         if crs == "EPSG:3857":
-            bbox = to_lnglat_allow_over.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]], [bbox[1], bbox[3]],
+            )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
         adjust_lng = 0
