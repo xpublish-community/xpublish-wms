@@ -77,7 +77,7 @@ class HYCOMGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
-        **kwargs,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
@@ -114,7 +114,7 @@ class HYCOMGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da, kwargs
+        return da, render_context
 
     def sel_lat_lng(
         self,

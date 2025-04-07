@@ -84,9 +84,11 @@ def lnglat_to_mercator(longitude, latitude):
 
 
 to_lnglat = Transformer.from_crs(3857, 4326, always_xy=True)
+to_lnglat_allow_over = Transformer.from_crs(3857, 4326, always_xy=True, force_over=True)
 
 
 to_mercator = Transformer.from_crs(4326, 3857, always_xy=True)
+to_mercator_allow_over = Transformer.from_crs(4326, 3857, always_xy=True, force_over=True)
 
 
 def argsel2d(lons, lats, lon0, lat0):

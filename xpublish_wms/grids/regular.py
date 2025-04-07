@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
-from xpublish_wms.utils import lnglat_to_mercator, to_lnglat
+from xpublish_wms.utils import lnglat_to_mercator, to_lnglat_allow_over
 
 
 class RegularGrid(Grid):
@@ -31,9 +31,9 @@ class RegularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
-        **kwargs,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        if not kwargs.get("masked", False):
+        if not render_context.get("masked", False):
             da = self.mask(da)
 
         coords = dict()
@@ -74,14 +74,14 @@ class RegularGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da, kwargs
+        return da, render_context
 
-    def filter_by_bbox(self, da, bbox, crs, **kwargs):
+    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
         da = self.mask(da)
-        kwargs["masked"] = True
+        render_context["masked"] = True
 
         if crs == "EPSG:3857":
-            bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = to_lnglat_allow_over.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
         adjust_lng = 0
@@ -101,7 +101,7 @@ class RegularGrid(Grid):
         # Select and return the data within the bounding box
         da = da.isel(x=x_inds, y=y_inds)
         da = da.unify_chunks()
-        return da, kwargs
+        return da, render_context
 
     def sel_lat_lng(
         self,

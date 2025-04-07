@@ -10,7 +10,7 @@ from xpublish_wms.utils import (
     lat_lng_find_quad,
     lat_lng_quad_percentage,
     strip_float,
-    to_lnglat,
+    to_lnglat_allow_over,
     to_mercator,
 )
 
@@ -56,9 +56,9 @@ class ROMSGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
-        **kwargs,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        if not kwargs.get("masked", False):
+        if not render_context.get("masked", False):
             da = self.mask(da)
 
         if crs == "EPSG:4326":
@@ -85,14 +85,14 @@ class ROMSGrid(Grid):
 
             da = da.unify_chunks()
 
-        return da, kwargs
+        return da, render_context
 
-    def filter_by_bbox(self, da, bbox, crs, **kwargs):
+    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
         da = self.mask(da)
-        kwargs["masked"] = True
+        render_context["masked"] = True
 
         if crs == "EPSG:3857":
-            bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
+            bbox = to_lnglat_allow_over.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
         adjust_lng = 0
@@ -119,7 +119,7 @@ class ROMSGrid(Grid):
 
         da = da.isel(sel_dims)
         da = da.unify_chunks()
-        return da, kwargs
+        return da, render_context
 
     def sel_lat_lng(
         self,

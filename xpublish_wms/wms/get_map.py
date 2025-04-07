@@ -337,19 +337,19 @@ class GetMap:
         Render the data array into an image buffer
         """
 
-        # default kwargs object to pass around between grid functions
-        kwargs = dict()
+        # default context object to pass around between grid functions
+        render_context = dict()
 
         filter_start = time.time()
         try:
             # Grab a buffer around the bbox to ensure we have enough data to render
             x_buffer = (
                 abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2]))
-                * 0.25
+                * 0.15
             )
             y_buffer = (
                 abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3]))
-                * 0.25
+                * 0.15
             )
             bbox = [
                 self.bbox[0] - x_buffer,
@@ -361,7 +361,7 @@ class GetMap:
             # Filter the data to only include the data within the bbox + buffer so
             # we don't have to render a ton of empty space or pull down more chunks
             # than we need
-            da, kwargs = ds.gridded.filter_by_bbox(da, bbox, self.crs, **kwargs)
+            da, render_context = ds.gridded.filter_by_bbox(da, bbox, self.crs, render_context=render_context)
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
             logger.warning("Falling back to full layer")
@@ -369,7 +369,7 @@ class GetMap:
 
         projection_start = time.time()
         try:
-            da, kwargs = ds.gridded.project(da, self.crs, **kwargs)
+            da, render_context = ds.gridded.project(da, self.crs, render_context=render_context)
         except Exception as e:
             logger.warning(f"Projection failed: {e}")
             if minmax_only:
@@ -466,12 +466,12 @@ class GetMap:
                     da,
                 )
         elif ds.gridded.render_method == RenderMethod.Triangle:
-            triangles, kwargs = ds.gridded.tessellate(da, **kwargs)
+            triangles, render_context = ds.gridded.tessellate(da, render_context=render_context)
 
             # TODO - maybe this discrepancy between coloring by verts v tris should be part of the grid?
-            if "x" in kwargs and "y" in kwargs:
+            if "tri_x" in render_context and "tri_y" in render_context:
                 # We are coloring the triangles by the data values
-                verts = pd.DataFrame({"x": kwargs["x"], "y": kwargs["y"]})
+                verts = pd.DataFrame({"x": render_context["tri_x"], "y": render_context["tri_y"]})
                 tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
                 tris = tris.assign(z=da.values)
             else:

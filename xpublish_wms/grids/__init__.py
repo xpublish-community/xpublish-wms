@@ -138,25 +138,25 @@ class GridDatasetAccessor:
         da: Union[xr.DataArray, xr.Dataset],
         bbox: tuple[float, float, float, float],
         crs: str,
-        **kwargs,
+        render_context: Optional[dict] = dict(),
     ) -> Union[xr.DataArray, xr.Dataset]:
         """Filters the given data array by the given bbox, whose values are based on the give crs"""
         if self._grid is None:
             return None
         else:
-            return self._grid.filter_by_bbox(da, bbox, crs, **kwargs)
+            return self._grid.filter_by_bbox(da, bbox, crs, render_context=render_context)
 
-    def project(self, da: xr.DataArray, crs: str, **kwargs) -> xr.DataArray:
+    def project(self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict()) -> xr.DataArray:
         if self._grid is None:
             return None
         else:
-            return self._grid.project(da, crs, **kwargs)
+            return self._grid.project(da, crs, render_context=render_context)
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], **kwargs) -> np.ndarray:
+    def tessellate(self, da: Union[xr.DataArray, xr.Dataset], render_context: Optional[dict] = dict()) -> np.ndarray:
         if self._grid is None:
             return None
         else:
-            return self._grid.tessellate(da, **kwargs)
+            return self._grid.tessellate(da, render_context=render_context)
 
     def sel_lat_lng(
         self,
