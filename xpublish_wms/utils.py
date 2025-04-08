@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 
 import cartopy.geodesic
 import numpy as np
