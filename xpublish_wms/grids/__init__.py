@@ -145,11 +145,17 @@ class GridDatasetAccessor:
             return None
         else:
             return self._grid.filter_by_bbox(
-                da, bbox, crs, render_context=render_context,
+                da,
+                bbox,
+                crs,
+                render_context=render_context,
             )
 
     def project(
-        self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict(),
+        self,
+        da: xr.DataArray,
+        crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> xr.DataArray:
         if self._grid is None:
             return None

@@ -362,7 +362,10 @@ class GetMap:
             # we don't have to render a ton of empty space or pull down more chunks
             # than we need
             da, render_context = ds.gridded.filter_by_bbox(
-                da, bbox, self.crs, render_context=render_context,
+                da,
+                bbox,
+                self.crs,
+                render_context=render_context,
             )
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
@@ -372,7 +375,9 @@ class GetMap:
         projection_start = time.time()
         try:
             da, render_context = ds.gridded.project(
-                da, self.crs, render_context=render_context,
+                da,
+                self.crs,
+                render_context=render_context,
             )
         except Exception as e:
             logger.warning(f"Projection failed: {e}")
@@ -471,7 +476,8 @@ class GetMap:
                 )
         elif ds.gridded.render_method == RenderMethod.Triangle:
             triangles, render_context = ds.gridded.tessellate(
-                da, render_context=render_context,
+                da,
+                render_context=render_context,
             )
 
             # TODO - maybe this discrepancy between coloring by verts v tris should be part of the grid?

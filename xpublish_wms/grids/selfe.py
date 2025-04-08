@@ -206,7 +206,10 @@ class SELFEGrid(Grid):
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
     def project(
-        self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict(),
+        self,
+        da: xr.DataArray,
+        crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> any:
         if not render_context.get("masked", False):
             da = self.mask(da)
