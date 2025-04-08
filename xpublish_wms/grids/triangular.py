@@ -1,25 +1,25 @@
+import time
 from typing import Optional, Sequence, Union
 
 import dask.array as dask_array
 import matplotlib.tri as tri
 import numpy as np
 import xarray as xr
-
-import time
+from scipy.stats import rankdata
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
 from xpublish_wms.utils import (
     barycentric_weights,
-    lat_lng_find_tri,
     lat_lng_find_tri_ind,
     strip_float,
+    to_lnglat_allow_over,
     to_mercator,
-    to_lnglat
 )
 
 
 class TriangularGrid(Grid):
     filtered_element_ind = []
+
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
 
@@ -84,7 +84,7 @@ class TriangularGrid(Grid):
             lat,
             lng_values,
             lat_values,
-            self.tessellate(subset),
+            self.tessellate(subset)[0],
         )
 
         ret_subset = subset.isel(node=0)
@@ -166,9 +166,11 @@ class TriangularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        da = self.mask(da)
-        
+        if not render_context.get("masked", False):
+            da = self.mask(da)
+
         if crs == "EPSG:4326":
             adjust_lng = 0
             if np.min(da.cf["longitude"]) < -180:
@@ -181,9 +183,7 @@ class TriangularGrid(Grid):
         elif crs == "EPSG:3857":
             x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
 
-        x_chunks = (
-            da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-        )
+        x_chunks = da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
         y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
         da = da.assign_coords(
@@ -203,45 +203,63 @@ class TriangularGrid(Grid):
 
         da = da.unify_chunks()
 
-        return da, None, None
-    
-    def filter_by_bbox(self, 
-        da: Union[xr.DataArray, xr.Dataset], 
+        return da, render_context
+
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
         bbox: tuple[float, float, float, float],
-        crs: str
+        crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> Union[xr.DataArray, xr.Dataset]:
-        # if crs == "EPSG:3857":
-        #     bbox = to_lnglat.transform([bbox[0], bbox[2]], [bbox[1], bbox[3]])
-        #     bbox = np.array(bbox).flatten().tolist()
+        da = self.mask(da)
+        render_context["masked"] = True
 
-        # adjust_lng = 0
-        # if np.min(da.cf["longitude"]) < -180:
-        #     adjust_lng = 360
-        # elif np.max(da.cf["longitude"]) > 180:
-        #     adjust_lng = -360
+        if crs == "EPSG:3857":
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]], [bbox[1], bbox[3]],
+            )
+            bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
-        # x = da.cf["longitude"] + adjust_lng
-        # y = da.cf["latitude"]
+        adjust_lng = 0
+        if np.min(da.cf["longitude"]) < -180:
+            adjust_lng = 360
+        elif np.max(da.cf["longitude"]) > 180:
+            adjust_lng = -360
 
-        # x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
-        # y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
+        x = da.cf["longitude"] + adjust_lng
+        y = da.cf["latitude"]
+        e = self.ds.element.values.astype(int)
 
-        # e = self.ds.element.values
-        # e_ind = np.intersect1d(x, y)
-        # node_ind = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
+        x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
-        # da = da.isel(node=np.unique(node_ind.flat))
-        # da = da.unify_chunks()
-        return da
+        e_ind = np.intersect1d(x, y) + 1
+        e = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
-        nv = self.ds.element
+        node_ind_flat = np.array(e.flat)
+        norm_node_ind = rankdata(node_ind_flat, method="dense")
+        render_context["nv"] = norm_node_ind.reshape(e.shape)
+
+        da = da.isel(node=np.unique(node_ind_flat) - 1)
+        da = da.unify_chunks()
+        return da, render_context
+
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
+        nv = render_context.get("nv", self.ds.element)
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
-        return tri.Triangulation(
-            da.cf["longitude"],
-            da.cf["latitude"],
-            nv - 1,
-        ).triangles
+        return (
+            tri.Triangulation(
+                da.cf["longitude"],
+                da.cf["latitude"],
+                nv - 1,
+            ).triangles,
+            render_context,
+        )

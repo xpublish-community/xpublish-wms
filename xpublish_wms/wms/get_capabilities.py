@@ -62,7 +62,7 @@ def get_capabilities(
     """
     Return the WMS capabilities for the dataset
     """
-    wms_url = f'{request.base_url}{request.url.path.removeprefix("/")}'
+    wms_url = f'{str(request.url).split("?")[0]}'
 
     if query.version == "1.1.1":
         root = ET.Element(

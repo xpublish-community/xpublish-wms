@@ -4,6 +4,7 @@ import dask.array as dask_array
 import matplotlib.tri as tri
 import numpy as np
 import xarray as xr
+from scipy.stats import rankdata
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
 from xpublish_wms.utils import (
@@ -11,6 +12,7 @@ from xpublish_wms.utils import (
     lat_lng_find_tri,
     lat_lng_find_tri_ind,
     strip_float,
+    to_lnglat_allow_over,
     to_mercator,
 )
 
@@ -209,7 +211,7 @@ class FVCOMGrid(Grid):
             lat,
             lng_values,
             lat_values,
-            self.tessellate(subset),
+            self.tessellate(subset)[0],
         )
         # if no -> set all values to nan
         if valid_tri is None:
@@ -271,7 +273,7 @@ class FVCOMGrid(Grid):
             lat,
             lng_values,
             lat_values,
-            self.tessellate(subset),
+            self.tessellate(subset)[0],
         )
 
         ret_subset = subset.isel(nele=0)
@@ -338,10 +340,14 @@ class FVCOMGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        da = self.mask(da)
+        if not render_context.get("masked", False):
+            da = self.mask(da)
 
         data = da.values
+        ds_lon = render_context.get("lng", self.ds.lon)
+        ds_lat = render_context.get("lat", self.ds.lat)
 
         coords = dict()
         # need to create new x & y coordinates with dataset values while dropping the old ones
@@ -353,27 +359,29 @@ class FVCOMGrid(Grid):
         # create new data by getting values from the surrounding edges if the metadata is available
         # and the variable is zonal
         if "nele" in da.dims and "ntve" in self.ds:
-            if "time" in self.ds.ntve.coords:
-                elem_count = self.ds.ntve.isel(time=0).values
+            ntve = render_context.get("ntve", self.ds.ntve)
+            if "time" in ntve.coords:
+                elem_count = ntve.isel(time=0).values
             else:
-                elem_count = self.ds.ntve.values
+                elem_count = ntve.values
 
-            if "time" in self.ds.nbve.coords:
-                neighbors = self.ds.nbve.isel(time=0).values
+            nbve = render_context.get("nbve", self.ds.nbve)
+            if "time" in nbve.coords:
+                neighbors = nbve.isel(time=0).values
             else:
-                neighbors = self.ds.nbve.values
+                neighbors = nbve.values
 
             mask = neighbors[:, :] > 0
             data = np.sum(data[neighbors[:, :] - 1], axis=0, where=mask) / elem_count
 
             coords["x"] = (
                 da.cf["longitude"].dims,
-                self.ds.lon.values,
+                ds_lon.values,
                 da.cf["longitude"].attrs,
             )
             coords["y"] = (
                 da.cf["latitude"].dims,
-                self.ds.lat.values,
+                ds_lat.values,
                 da.cf["latitude"].attrs,
             )
             tri_x = None
@@ -385,8 +393,8 @@ class FVCOMGrid(Grid):
             coords["y"] = da.cf["latitude"]
 
             if "nele" in da.dims:
-                tri_x = self.ds.lon
-                tri_y = self.ds.lat
+                tri_x = ds_lon
+                tri_y = ds_lat
             else:
                 tri_x = None
                 tri_y = None
@@ -439,21 +447,80 @@ class FVCOMGrid(Grid):
                 tri_x = dask_array.from_array(x)
                 tri_y = dask_array.from_array(y)
 
-                return da, tri_x, tri_y
+        if tri_x is not None:
+            render_context["tri_x"] = tri_x
+            render_context["tri_y"] = tri_y
 
-        return da, None, None
+        return da, render_context
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
-        nv = self.ds.nv
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        bbox: tuple[float, float, float, float],
+        crs: str,
+        render_context: Optional[dict] = dict(),
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        da = self.mask(da)
+        render_context["masked"] = True
+
+        if crs == "EPSG:3857":
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]], [bbox[1], bbox[3]],
+            )
+            bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
+
+        lng = self.ds.lon if "nele" in da.dims else da.cf["longitude"]
+        lat = self.ds.lat if "nele" in da.dims else da.cf["latitude"]
+
+        adjust_lng = 0
+        if np.min(lng) < -180:
+            adjust_lng = 360
+        elif np.max(lng) > 180:
+            adjust_lng = -360
+
+        x = lng + adjust_lng
+        y = lat
+        e = self.ds.nv.values.astype(int)
+
+        x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
+        e_ind = np.intersect1d(x, y) + 1
+        e = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
+
+        node_ind_flat = np.array(e.flat)
+        node_ind_unique = np.unique(node_ind_flat) - 1
+        norm_node_ind = rankdata(node_ind_flat, method="dense")
+        render_context["nv"] = norm_node_ind.reshape(e.shape)
+
+        if "nele" in da.dims:
+            render_context["ntve"] = self.ds.ntve.isel(node=node_ind_unique)
+            render_context["nbve"] = self.ds.nbve.isel(node=node_ind_unique)
+            render_context["lng"] = self.ds.lon.isel(node=node_ind_unique)
+            render_context["lat"] = self.ds.lat.isel(node=node_ind_unique)
+        else:
+            da = da.isel(node=node_ind_unique)
+            da = da.unify_chunks()
+
+        return da, render_context
+
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
+        nv = render_context.get("nv", self.ds.nv)
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
 
         if "nele" in da.dims:
-            return nv.T - 1
+            return nv.T - 1, render_context
         else:
-            return tri.Triangulation(
-                da.cf["longitude"],
-                da.cf["latitude"],
-                nv.T - 1,
-            ).triangles
+            return (
+                tri.Triangulation(
+                    da.cf["longitude"],
+                    da.cf["latitude"],
+                    nv.T - 1,
+                ).triangles,
+                render_context,
+            )

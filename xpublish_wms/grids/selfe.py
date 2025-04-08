@@ -115,7 +115,7 @@ class SELFEGrid(Grid):
             lat,
             lng_values,
             lat_values,
-            self.tessellate(subset),
+            self.tessellate(subset)[0],
         )
         # if no -> set all values to nan
         if valid_tri is None:
@@ -205,8 +205,11 @@ class SELFEGrid(Grid):
         filter_dims = ["siglay", "siglev", "nele", "node"]
         return [dim for dim in super().additional_coords(da) if dim not in filter_dims]
 
-    def project(self, da: xr.DataArray, crs: str) -> any:
-        da = self.mask(da)
+    def project(
+        self, da: xr.DataArray, crs: str, render_context: Optional[dict] = dict(),
+    ) -> any:
+        if not render_context.get("masked", False):
+            da = self.mask(da)
 
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
@@ -231,16 +234,23 @@ class SELFEGrid(Grid):
             )
 
             da = da.unify_chunks()
-        return da
+        return da, render_context
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         ele = self.ds.ele
         if len(ele.shape) > 2:
             for i in range(len(ele.shape) - 2):
                 ele = ele[0]
 
-        return tri.Triangulation(
-            da.cf["longitude"],
-            da.cf["latitude"],
-            ele.T - 1,
-        ).triangles
+        return (
+            tri.Triangulation(
+                da.cf["longitude"],
+                da.cf["latitude"],
+                ele.T - 1,
+            ).triangles,
+            render_context,
+        )

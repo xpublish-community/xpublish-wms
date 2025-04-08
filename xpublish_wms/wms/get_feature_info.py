@@ -6,6 +6,7 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetFeatureInfoQuery
 from xpublish_wms.utils import (
     format_timestamp,
@@ -136,7 +137,9 @@ def get_feature_info(
     if elevation_str == "all":
         elevation_list = "all"
     elif elevation_str:
-        elevation_list = list([[float(x) for x in e.split("/")] for e in elevation_str.split(",")])
+        elevation_list = list(
+            [[float(x) for x in e.split("/")] for e in elevation_str.split(",")],
+        )
     else:
         elevation_list = []
     has_vertical_axis = [
@@ -146,9 +149,15 @@ def get_feature_info(
 
     crs = query.crs
     if crs != "EPSG:4326":
-        raise HTTPException(501, "Only EPSG:4326 is supported")
+        logger.error(
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
+        raise HTTPException(
+            422,
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
 
-    bbox = [float(x) for x in query.bbox.split(",")]
+    bbox = query.bbox
     width = query.width
     height = query.height
     x = query.x
@@ -191,7 +200,11 @@ def get_feature_info(
             for e in elevation_list:
                 if isinstance(e, list):
                     if len(e) > 1:
-                        elevation.extend(list(filter(lambda x: min(e) <= x <= max(e), all_elevations)))
+                        elevation.extend(
+                            list(
+                                filter(lambda x: min(e) <= x <= max(e), all_elevations),
+                            ),
+                        )
                     else:
                         elevation.extend(e)
                 else:
@@ -207,7 +220,11 @@ def get_feature_info(
             parameters=parameters,
         )
     except ValueError as e:
-        raise HTTPException(500, f"Error with grid type {ds.gridded.name}: {e}")
+        logger.error(f"Error selecting lat/lng with grid type {ds.gridded.name}: {e}")
+        raise HTTPException(
+            500,
+            f"Error selecting lat/lng with grid type {ds.gridded.name}. See the logs for more details.",
+        )
 
     # When none of the parameters have data, drop it
     if any_has_time_axis:
