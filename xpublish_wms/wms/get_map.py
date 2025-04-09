@@ -338,6 +338,10 @@ class GetMap:
         """
 
         # default context object to pass around between grid functions
+        # this is useful for each gridded function involved in the render process to set flags or parse values
+        # and then send those values/flags to the next gridded function involved in the render process.
+        #
+        # ex. if ds.gridded.filter_by_bbox applies the grid mask to da, ds.gridded.project can avoid re-masking by checking the context
         render_context = dict()
 
         filter_start = time.time()
