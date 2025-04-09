@@ -11,12 +11,14 @@ from xpublish_wms.grids.irregular import IrregularGrid
 from xpublish_wms.grids.regular import RegularGrid
 from xpublish_wms.grids.roms import ROMSGrid
 from xpublish_wms.grids.selfe import SELFEGrid
+from xpublish_wms.grids.triangular import TriangularGrid
 
 _grid_impls = [
     HYCOMGrid,
     FVCOMGrid,
     SELFEGrid,
     ROMSGrid,
+    TriangularGrid,
     IrregularGrid,
     RegularGrid,
 ]
@@ -131,17 +133,44 @@ class GridDatasetAccessor:
         else:
             return self._grid.mask(da)
 
-    def project(self, da: xr.DataArray, crs: str) -> xr.DataArray:
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        bbox: tuple[float, float, float, float],
+        crs: str,
+        render_context: Optional[dict] = dict(),
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        """Filters the given data array by the given bbox, whose values are based on the give crs"""
         if self._grid is None:
             return None
         else:
-            return self._grid.project(da, crs)
+            return self._grid.filter_by_bbox(
+                da,
+                bbox,
+                crs,
+                render_context=render_context,
+            )
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def project(
+        self,
+        da: xr.DataArray,
+        crs: str,
+        render_context: Optional[dict] = dict(),
+    ) -> xr.DataArray:
         if self._grid is None:
             return None
         else:
-            return self._grid.tessellate(da)
+            return self._grid.project(da, crs, render_context=render_context)
+
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
+        if self._grid is None:
+            return None
+        else:
+            return self._grid.tessellate(da, render_context=render_context)
 
     def sel_lat_lng(
         self,

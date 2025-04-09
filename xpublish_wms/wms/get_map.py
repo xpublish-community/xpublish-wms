@@ -18,7 +18,6 @@ from fastapi.responses import StreamingResponse
 from xpublish_wms.grids import RenderMethod
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery
-from xpublish_wms.utils import filter_data_within_bbox
 
 
 class GetMap:
@@ -56,7 +55,11 @@ class GetMap:
     colorscalerange: List[float]
     autoscale: bool
 
-    def __init__(self, cache: cachey.Cache, array_render_threshold_bytes: int):
+    def __init__(
+        self,
+        array_render_threshold_bytes: int,
+        cache: cachey.Cache | None = None,
+    ):
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes
 
@@ -256,7 +259,7 @@ class GetMap:
         if self.time is None:
             return da.cf.isel({self.TIME_CF_NAME: -1})
         else:
-            return da.cf.sel({self.TIME_CF_NAME: self.time})
+            return da.cf.sel({self.TIME_CF_NAME: self.time}, method="nearest")
 
     def select_elevation(self, ds: xr.Dataset, da: xr.DataArray) -> xr.DataArray:
         """
@@ -333,40 +336,61 @@ class GetMap:
         """
         Render the data array into an image buffer
         """
-        # For now, try to render everything as a quad grid
-        # TODO: FVCOM and other grids
-        # return self.render_quad_grid(da, buffer, minmax_only)
-        projection_start = time.time()
 
-        x = None
-        y = None
+        # default context object to pass around between grid functions
+        # this is useful for each gridded function involved in the render process to set flags or parse values
+        # and then send those values/flags to the next gridded function involved in the render process.
+        #
+        # ex. if ds.gridded.filter_by_bbox applies the grid mask to da, ds.gridded.project can avoid re-masking by checking the context
+        render_context = dict()
+
+        filter_start = time.time()
         try:
-            da, x, y = ds.gridded.project(da, self.crs)
+            # Grab a buffer around the bbox to ensure we have enough data to render
+            x_buffer = (
+                abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2]))
+                * 0.15
+            )
+            y_buffer = (
+                abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3]))
+                * 0.15
+            )
+            bbox = [
+                self.bbox[0] - x_buffer,
+                self.bbox[1] - y_buffer,
+                self.bbox[2] + x_buffer,
+                self.bbox[3] + y_buffer,
+            ]
+
+            # Filter the data to only include the data within the bbox + buffer so
+            # we don't have to render a ton of empty space or pull down more chunks
+            # than we need
+            da, render_context = ds.gridded.filter_by_bbox(
+                da,
+                bbox,
+                self.crs,
+                render_context=render_context,
+            )
+        except Exception as e:
+            logger.error(f"Error filtering data within bbox: {e}")
+            logger.warning("Falling back to full layer")
+        logger.debug(f"WMS GetMap BBOX filter time: {time.time() - filter_start}")
+
+        projection_start = time.time()
+        try:
+            da, render_context = ds.gridded.project(
+                da,
+                self.crs,
+                render_context=render_context,
+            )
         except Exception as e:
             logger.warning(f"Projection failed: {e}")
             if minmax_only:
                 logger.warning("Falling back to default minmax")
                 return {"min": float(da.min()), "max": float(da.max())}
 
-        # x and y are only set for triangle grids, we dont subset the data for triangle grids
-        # at this time.
-        if x is None:
-            try:
-                # Grab a buffer around the bbox to ensure we have enough data to render
-                diff = (da.x[1] - da.x[0]).values
-                diff = diff * 1.05
-
-                # Filter the data to only include the data within the bbox + buffer so
-                # we don't have to render a ton of empty space or pull down more chunks
-                # than we need
-                da = filter_data_within_bbox(da, self.bbox, diff)
-            except Exception as e:
-                logger.error(f"Error filtering data within bbox: {e}")
-                logger.warning("Falling back to full layer")
-
         # Squeeze single value dimensions
         da = da.squeeze()
-
         logger.debug(f"WMS GetMap Projection time: {time.time() - projection_start}")
 
         # Print the size of the da in megabytes
@@ -384,12 +408,7 @@ class GetMap:
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
         start_dask = time.time()
-
         da = da.load()
-        if x is not None and y is not None:
-            x = x.load()
-            y = y.load()
-
         logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
 
         if da.size == 0:
@@ -413,7 +432,7 @@ class GetMap:
         else:
             span = None
 
-        start_shade = time.time()
+        start_mesh = time.time()
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
@@ -460,10 +479,17 @@ class GetMap:
                     da,
                 )
         elif ds.gridded.render_method == RenderMethod.Triangle:
-            triangles = ds.gridded.tessellate(da)
-            if x is not None:
+            triangles, render_context = ds.gridded.tessellate(
+                da,
+                render_context=render_context,
+            )
+
+            # TODO - maybe this discrepancy between coloring by verts v tris should be part of the grid?
+            if "tri_x" in render_context and "tri_y" in render_context:
                 # We are coloring the triangles by the data values
-                verts = pd.DataFrame({"x": x, "y": y})
+                verts = pd.DataFrame(
+                    {"x": render_context["tri_x"], "y": render_context["tri_y"]},
+                )
                 tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
                 tris = tris.assign(z=da.values)
             else:
@@ -475,7 +501,9 @@ class GetMap:
                 verts,
                 tris,
             )
+        logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
 
+        start_shade = time.time()
         shaded = tf.shade(
             mesh,
             cmap=matplotlib.colormaps.get_cmap(self.palettename),

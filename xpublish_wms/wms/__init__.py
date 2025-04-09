@@ -36,8 +36,8 @@ def wms_handler(
     ],
     extra_query_params: dict,
     dataset: xr.Dataset,
-    cache: cachey.Cache,
     array_get_map_render_threshold_bytes: int,
+    cache: cachey.Cache | None = None,
 ) -> Response:
     logger.debug(f"Received wms request: {request.url}")
 

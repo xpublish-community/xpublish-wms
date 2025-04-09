@@ -134,11 +134,22 @@ class Grid(ABC):
         """Mask the given data array"""
         return da
 
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        bbox: tuple[float, float, float, float],
+        crs: str,
+        render_context: Optional[dict] = dict(),
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        """Filters the given data array by the given bbox, whose values are based on the give crs"""
+        return da, render_context
+
     @abstractmethod
     def project(
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         """Project the given data array from this dataset and grid to the given crs
 
@@ -148,7 +159,11 @@ class Grid(ABC):
         """
         pass
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 

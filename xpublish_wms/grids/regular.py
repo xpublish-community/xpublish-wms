@@ -1,9 +1,10 @@
 from typing import Optional
 
+import numpy as np
 import xarray as xr
 
 from xpublish_wms.grids.grid import Grid, RenderMethod
-from xpublish_wms.utils import lnglat_to_mercator
+from xpublish_wms.utils import lnglat_to_mercator, to_lnglat_allow_over
 
 
 class RegularGrid(Grid):
@@ -30,8 +31,10 @@ class RegularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        da = self.mask(da)
+        if not render_context.get("masked", False):
+            da = self.mask(da)
 
         coords = dict()
         # need to convert longitude and latitude to x and y for the mesh to work properly
@@ -71,7 +74,37 @@ class RegularGrid(Grid):
             da = da.assign_coords({"x": lng, "y": lat})
             da = da.unify_chunks()
 
-        return da, None, None
+        return da, render_context
+
+    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
+        da = self.mask(da)
+        render_context["masked"] = True
+
+        if crs == "EPSG:3857":
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]],
+                [bbox[1], bbox[3]],
+            )
+            bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
+
+        adjust_lng = 0
+        if np.min(da.cf["longitude"]) < -180:
+            adjust_lng = 360
+        elif np.max(da.cf["longitude"]) > 180:
+            adjust_lng = -360
+
+        # Get the x and y values
+        x = da.cf["longitude"] + adjust_lng
+        y = da.cf["latitude"]
+
+        # Find the indices of the data within the bounding box
+        x_inds = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        y_inds = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
+
+        # Select and return the data within the bounding box
+        da = da.isel(x=x_inds, y=y_inds)
+        da = da.unify_chunks()
+        return da, render_context
 
     def sel_lat_lng(
         self,

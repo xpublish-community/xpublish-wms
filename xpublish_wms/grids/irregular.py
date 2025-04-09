@@ -41,6 +41,7 @@ class IrregularGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         da = self.mask(da)
 
@@ -74,7 +75,7 @@ class IrregularGrid(Grid):
             )
 
             da = da.unify_chunks()
-        return da, None, None
+        return da, render_context
 
     def sel_lat_lng(
         self,
