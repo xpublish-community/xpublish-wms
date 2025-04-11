@@ -344,7 +344,18 @@ class GetMap:
         # ex. if ds.gridded.filter_by_bbox applies the grid mask to da, ds.gridded.project can avoid re-masking by checking the context
         render_context = dict()
 
+        # preload the lng and lat values if they exist, as they are expected to be used in the filter_by_bbox function
+        if "longitude" in da.cf and "latitude" in da.cf:
+            preload_time = time.time()
+            try:
+                da.cf["longitude"].load()
+                da.cf["latitude"].load()
+            except Exception as e:
+                logger.error(f"Error preloading location data: {e}")
+            logger.debug(f"WMS GetMap preload lng/lat time: {time.time() - preload_time}")
+
         filter_start = time.time()
+        filter_success = False
         try:
             # Grab a buffer around the bbox to ensure we have enough data to render
             x_buffer = (
@@ -371,10 +382,20 @@ class GetMap:
                 self.crs,
                 render_context=render_context,
             )
+
+            filter_success = True
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
             logger.warning("Falling back to full layer")
+            
+            filter_success = False
         logger.debug(f"WMS GetMap BBOX filter time: {time.time() - filter_start}")
+
+        # if filter_by_bbox was successful, preload data for projection
+        if filter_success:
+            filter_load_time = time.time()
+            da.load()
+            logger.debug(f"WMS GetMap load filtered data: {time.time() - filter_load_time}")
 
         projection_start = time.time()
         try:
@@ -409,7 +430,7 @@ class GetMap:
 
         start_dask = time.time()
         da = da.load()
-        logger.debug(f"WMS GetMap load data: {time.time() - start_dask}")
+        logger.debug(f"WMS GetMap load full data: {time.time() - start_dask}")
 
         if da.size == 0:
             logger.warning("No data to render")
