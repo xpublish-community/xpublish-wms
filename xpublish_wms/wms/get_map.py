@@ -207,17 +207,11 @@ class GetMap:
         self.height = query.height
 
         # Output style
-        self.style = query.styles
+        _, self.palettename = query.styles
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
         # Otherwise default to rainbow
-        try:
-            self.stylename, self.palettename = self.style.split("/")
-        except Exception:
-            self.stylename = "raster"
-            self.palettename = "default"
-        finally:
-            if self.palettename == "default":
-                self.palettename = self.DEFAULT_PALETTE
+        if self.palettename == "default":
+            self.palettename = self.DEFAULT_PALETTE
 
         self.colorscalerange = query.colorscalerange
         self.autoscale = query.autoscale
