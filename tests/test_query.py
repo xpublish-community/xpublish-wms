@@ -23,7 +23,7 @@ def test_wms_query_discriminator():
         version="1.3.0",
         request="GetMap",
         layers="layer1",
-        styles="raster/default",
+        styles="raster/magma",
         crs="EPSG:3857",
         tile="1,1,1",
         width=100,
@@ -33,6 +33,7 @@ def test_wms_query_discriminator():
     )
     assert isinstance(getmap_query.root, WMSGetMapQuery)
     assert getmap_query.root.colorscalerange == (0, 100)
+    assert getmap_query.root.styles == ("raster", "magma")
 
     getmap_query_autoscale = WMSQuery(
         service="WMS",
