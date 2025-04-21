@@ -102,7 +102,7 @@ class RegularGrid(Grid):
         y_inds = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
         # Select and return the data within the bounding box
-        da = da.isel({da.cf["longitude"].name: x_inds, da.cf["latitude"].name: y_inds})
+        da = da.isel({da.cf["longitude"].dims[0]: x_inds, da.cf["latitude"].dims[0]: y_inds})
         return da, render_context
 
     def sel_lat_lng(
