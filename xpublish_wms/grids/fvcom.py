@@ -504,7 +504,6 @@ class FVCOMGrid(Grid):
             render_context["lat"] = self.ds.lat.isel(node=node_ind_unique)
         else:
             da = da.isel(node=node_ind_unique)
-            da = da.unify_chunks()
 
         return da, render_context
 

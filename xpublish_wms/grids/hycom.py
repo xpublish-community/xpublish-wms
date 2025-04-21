@@ -127,7 +127,6 @@ class HYCOMGrid(Grid):
             sel_dims[x.dims[i]] = np.intersect1d(x_inds[i], y_inds[i])
 
         da = da.isel(sel_dims)
-        da = da.unify_chunks()
         return da, render_context
 
     def sel_lat_lng(

@@ -344,16 +344,6 @@ class GetMap:
         # ex. if ds.gridded.filter_by_bbox applies the grid mask to da, ds.gridded.project can avoid re-masking by checking the context
         render_context = dict()
 
-        # # preload the lng and lat values if they exist, as they are expected to be used in the filter_by_bbox function
-        # if "longitude" in da.cf and "latitude" in da.cf:
-        #     preload_time = time.time()
-        #     try:
-        #         da.cf["longitude"].load()
-        #         da.cf["latitude"].load()
-        #     except Exception as e:
-        #         logger.error(f"Error preloading location data: {e}")
-        #     logger.debug(f"WMS GetMap preload lng/lat time: {time.time() - preload_time}")
-
         filter_start = time.time()
         filter_success = False
         try:
@@ -394,7 +384,7 @@ class GetMap:
         # if filter_by_bbox was successful, preload data for projection
         if filter_success:
             filter_load_time = time.time()
-            da.load()
+            da = da.load()
             logger.debug(f"WMS GetMap load filtered data: {time.time() - filter_load_time}")
 
         projection_start = time.time()
