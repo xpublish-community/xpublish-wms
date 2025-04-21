@@ -114,9 +114,15 @@ class Grid(ABC):
         this function would return ["band"].
         """
         # filter out all standard dims that normally get filtered in get_map (ie. time, vertical, location)
-        filter_dims = [var 
-                       for var_list in [*list(da.cf.axes.values()), *list(da.cf.coordinates.values())] 
-                       for var in var_list if var in da.dims]
+        filter_dims = [
+            var
+            for var_list in [
+                *list(da.cf.axes.values()),
+                *list(da.cf.coordinates.values()),
+            ]
+            for var in var_list
+            if var in da.dims
+        ]
 
         return [dim for dim in da.dims if dim not in filter_dims]
 

@@ -10,7 +10,7 @@ from xpublish_wms.utils import (
     lat_lng_quad_percentage,
     lnglat_to_mercator,
     strip_float,
-    to_lnglat_allow_over
+    to_lnglat_allow_over,
 )
 
 
@@ -85,7 +85,7 @@ class HYCOMGrid(Grid):
 
         if not render_context.get("lng_adjusted", False):
             da = self._adjust_lng(da)
-        
+
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
         elif crs == "EPSG:3857":
@@ -114,7 +114,7 @@ class HYCOMGrid(Grid):
         x = da.cf["longitude"]
         y = da.cf["latitude"]
 
-       # Find the indices of the data within the bounding box
+        # Find the indices of the data within the bounding box
         x_inds = np.where((x >= bbox[0]) & (x <= bbox[2]))
         y_inds = np.where((y >= bbox[1]) & (y <= bbox[3]))
 
@@ -222,7 +222,6 @@ class HYCOMGrid(Grid):
         x_axis = [strip_float(ret_subset.cf["longitude"])]
         y_axis = [strip_float(ret_subset.cf["latitude"])]
         return ret_subset, x_axis, y_axis
-
 
     def _adjust_lng(self, da: xr.DataArray):
         # create 2 separate DataArrays where points lng>180 are put at the beginning of the array

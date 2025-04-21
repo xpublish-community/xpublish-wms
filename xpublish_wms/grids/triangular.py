@@ -178,10 +178,18 @@ class TriangularGrid(Grid):
 
         # normalize tris that cross the dateline
         lng = da.cf["longitude"] + adjust_lng
-        e = render_context["nv"] if "nv" in render_context else self.ds.element.values.astype(int)
+        e = (
+            render_context["nv"]
+            if "nv" in render_context
+            else self.ds.element.values.astype(int)
+        )
         lng_tris = lng[np.array(e.flat) - 1].values.reshape(e.shape)
 
-        cross_inds = np.where(np.logical_and(np.min(lng_tris, axis=1) < -90, np.max(lng_tris, axis=1) > 90))[0]
+        cross_inds = np.where(
+            np.logical_and(
+                np.min(lng_tris, axis=1) < -90, np.max(lng_tris, axis=1) > 90,
+            ),
+        )[0]
         if cross_inds.shape[0] > 0:
             unique_inds = np.unique(e[cross_inds].flat) - 1
             update_inds = unique_inds[np.where(lng[unique_inds] < 0)[0]]
@@ -194,9 +202,13 @@ class TriangularGrid(Grid):
         elif crs == "EPSG:3857":
             # due to the adjustments made to the triangles lngs to handle triangles that cross the dateline
             # we need to allow the mercator conversion to be outside of the traditional lng range
-            x, y = to_mercator_allow_over.transform(da.cf["longitude"], da.cf["latitude"])
+            x, y = to_mercator_allow_over.transform(
+                da.cf["longitude"], da.cf["latitude"],
+            )
 
-            x_chunks = da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
             y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
             da = da.assign_coords(

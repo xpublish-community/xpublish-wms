@@ -371,7 +371,7 @@ class GetMap:
         except Exception as e:
             logger.error(f"Error filtering data within bbox: {e}")
             logger.warning("Falling back to full layer")
-            
+
             filter_success = False
         logger.debug(f"WMS GetMap BBOX filter time: {time.time() - filter_start}")
 
@@ -379,7 +379,9 @@ class GetMap:
         if filter_success:
             filter_load_time = time.time()
             da = da.load()
-            logger.debug(f"WMS GetMap load filtered data: {time.time() - filter_load_time}")
+            logger.debug(
+                f"WMS GetMap load filtered data: {time.time() - filter_load_time}",
+            )
 
         projection_start = time.time()
         try:
