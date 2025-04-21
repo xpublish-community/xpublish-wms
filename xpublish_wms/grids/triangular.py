@@ -187,7 +187,8 @@ class TriangularGrid(Grid):
 
         cross_inds = np.where(
             np.logical_and(
-                np.min(lng_tris, axis=1) < -90, np.max(lng_tris, axis=1) > 90,
+                np.min(lng_tris, axis=1) < -90,
+                np.max(lng_tris, axis=1) > 90,
             ),
         )[0]
         if cross_inds.shape[0] > 0:
@@ -203,7 +204,8 @@ class TriangularGrid(Grid):
             # due to the adjustments made to the triangles lngs to handle triangles that cross the dateline
             # we need to allow the mercator conversion to be outside of the traditional lng range
             x, y = to_mercator_allow_over.transform(
-                da.cf["longitude"], da.cf["latitude"],
+                da.cf["longitude"],
+                da.cf["latitude"],
             )
 
             x_chunks = (
