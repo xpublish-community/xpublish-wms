@@ -7,7 +7,7 @@ name = "xpublish_wms"
 authors = [{ name = "Matthew Iannucci", email = "matt@earthmover.io" }]
 description = "WMS plugin for xpublish"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 keywords = ["xarray", "xpublish", "wms"]
 license = { file = "LICENSE.txt" }
 
