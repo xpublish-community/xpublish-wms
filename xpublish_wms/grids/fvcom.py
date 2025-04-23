@@ -346,8 +346,12 @@ class FVCOMGrid(Grid):
             da = self.mask(da)
 
         data = da.values
-        ds_lon = render_context.get("lng", self.ds.lon)
-        ds_lat = render_context.get("lat", self.ds.lat)
+        if "lng" in render_context and "lat" in render_context:
+            ds_lon = render_context["lng"]
+            ds_lat = render_context["lat"]
+        else:
+            ds_lon = self.ds.lon
+            ds_lat = self.ds.lat
 
         coords = dict()
         # need to create new x & y coordinates with dataset values while dropping the old ones
@@ -359,13 +363,13 @@ class FVCOMGrid(Grid):
         # create new data by getting values from the surrounding edges if the metadata is available
         # and the variable is zonal
         if "nele" in da.dims and "ntve" in self.ds:
-            ntve = render_context.get("ntve", self.ds.ntve)
+            ntve = render_context["ntve"] if "ntve" in render_context else self.ds.ntve
             if "time" in ntve.coords:
                 elem_count = ntve.isel(time=0).values
             else:
                 elem_count = ntve.values
 
-            nbve = render_context.get("nbve", self.ds.nbve)
+            nbve = render_context["nbve"] if "nbve" in render_context else self.ds.nbve
             if "time" in nbve.coords:
                 neighbors = nbve.isel(time=0).values
             else:
@@ -500,7 +504,6 @@ class FVCOMGrid(Grid):
             render_context["lat"] = self.ds.lat.isel(node=node_ind_unique)
         else:
             da = da.isel(node=node_ind_unique)
-            da = da.unify_chunks()
 
         return da, render_context
 
@@ -509,7 +512,7 @@ class FVCOMGrid(Grid):
         da: Union[xr.DataArray, xr.Dataset],
         render_context: Optional[dict] = dict(),
     ) -> np.ndarray:
-        nv = render_context.get("nv", self.ds.nv)
+        nv = render_context["nv"] if "nv" in render_context else self.ds.nv
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]

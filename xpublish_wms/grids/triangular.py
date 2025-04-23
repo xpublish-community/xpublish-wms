@@ -12,7 +12,7 @@ from xpublish_wms.utils import (
     lat_lng_find_tri_ind,
     strip_float,
     to_lnglat_allow_over,
-    to_mercator,
+    to_mercator_allow_over,
 )
 
 
@@ -170,37 +170,64 @@ class TriangularGrid(Grid):
         if not render_context.get("masked", False):
             da = self.mask(da)
 
-        if crs == "EPSG:4326":
-            adjust_lng = 0
-            if np.min(da.cf["longitude"]) < -180:
-                adjust_lng = 360
-            elif np.max(da.cf["longitude"]) > 180:
-                adjust_lng = -360
+        adjust_lng = 0
+        if np.min(da.cf["longitude"]) < -180:
+            adjust_lng = 360
+        elif np.max(da.cf["longitude"]) > 180:
+            adjust_lng = -360
 
-            x = da.cf["longitude"] + adjust_lng
+        # normalize tris that cross the dateline
+        lng = da.cf["longitude"] + adjust_lng
+        e = (
+            render_context["nv"]
+            if "nv" in render_context
+            else self.ds.element.values.astype(int)
+        )
+        lng_tris = lng[np.array(e.flat) - 1].values.reshape(e.shape)
+
+        cross_inds = np.where(
+            np.logical_and(
+                np.min(lng_tris, axis=1) < -90,
+                np.max(lng_tris, axis=1) > 90,
+            ),
+        )[0]
+        if cross_inds.shape[0] > 0:
+            unique_inds = np.unique(e[cross_inds].flat) - 1
+            update_inds = unique_inds[np.where(lng[unique_inds] < 0)[0]]
+            lng[update_inds] = lng[update_inds] + 360
+            da.__setitem__(da.cf["longitude"].name, lng)
+
+        if crs == "EPSG:4326":
+            x = da.cf["longitude"]
             y = da.cf["latitude"]
         elif crs == "EPSG:3857":
-            x, y = to_mercator.transform(da.cf["longitude"], da.cf["latitude"])
+            # due to the adjustments made to the triangles lngs to handle triangles that cross the dateline
+            # we need to allow the mercator conversion to be outside of the traditional lng range
+            x, y = to_mercator_allow_over.transform(
+                da.cf["longitude"],
+                da.cf["latitude"],
+            )
 
-        x_chunks = da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
-        y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
+            x_chunks = (
+                da.cf["longitude"].chunks if da.cf["longitude"].chunks else x.shape
+            )
+            y_chunks = da.cf["latitude"].chunks if da.cf["latitude"].chunks else y.shape
 
-        da = da.assign_coords(
-            {
-                "x": (
-                    da.cf["longitude"].dims,
-                    dask_array.from_array(x, chunks=x_chunks),
-                    da.cf["longitude"].attrs,
-                ),
-                "y": (
-                    da.cf["latitude"].dims,
-                    dask_array.from_array(y, chunks=y_chunks),
-                    da.cf["latitude"].attrs,
-                ),
-            },
-        )
-
-        da = da.unify_chunks()
+            da = da.assign_coords(
+                {
+                    "x": (
+                        da.cf["longitude"].dims,
+                        dask_array.from_array(x, chunks=x_chunks),
+                        da.cf["longitude"].attrs,
+                    ),
+                    "y": (
+                        da.cf["latitude"].dims,
+                        dask_array.from_array(y, chunks=y_chunks),
+                        da.cf["latitude"].attrs,
+                    ),
+                },
+            )
+            da = da.unify_chunks()
 
         return da, render_context
 
@@ -235,14 +262,12 @@ class TriangularGrid(Grid):
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
         e_ind = np.intersect1d(x, y) + 1
-        e = e[np.any(np.isin(e.flat, e_ind).reshape(e.shape), axis=1)]
+        e = e[np.any(np.isin(e, e_ind).reshape(e.shape), axis=1)]
 
-        node_ind_flat = np.array(e.flat)
-        norm_node_ind = rankdata(node_ind_flat, method="dense")
-        render_context["nv"] = norm_node_ind.reshape(e.shape)
+        norm_node_ind = rankdata(e, method="dense")
+        render_context["nv"] = norm_node_ind.astype(int).reshape(e.shape)
 
-        da = da.isel(node=np.unique(node_ind_flat) - 1)
-        da = da.unify_chunks()
+        da = da.isel(node=np.unique(e) - 1)
         return da, render_context
 
     def tessellate(
@@ -250,7 +275,7 @@ class TriangularGrid(Grid):
         da: Union[xr.DataArray, xr.Dataset],
         render_context: Optional[dict] = dict(),
     ) -> np.ndarray:
-        nv = render_context.get("nv", self.ds.element)
+        nv = render_context["nv"] if "nv" in render_context else self.ds.element
         if len(nv.shape) > 2:
             for i in range(len(nv.shape) - 2):
                 nv = nv[0]
