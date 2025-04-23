@@ -8,4 +8,4 @@ mercantile
 Pillow
 scipy
 xarray
-xpublish
+xpublish>=0.3.3
