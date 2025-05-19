@@ -44,7 +44,7 @@ async def wms_handler(
 
     match query:
         case WMSGetCapabilitiesQuery():
-            return await asyncio.to_thread(get_capabilities(dataset, request, query))
+            return await asyncio.to_thread(get_capabilities, dataset, request, query)
         case WMSGetMetadataQuery():
             return await get_metadata(
                 dataset,
@@ -61,10 +61,13 @@ async def wms_handler(
             return await getmap_service.get_map(dataset, query, extra_query_params)
         case WMSGetFeatureInfoQuery():
             return await asyncio.to_thread(
-                get_feature_info(dataset, query, extra_query_params),
+                get_feature_info,
+                dataset,
+                query,
+                extra_query_params,
             )
         case WMSGetLegendInfoQuery():
-            return await asyncio.to_thread(get_legend_info(dataset, query))
+            return await asyncio.to_thread(get_legend_info, dataset, query)
         case _:
             raise HTTPException(
                 status_code=404,

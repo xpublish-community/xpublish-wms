@@ -43,12 +43,12 @@ async def get_metadata(
         )
 
     if metadata_type == "menu":
-        payload = asyncio.to_thread(get_menu(ds))
+        payload = asyncio.to_thread(get_menu, ds)
     elif metadata_type == "layerdetails":
-        payload = asyncio.to_thread(get_layer_details(ds, layer_name))
+        payload = asyncio.to_thread(get_layer_details, ds, layer_name)
     elif metadata_type == "timesteps":
         da = ds[layer_name]
-        payload = asyncio.to_thread(get_timesteps(da, query))
+        payload = asyncio.to_thread(get_timesteps, da, query)
     elif metadata_type == "minmax":
         payload = await get_minmax(
             ds,
