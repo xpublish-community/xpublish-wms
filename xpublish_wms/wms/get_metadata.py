@@ -1,4 +1,5 @@
 import datetime as dt
+import asyncio
 
 import cachey
 import cf_xarray  # noqa
@@ -6,67 +7,85 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.logger import logger
+from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
 from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
 
 
-async def get_metadata(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> Response:
+async def get_metadata(
+    ds: xr.Dataset,
+    cache: cachey.Cache,
+    query: WMSGetMetadataQuery,
+    query_params: dict,
+    array_get_map_render_threshold_bytes: int,
+) -> Response:
     """
     Return the WMS metadata for the dataset
 
     This is compliant subset of ncwms2's GetMetadata handler. Specifically, layerdetails, timesteps and minmax are supported.
     """
-    layer_name = params.get("layername", None)
-    metadata_type = params.get("item", "layerdetails").lower()
+    layer_name = query.layername
+    metadata_type = query.item.lower()
 
     if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
+        logger.error("layerName must be specified for GetMetadata requests")
         raise HTTPException(
-            status_code=400,
+            422,
             detail="layerName must be specified",
         )
     elif layer_name not in ds and metadata_type != "minmax" and metadata_type != "menu":
+        logger.error(f"layerName {layer_name} not found in dataset")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"layerName {layer_name} not found in dataset",
         )
 
     if metadata_type == "menu":
-        payload = get_menu(ds)
+        payload = asyncio.to_thread(get_menu(ds))
     elif metadata_type == "layerdetails":
-        payload = get_layer_details(ds, layer_name)
+        payload = asyncio.to_thread(get_layer_details(ds, layer_name))
     elif metadata_type == "timesteps":
         da = ds[layer_name]
-        payload = get_timesteps(da, params)
+        payload = asyncio.to_thread(get_timesteps(da, query))
     elif metadata_type == "minmax":
-        payload = await get_minmax(ds, cache, params)
+        payload = await get_minmax(
+            ds,
+            cache,
+            query,
+            query_params,
+            array_get_map_render_threshold_bytes,
+        )
     else:
+        logger.error(f"item {metadata_type} not supported for GetMetadata requests")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"item {metadata_type} not supported",
         )
 
     return JSONResponse(content=payload)
 
 
-def get_timesteps(da: xr.DataArray, params: dict) -> dict:
+def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:
     """
     Returns the timesteps for a given layer
     """
     if "time" not in da.cf:
+        logger.error(f"layer {da.name} does not have a time dimension")
         raise HTTPException(
-            status_code=400,
+            422,
             detail=f"layer {da.name} does not have a time dimension",
         )
 
-    day = params.get("day", None)
+    day = query.day
     if day:
         day_start = dt.datetime.strptime(day, "%Y-%m-%d")
         day_start = day_start.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + dt.timedelta(days=1)
         da = da.cf.sel(time=slice(day_start, day_end))
 
-    range = params.get("range", None)
+    range = query.range
     if range:
         start, end = range.split("/")
         start = dt.datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
@@ -79,14 +98,39 @@ def get_timesteps(da: xr.DataArray, params: dict) -> dict:
     }
 
 
-async def get_minmax(ds: xr.Dataset, cache: cachey.Cache, params: dict) -> dict:
+async def get_minmax(
+    ds: xr.Dataset,
+    cache: cachey.Cache,
+    query: WMSGetMetadataQuery,
+    query_params: dict,
+    array_get_map_render_threshold_bytes: int,
+) -> dict:
     """
     Returns the min and max range of values for a given layer in a given area
 
     If BBOX is not specified, the entire selected temporal and elevation range is used.
     """
-    getmap = GetMap(cache=cache)
-    return await getmap.get_minmax(ds, params)
+    entire_layer = query.bbox is None
+    getmap_query = WMSGetMapQuery(
+        service=query.service,
+        version=query.version,
+        request="GetMap",
+        layers=query.layername,
+        bbox=query.bbox if not entire_layer else "-180,-90,180,90",
+        width=1 if entire_layer else 512,
+        height=1 if entire_layer else 512,
+        crs=query.crs,
+        time=query.time,
+        elevation=query.elevation,
+        styles="raster/default",
+        colorscalerange="nan,nan",
+    )
+
+    getmap = GetMap(
+        cache=cache,
+        array_render_threshold_bytes=array_get_map_render_threshold_bytes,
+    )
+    return await getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
 
 
 def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
@@ -112,7 +156,10 @@ def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
 
     additional_coords = ds.gridded.additional_coords(da)
     additional_coord_values = {
-        coord: da.cf.coords[coord].values.tolist() for coord in additional_coords
+        coord: (
+            da.cf.coords[coord] if coord in da.cf.coords else da[coord]
+        ).values.tolist()
+        for coord in additional_coords
     }
 
     return {

@@ -1,33 +1,26 @@
 import io
-from math import isnan
 
+import matplotlib
 import numpy as np
 import xarray as xr
 from fastapi import Response
-from matplotlib import cm
 from PIL import Image
 
-from xpublish_wms.utils import parse_float
+from xpublish_wms.query import WMSGetLegendInfoQuery
 
 
-def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
+def get_legend_info(dataset: xr.Dataset, query: WMSGetLegendInfoQuery) -> Response:
     """
     Return the WMS legend graphic for the dataset and given parameters
     """
-    parameter = query["layers"]
-    width: int = int(query["width"])
-    height: int = int(query["height"])
-    vertical = query.get("vertical", "false") == "true"
+    parameter = query.layers
+    width = query.width
+    height = query.height
+    vertical = query.vertical
     # colorbaronly = query.get("colorbaronly", "False") == "True"
-    colorscalerange = [
-        parse_float(x) for x in query.get("colorscalerange", "nan,nan").split(",")
-    ]
-    if isnan(colorscalerange[0]):
-        autoscale = True
-    else:
-        autoscale = query.get("autoscale", "false") != "false"
-    style = query["styles"]
-    stylename, palettename = style.split("/")
+    colorscalerange = query.colorscalerange
+    autoscale = query.autoscale
+    stylename, palettename = query.styles
 
     ds = dataset.squeeze()
 
@@ -52,7 +45,9 @@ def get_legend_info(dataset: xr.Dataset, query: dict) -> Response:
     # Otherwise default to rainbow
     if palettename == "default":
         palettename = "turbo"
-    im = Image.fromarray(np.uint8(cm.get_cmap(palettename)(data) * 255))
+    im = Image.fromarray(
+        np.uint8(matplotlib.colormaps.get_cmap(palettename)(data) * 255),
+    )
 
     image_bytes = io.BytesIO()
     im.save(image_bytes, format="PNG")

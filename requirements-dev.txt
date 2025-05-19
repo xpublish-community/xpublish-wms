@@ -1,6 +1,6 @@
 black
 check-manifest
-dask[complete]
+dask[complete]<2025.1.0
 doctr
 flake8
 flake8-builtins
@@ -20,7 +20,9 @@ pytest
 pytest-cov
 pytest-flake8
 pytest-xdist
+scipy
 setuptools_scm
 sphinx
 twine
 wheel
+zarr>=3.0.7

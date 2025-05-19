@@ -10,6 +10,7 @@ from xpublish_wms.utils import (
     lat_lng_find_quad,
     lat_lng_quad_percentage,
     strip_float,
+    to_lnglat_allow_over,
     to_mercator,
 )
 
@@ -55,8 +56,10 @@ class ROMSGrid(Grid):
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
-        da = self.mask(da)
+        if not render_context.get("masked", False):
+            da = self.mask(da)
 
         if crs == "EPSG:4326":
             da = da.assign_coords({"x": da.cf["longitude"], "y": da.cf["latitude"]})
@@ -82,7 +85,43 @@ class ROMSGrid(Grid):
 
             da = da.unify_chunks()
 
-        return da, None, None
+        return da, render_context
+
+    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
+        da = self.mask(da)
+        render_context["masked"] = True
+
+        if crs == "EPSG:3857":
+            bbox = to_lnglat_allow_over.transform(
+                [bbox[0], bbox[2]],
+                [bbox[1], bbox[3]],
+            )
+            bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
+
+        adjust_lng = 0
+        if np.min(da.cf["longitude"]) < -180:
+            adjust_lng = 360
+        elif np.max(da.cf["longitude"]) > 180:
+            adjust_lng = -360
+
+        # Get the x and y values
+        x = da.cf["longitude"] + adjust_lng
+        y = da.cf["latitude"]
+
+        # Find the indices of the data within the bounding box
+        x_inds = np.where((x >= bbox[0]) & (x <= bbox[2]))
+        y_inds = np.where((y >= bbox[1]) & (y <= bbox[3]))
+
+        if len(x.dims) != len(y.dims) or len(x_inds) != len(y_inds):
+            raise Exception("Mismatched number of dims for filter_by_bbox")
+
+        # Select and return the data within the bounding box
+        sel_dims = dict()
+        for i in range(len(x.dims)):
+            sel_dims[x.dims[i]] = np.intersect1d(x_inds[i], y_inds[i])
+
+        da = da.isel(sel_dims)
+        return da, render_context
 
     def sel_lat_lng(
         self,

@@ -5,8 +5,12 @@
 .mypy_cache/
 .pytest_cache/
 .vscode/
+.idea/
 __pycache__/
 build/
 dist/
 xpublish_wms/_version.py
+.env/
+.venv/
 env/
+venv/

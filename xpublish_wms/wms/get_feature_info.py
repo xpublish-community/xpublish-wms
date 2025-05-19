@@ -6,6 +6,8 @@ import xarray as xr
 from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from xpublish_wms.logger import logger
+from xpublish_wms.query import WMSGetFeatureInfoQuery
 from xpublish_wms.utils import (
     format_timestamp,
     round_float_values,
@@ -106,18 +108,22 @@ def create_parameter_feature_data(
     return (info, range)
 
 
-def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
+def get_feature_info(
+    ds: xr.Dataset,
+    query: WMSGetFeatureInfoQuery,
+    query_params: dict,
+) -> Response:
     """
     Return the WMS feature info for the dataset and given parameters
     """
     # Data selection
-    if ":" in query["query_layers"]:
-        parameters = query["query_layers"].split(":")
+    if ":" in query.query_layers:
+        parameters = query.query_layers.split(":")
         grouped = True
     else:
-        parameters = query["query_layers"].split(",")
+        parameters = query.query_layers.split(",")
         grouped = False
-    time_str = query.get("time", None)
+    time_str = query.time
     if time_str:
         times = list(dict.fromkeys([t.replace("Z", "") for t in time_str.split("/")]))
     else:
@@ -127,27 +133,35 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
     ]
     any_has_time_axis = True in has_time_coord
 
-    elevation_str = query.get("elevation", None)
+    elevation_str = query.elevation
     if elevation_str == "all":
-        elevation = "all"
+        elevation_list = "all"
     elif elevation_str:
-        elevation = list([float(e) for e in elevation_str.split("/")])
+        elevation_list = list(
+            [[float(x) for x in e.split("/")] for e in elevation_str.split(",")],
+        )
     else:
-        elevation = []
+        elevation_list = []
     has_vertical_axis = [
         ds.gridded.has_elevation(ds[parameter]) for parameter in parameters
     ]
     any_has_vertical_axis = True in has_vertical_axis
 
-    crs = query.get("crs", None) or query.get("srs")
+    crs = query.crs
     if crs != "EPSG:4326":
-        raise HTTPException(501, "Only EPSG:4326 is supported")
+        logger.error(
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
+        raise HTTPException(
+            422,
+            f"CRS {crs} is not supported for GetFeatureInfo requests, only EPSG:4326 is supported",
+        )
 
-    bbox = [float(x) for x in query["bbox"].split(",")]
-    width = int(query["width"])
-    height = int(query["height"])
-    x = int(query["x"])
-    y = int(query["y"])
+    bbox = query.bbox
+    width = query.width
+    height = query.height
+    x = query.x
+    y = query.y
     # format = query["info_format"]
 
     # We only care about the requested subset
@@ -170,16 +184,31 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
         else:
             try:
                 selected_ds = selected_ds.cf.isel(time=0)
-            except:
+            except Exception:
                 # Skip it, time isn't a dimension, even though it is a coordinate
                 pass
 
     # TODO: This is really difficult when we have multiple parameters
     # with different vertical dimensions, and even some without indexes
     if any_has_vertical_axis:
-        if elevation == "all":
+        all_elevations = ds.gridded.elevations(selected_ds)
+        if elevation_list == "all":
             # Dont select an elevation, just keep all elevation coords
-            elevation = ds.gridded.elevations(selected_ds)
+            elevation = all_elevations
+        else:
+            elevation = []
+            for e in elevation_list:
+                if isinstance(e, list):
+                    if len(e) > 1:
+                        elevation.extend(
+                            list(
+                                filter(lambda x: min(e) <= x <= max(e), all_elevations),
+                            ),
+                        )
+                    else:
+                        elevation.extend(e)
+                else:
+                    elevation.append(e)
 
         selected_ds = ds.gridded.select_by_elevation(selected_ds, elevation)
 
@@ -191,7 +220,11 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             parameters=parameters,
         )
     except ValueError as e:
-        raise HTTPException(500, f"Error with grid type {ds.gridded.name}: {e}")
+        logger.error(f"Error selecting lat/lng with grid type {ds.gridded.name}: {e}")
+        raise HTTPException(
+            500,
+            f"Error selecting lat/lng with grid type {ds.gridded.name}. See the logs for more details.",
+        )
 
     # When none of the parameters have data, drop it
     if any_has_time_axis:
@@ -222,12 +255,12 @@ def get_feature_info(ds: xr.Dataset, query: dict) -> Response:
             z_axis = selected_ds.cf["vertical"].values.tolist()
 
     additional_queries = {}
-    queries = set(query.keys())
+    queries = set(query_params.keys())
     for param in parameters:
         available_coords = selected_ds.gridded.additional_coords(selected_ds[param])
         valid_quiries = list(set(available_coords) & queries)
         for q in valid_quiries:
-            additional_queries[q] = query[q]
+            additional_queries[q] = query_params[q]
 
     selected_ds = selected_ds.sel(additional_queries)
 

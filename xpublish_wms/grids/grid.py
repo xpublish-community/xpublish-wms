@@ -9,6 +9,7 @@ from xpublish_wms.utils import strip_float
 
 
 class RenderMethod(Enum):
+    Raster = "raster"
     Quad = "quad"
     Triangle = "triangle"
 
@@ -112,17 +113,16 @@ class Grid(ABC):
         Given a data array with a shape of (band, latitude, longitude),
         this function would return ["band"].
         """
-        lat_dim = da.cf["latitude"].name
-        lng_dim = da.cf["longitude"].name
-        filter_dims = [lat_dim, lng_dim]
-
-        time_dim = da.cf.coords.get("time", None)
-        if time_dim is not None:
-            filter_dims.append(time_dim.name)
-
-        elevation_dim = da.cf.coords.get("vertical", None)
-        if elevation_dim is not None:
-            filter_dims.append(elevation_dim.name)
+        # filter out all standard dims that normally get filtered in get_map (ie. time, vertical, location)
+        filter_dims = [
+            var
+            for var_list in [
+                *list(da.cf.axes.values()),
+                *list(da.cf.coordinates.values()),
+            ]
+            for var in var_list
+            if var in da.dims
+        ]
 
         return [dim for dim in da.dims if dim not in filter_dims]
 
@@ -133,11 +133,22 @@ class Grid(ABC):
         """Mask the given data array"""
         return da
 
+    def filter_by_bbox(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        bbox: tuple[float, float, float, float],
+        crs: str,
+        render_context: Optional[dict] = dict(),
+    ) -> Union[xr.DataArray, xr.Dataset]:
+        """Filters the given data array by the given bbox, whose values are based on the give crs"""
+        return da, render_context
+
     @abstractmethod
     def project(
         self,
         da: xr.DataArray,
         crs: str,
+        render_context: Optional[dict] = dict(),
     ) -> tuple[xr.DataArray, Optional[xr.DataArray], Optional[xr.DataArray]]:
         """Project the given data array from this dataset and grid to the given crs
 
@@ -147,7 +158,11 @@ class Grid(ABC):
         """
         pass
 
-    def tessellate(self, da: Union[xr.DataArray, xr.Dataset]) -> np.ndarray:
+    def tessellate(
+        self,
+        da: Union[xr.DataArray, xr.Dataset],
+        render_context: Optional[dict] = dict(),
+    ) -> np.ndarray:
         """Tessellate the given data array into triangles. Only required for RenderingMode.Triangle"""
         pass
 
