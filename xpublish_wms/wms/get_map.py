@@ -1,4 +1,3 @@
-import asyncio
 import io
 import time
 from datetime import datetime
@@ -138,7 +137,6 @@ class GetMap:
             image_buffer.seek(0)
 
         return StreamingResponse(image_buffer, media_type="image/png")
-
 
     async def get_minmax(
         self,
@@ -378,7 +376,8 @@ class GetMap:
         # if filter_by_bbox was successful, preload data for projection
         if filter_success:
             filter_load_time = time.time()
-            da = da.load()
+            # TODO requires https://github.com/pydata/xarray/pull/10327
+            da = await da.load_async()
             logger.debug(
                 f"WMS GetMap load filtered data: {time.time() - filter_load_time}",
             )
