@@ -276,10 +276,16 @@ def get_capabilities(
     ET.indent(root, space="\t", level=0)
     get_caps_xml = ET.tostring(root).decode("utf-8")
 
-    if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
-        return Response(content=gzip_string(get_caps_xml), media_type="application/gzip", headers={
-            "Content-Disposition": f"attachment;filename=capabilities.gz",
-            "Content-Encoding": "gzip"
-        })
+    if "gzip" in [
+        x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")
+    ]:
+        return Response(
+            content=gzip_string(get_caps_xml),
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": f"attachment;filename=capabilities.gz",
+                "Content-Encoding": "gzip",
+            },
+        )
     else:
         return Response(get_caps_xml, media_type="text/xml")

@@ -65,11 +65,17 @@ def get_metadata(
             detail=f"item {metadata_type} not supported",
         )
 
-    if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
-        return Response(content=gzip_string(orjson.dumps(payload)), media_type="application/gzip", headers={
-            "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
-            "Content-Encoding": "gzip"
-        })
+    if "gzip" in [
+        x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")
+    ]:
+        return Response(
+            content=gzip_string(orjson.dumps(payload)),
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
+                "Content-Encoding": "gzip",
+            },
+        )
     else:
         return JSONResponse(content=payload)
 

@@ -11,10 +11,10 @@ from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetFeatureInfoQuery
 from xpublish_wms.utils import (
     format_timestamp,
+    gzip_string,
     round_float_values,
     speed_and_dir_for_uv,
     strip_float,
-    gzip_string
 )
 
 
@@ -393,10 +393,16 @@ def get_feature_info(
         "ranges": ranges,
     }
 
-    if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
-        return Response(content=gzip_string(orjson.dumps(payload)), media_type="application/gzip", headers={
-            "Content-Disposition": f"attachment;filename={','.join(parameters)}_feature_info.gz",
-            "Content-Encoding": "gzip"
-        })
+    if "gzip" in [
+        x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")
+    ]:
+        return Response(
+            content=gzip_string(orjson.dumps(payload)),
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": f"attachment;filename={','.join(parameters)}_feature_info.gz",
+                "Content-Encoding": "gzip",
+            },
+        )
     else:
         return JSONResponse(content=payload)
