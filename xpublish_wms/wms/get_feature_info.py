@@ -178,7 +178,7 @@ def get_feature_info(
         ):
             selected_ds = selected_ds.cf.isel(time=0)
         elif len(times) == 1:
-            selected_ds = selected_ds.cf.interp(time=times[0])
+            selected_ds = selected_ds.cf.sel(time=times[0], method="nearest")
         elif len(times) > 1:
             selected_ds = selected_ds.cf.sel(time=slice(times[0], times[1]))
         else:
