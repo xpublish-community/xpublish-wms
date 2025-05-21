@@ -4,7 +4,8 @@ import cachey
 import cf_xarray  # noqa
 import ujson
 import xarray as xr
-from fastapi import HTTPException, Response
+from fastapi import HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
@@ -16,6 +17,7 @@ from .get_map import GetMap
 def get_metadata(
     ds: xr.Dataset,
     cache: cachey.Cache,
+    request: Request,
     query: WMSGetMetadataQuery,
     query_params: dict,
     array_get_map_render_threshold_bytes: int,
@@ -63,10 +65,13 @@ def get_metadata(
             detail=f"item {metadata_type} not supported",
         )
 
-    return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
-        "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
-        "Content-Encoding": "gzip"
-    })
+    if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
+        return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
+            "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
+            "Content-Encoding": "gzip"
+        })
+    else:
+        return JSONResponse(content=payload)
 
 
 def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:

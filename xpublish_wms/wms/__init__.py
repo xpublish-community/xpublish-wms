@@ -48,6 +48,7 @@ def wms_handler(
             return get_metadata(
                 dataset,
                 cache,
+                request,
                 query,
                 extra_query_params,
                 array_get_map_render_threshold_bytes=array_get_map_render_threshold_bytes,
@@ -59,7 +60,7 @@ def wms_handler(
             )
             return getmap_service.get_map(dataset, query, extra_query_params)
         case WMSGetFeatureInfoQuery():
-            return get_feature_info(dataset, query, extra_query_params)
+            return get_feature_info(dataset, request, query, extra_query_params)
         case WMSGetLegendInfoQuery():
             return get_legend_info(dataset, query)
         case _:

@@ -4,7 +4,8 @@ import cf_xarray  # noqa
 import numpy as np
 import ujson
 import xarray as xr
-from fastapi import HTTPException, Response
+from fastapi import HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetFeatureInfoQuery
@@ -111,6 +112,7 @@ def create_parameter_feature_data(
 
 def get_feature_info(
     ds: xr.Dataset,
+    request: Request,
     query: WMSGetFeatureInfoQuery,
     query_params: dict,
 ) -> Response:
@@ -179,7 +181,7 @@ def get_feature_info(
         ):
             selected_ds = selected_ds.cf.isel(time=0)
         elif len(times) == 1:
-            selected_ds = selected_ds.cf.interp(time=times[0])
+            selected_ds = selected_ds.cf.sel(time=times[0], method="nearest")
         elif len(times) > 1:
             selected_ds = selected_ds.cf.sel(time=slice(times[0], times[1]))
         else:
@@ -390,7 +392,11 @@ def get_feature_info(
         "parameters": parameter_info,
         "ranges": ranges,
     }
-    return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
-        "Content-Disposition": f"attachment;filename={','.join(parameters)}_feature_info.gz",
-        "Content-Encoding": "gzip"
-    })
+
+    if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
+        return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
+            "Content-Disposition": f"attachment;filename={','.join(parameters)}_feature_info.gz",
+            "Content-Encoding": "gzip"
+        })
+    else:
+        return JSONResponse(content=payload)
