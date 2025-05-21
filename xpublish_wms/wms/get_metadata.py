@@ -2,7 +2,7 @@ import datetime as dt
 
 import cachey
 import cf_xarray  # noqa
-import ujson
+import orjson
 import xarray as xr
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -66,7 +66,7 @@ def get_metadata(
         )
 
     if "gzip" in [x.strip().lower() for x in request.headers.get("accept-encoding", "").split(",")]:
-        return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
+        return Response(content=gzip_string(orjson.dumps(payload)), media_type="application/gzip", headers={
             "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
             "Content-Encoding": "gzip"
         })
