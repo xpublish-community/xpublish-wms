@@ -391,6 +391,6 @@ def get_feature_info(
         "ranges": ranges,
     }
     return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
-        "Content-Disposition": f"attachment;filename={",".join(parameters)}_feature_info.gz",
+        "Content-Disposition": f"attachment;filename={','.join(parameters)}_feature_info.gz",
         "Content-Encoding": "gzip"
     })
