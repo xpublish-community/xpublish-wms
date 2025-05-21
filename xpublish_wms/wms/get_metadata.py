@@ -2,13 +2,13 @@ import datetime as dt
 
 import cachey
 import cf_xarray  # noqa
+import ujson
 import xarray as xr
 from fastapi import HTTPException, Response
-from fastapi.responses import JSONResponse
 
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
-from xpublish_wms.utils import format_timestamp
+from xpublish_wms.utils import format_timestamp, gzip_string
 
 from .get_map import GetMap
 
@@ -63,7 +63,10 @@ def get_metadata(
             detail=f"item {metadata_type} not supported",
         )
 
-    return JSONResponse(content=payload)
+    return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
+        "Content-Disposition": f"attachment;filename={layer_name}_{metadata_type}.gz",
+        "Content-Encoding": "gzip"
+    })
 
 
 def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:

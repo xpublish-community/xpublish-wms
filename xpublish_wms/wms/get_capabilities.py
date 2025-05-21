@@ -8,7 +8,7 @@ import xarray as xr
 from fastapi import HTTPException, Request, Response
 
 from xpublish_wms.query import WMSGetCapabilitiesQuery
-from xpublish_wms.utils import format_timestamp
+from xpublish_wms.utils import format_timestamp, gzip_string
 
 # WMS Styles declaration
 # TODO: Add others beyond just simple raster
@@ -276,4 +276,7 @@ def get_capabilities(
     ET.indent(root, space="\t", level=0)
     get_caps_xml = ET.tostring(root).decode("utf-8")
 
-    return Response(get_caps_xml, media_type="text/xml")
+    return Response(content=gzip_string(get_caps_xml), media_type="application/gzip", headers={
+        "Content-Disposition": f"attachment;filename=capabilities.gz",
+        "Content-Encoding": "gzip"
+    })

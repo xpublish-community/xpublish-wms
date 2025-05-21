@@ -2,9 +2,9 @@ from typing import Tuple
 
 import cf_xarray  # noqa
 import numpy as np
+import ujson
 import xarray as xr
 from fastapi import HTTPException, Response
-from fastapi.responses import JSONResponse
 
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetFeatureInfoQuery
@@ -13,6 +13,7 @@ from xpublish_wms.utils import (
     round_float_values,
     speed_and_dir_for_uv,
     strip_float,
+    gzip_string
 )
 
 
@@ -375,19 +376,21 @@ def get_feature_info(
         },
     )
 
-    return JSONResponse(
-        content={
-            "type": "Coverage",
-            "title": {
-                "en": "Extracted Profile Feature",
-            },
-            "domain": {
-                "type": "Domain",
-                "domainType": "PointSeries",
-                "axes": axis,
-                "referencing": referencing,
-            },
-            "parameters": parameter_info,
-            "ranges": ranges,
+    payload = {
+        "type": "Coverage",
+        "title": {
+            "en": "Extracted Profile Feature",
         },
-    )
+        "domain": {
+            "type": "Domain",
+            "domainType": "PointSeries",
+            "axes": axis,
+            "referencing": referencing,
+        },
+        "parameters": parameter_info,
+        "ranges": ranges,
+    }
+    return Response(content=gzip_string(ujson.dumps(payload)), media_type="application/gzip", headers={
+        "Content-Disposition": f"attachment;filename={",".join(parameters)}_feature_info.gz",
+        "Content-Encoding": "gzip"
+    })

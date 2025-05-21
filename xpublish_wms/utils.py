@@ -1,3 +1,5 @@
+import io
+import gzip
 import math
 
 import cartopy.geodesic
@@ -32,6 +34,14 @@ def round_float_values(v) -> list:
     if not isinstance(v, list):
         return round(v, 5)
     return [round(x, 5) for x in v]
+
+
+def gzip_string(data: str):
+    out_io = io.BytesIO()
+    with gzip.GzipFile(fileobj=out_io, mode="wb") as in_io:
+        in_io.write(data.encode("utf-8"))
+
+    return out_io.getvalue()
 
 
 def speed_and_dir_for_uv(u, v):
