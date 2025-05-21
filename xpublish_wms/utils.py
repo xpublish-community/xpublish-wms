@@ -1,5 +1,5 @@
-import io
 import gzip
+import io
 import math
 
 import cartopy.geodesic
