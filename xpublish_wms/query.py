@@ -50,7 +50,7 @@ def validate_bbox(v: str | None) -> tuple[float, float, float, float] | None:
     if v is None:
         return None
 
-    values = v.split(",")
+    values = v.split(",") if isinstance(v, str) else v
     if len(values) != 4:
         raise ValueError("bbox must be in the format 'minx,miny,maxx,maxy'")
 
