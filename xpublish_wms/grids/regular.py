@@ -43,11 +43,6 @@ class RegularGrid(Grid):
             if coord != da.cf["longitude"].name and coord != da.cf["latitude"].name:
                 coords[coord] = da.coords[coord]
 
-        # normalize longitude to be between -180 and 180
-        da = da.cf.assign_coords(
-            longitude=(((da.cf["longitude"] + 180) % 360) - 180),
-        ).sortby(da.cf["longitude"].name)
-
         # build new x coordinate
         coords["x"] = ("x", da.cf["longitude"].values, da.cf["longitude"].attrs)
         # build new y coordinate
@@ -77,6 +72,10 @@ class RegularGrid(Grid):
         return da, render_context
 
     def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
+        """Subset the data array by the given bounding box.
+        Also normalizes the longitude to be between -180 and 180.
+        """
+
         da = self.mask(da)
         render_context["masked"] = True
 
@@ -87,14 +86,13 @@ class RegularGrid(Grid):
             )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
-        adjust_lng = 0
-        if np.min(da.cf["longitude"]) < -180:
-            adjust_lng = 360
-        elif np.max(da.cf["longitude"]) > 180:
-            adjust_lng = -360
+        # normalize longitude to be between -180 and 180
+        da = da.cf.assign_coords(
+            longitude=(((da.cf["longitude"] + 180) % 360) - 180),
+        ).sortby(da.cf["longitude"].name)
 
         # Get the x and y values
-        x = da.cf["longitude"] + adjust_lng
+        x = da.cf["longitude"]
         y = da.cf["latitude"]
 
         # Find the indices of the data within the bounding box
