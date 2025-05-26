@@ -75,7 +75,7 @@ class RegularGrid(Grid):
         """Subset the data array by the given bounding box.
         Also normalizes the longitude to be between -180 and 180.
         """
-        
+
         da = self.mask(da)
         render_context["masked"] = True
 
