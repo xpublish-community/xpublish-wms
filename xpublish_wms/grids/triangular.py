@@ -185,6 +185,7 @@ class TriangularGrid(Grid):
         )
         lng_tris = lng[np.array(e.flat) - 1].values.reshape(e.shape)
 
+        # check for tris that cross the dateline
         cross_inds = np.where(
             np.logical_and(
                 np.min(lng_tris, axis=1) < -90,
@@ -192,9 +193,38 @@ class TriangularGrid(Grid):
             ),
         )[0]
         if cross_inds.shape[0] > 0:
-            unique_inds = np.unique(e[cross_inds].flat) - 1
-            update_inds = unique_inds[np.where(lng[unique_inds] < 0)[0]]
-            lng[update_inds] = lng[update_inds] + 360
+            if render_context.get("cross_dateline", False):
+                # if any tris cross the dateline and we actually want that data, 
+                # add/subtract 360 from all positive or negative vertices, 
+                # whichever results in less vertices being updated
+                
+                # all lng_tris with at least one negative vertex
+                negative_inds = np.where(
+                    np.min(lng_tris, axis=1) < 0
+                )[0]
+                # all lng_tris with at least one positive vertex
+                positive_inds = np.where(
+                    np.max(lng_tris, axis=1) > 0
+                )[0]
+
+                if negative_inds.shape[0] > positive_inds.shape[0]:
+                    # subtract 360 from all the positive inds
+                    unique_inds = np.unique(e[positive_inds].flat) - 1
+                    update_inds = unique_inds[np.where(lng[unique_inds] > 0)[0]]
+                    lng[update_inds] -= 360
+                else:
+                    # add 360 to all the negative inds
+                    unique_inds = np.unique(e[negative_inds].flat) - 1
+                    update_inds = unique_inds[np.where(lng[unique_inds] < 0)[0]]
+                    lng[update_inds] += 360
+            else:
+                # if we don't actually need the data across the dateline
+                # (eg. global tiles), just update the triangles that actually
+                # cross the dateline itself 
+                unique_inds = np.unique(e[cross_inds].flat) - 1
+                update_inds = unique_inds[np.where(lng[unique_inds] < 0)[0]]
+                lng[update_inds] = lng[update_inds] + 360
+            
             da.__setitem__(da.cf["longitude"].name, lng)
 
         if crs == "EPSG:4326":
@@ -258,7 +288,25 @@ class TriangularGrid(Grid):
         y = da.cf["latitude"]
         e = self.ds.element.values.astype(int)
 
-        x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        # because our bbox lng can go beyond the traditional [-180, 180] bounds
+        # we must adjust back to [-180, 180] so that data isn't excluded
+        if not (bbox[0] < -180 and bbox[2] > 180):
+            # if both bbox[0] and bbox[2] exceed the bounds (ex. global tile),
+            # we will get everything between [-180, 180] regardless
+            if bbox[0] < -180: 
+                bbox[0] += 360
+                render_context["cross_dateline"] = True
+            if bbox[2] > 180:
+                bbox[2] -= 360
+                render_context["cross_dateline"] = True
+
+        # filter by our two seperate negative/positive lng ranges 
+        # if dateline was crossed
+        if render_context.get("cross_dateline", False):
+            x = np.where((x >= bbox[0]) | (x <= bbox[2]))[0]
+        else:
+            x = np.where((x >= bbox[0]) & (x <= bbox[2]))[0]
+        
         y = np.where((y >= bbox[1]) & (y <= bbox[3]))[0]
 
         e_ind = np.intersect1d(x, y) + 1
