@@ -170,14 +170,8 @@ class TriangularGrid(Grid):
         if not render_context.get("masked", False):
             da = self.mask(da)
 
-        adjust_lng = 0
-        if np.min(da.cf["longitude"]) < -180:
-            adjust_lng = 360
-        elif np.max(da.cf["longitude"]) > 180:
-            adjust_lng = -360
-
         # normalize tris that cross the dateline
-        lng = da.cf["longitude"] + adjust_lng
+        lng = ((da.cf["longitude"] + 180) % 360) - 180
         e = (
             render_context["nv"]
             if "nv" in render_context
@@ -274,27 +268,18 @@ class TriangularGrid(Grid):
             )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
-        adjust_lng = 0
-        if np.min(da.cf["longitude"]) < -180:
-            adjust_lng = 360
-        elif np.max(da.cf["longitude"]) > 180:
-            adjust_lng = -360
-
-        x = da.cf["longitude"] + adjust_lng
+        x = ((da.cf["longitude"] + 180) % 360) - 180
         y = da.cf["latitude"]
         e = self.ds.element.values.astype(int)
 
         # because our bbox lng can go beyond the traditional [-180, 180] bounds
         # we must adjust back to [-180, 180] so that data isn't excluded
-        if not (bbox[0] < -180 and bbox[2] > 180):
+        if bool(bbox[0] < -180) ^ bool(bbox[2] > 180):
             # if both bbox[0] and bbox[2] exceed the bounds (ex. global tile),
             # we will get everything between [-180, 180] regardless
-            if bbox[0] < -180:
-                bbox[0] += 360
-                render_context["cross_dateline"] = True
-            if bbox[2] > 180:
-                bbox[2] -= 360
-                render_context["cross_dateline"] = True
+            bbox[0] = ((bbox[0] + 180) % 360) - 180
+            bbox[2] = ((bbox[2] + 180) % 360) - 180
+            render_context["cross_dateline"] = True
 
         # filter by our two separate negative/positive lng ranges
         # if dateline was crossed
