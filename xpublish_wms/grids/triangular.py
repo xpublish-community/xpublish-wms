@@ -296,7 +296,7 @@ class TriangularGrid(Grid):
                 bbox[2] -= 360
                 render_context["cross_dateline"] = True
 
-        # filter by our two seperate negative/positive lng ranges
+        # filter by our two separate negative/positive lng ranges
         # if dateline was crossed
         if render_context.get("cross_dateline", False):
             x = np.where((x >= bbox[0]) | (x <= bbox[2]))[0]
