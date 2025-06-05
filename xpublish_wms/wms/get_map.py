@@ -440,11 +440,21 @@ class GetMap:
             span = None
 
         start_mesh = time.time()
+
+        if da.x[-1].values < da.x[0].values:
+            x_range = (self.bbox[2], self.bbox[0])
+        else:
+            x_range = (self.bbox[0], self.bbox[2])
+        if da.y[-1].values < da.y[0].values:
+            y_range = (self.bbox[3], self.bbox[1])
+        else:
+            y_range = (self.bbox[1], self.bbox[3])
+
         cvs = dsh.Canvas(
             plot_height=self.height,
             plot_width=self.width,
-            x_range=(self.bbox[0], self.bbox[2]),
-            y_range=(self.bbox[1], self.bbox[3]),
+            x_range=x_range,
+            y_range=y_range,
         )
 
         # numba only supports float32 and float64. Cast everything else
