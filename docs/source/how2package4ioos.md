@@ -91,7 +91,6 @@ setup(
         "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
     }
 )
-
 ```
 
 We recommend the use of `setuptools-scm`.
