@@ -22,7 +22,7 @@ repos:
       args: [--config=pyproject.toml]
 
 - repo: https://github.com/keewis/blackdoc
-  rev: v0.4.0
+  rev: v0.4.1
   hooks:
     - id: blackdoc
 
