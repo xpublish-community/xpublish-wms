@@ -205,13 +205,12 @@ class GetMap:
             self.bbox = query.bbox
         self.width = query.width
         self.height = query.height
-
         # Output style
         _, self.palettename = query.styles
         # Let user pick cm from here https://predictablynoisy.com/matplotlib/gallery/color/colormap_reference.html#sphx-glr-gallery-color-colormap-reference-py
         # Otherwise default to rainbow
-        if self.palettename == "default":
-            self.palettename = self.DEFAULT_PALETTE
+        # if self.palettename == "default":
+        #     self.palettename = self.DEFAULT_PALETTE
 
         self.colorscalerange = query.colorscalerange
         self.autoscale = query.autoscale
@@ -509,11 +508,11 @@ class GetMap:
                 tris,
             )
         logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
-
+        custom_palettename = self.palettename.split(',')
         start_shade = time.time()
         shaded = tf.shade(
             mesh,
-            cmap=matplotlib.colormaps.get_cmap(self.palettename),
+            cmap=custom_palettename,#@matplotlib.colormaps.get_cmap(self.palettename),
             how="linear",
             span=span,
         )
