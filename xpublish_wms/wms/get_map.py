@@ -214,6 +214,7 @@ class GetMap:
 
         self.colorscalerange = query.colorscalerange
         self.autoscale = query.autoscale
+        self.transparent_below_range = query.transparent_below_range
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])
         self.dim_selectors = {
@@ -508,6 +509,11 @@ class GetMap:
                 tris,
             )
         logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
+        
+        if self.transparent_below_range and not self.autoscale and self.colorscalerange:
+            min_threshold = self.colorscalerange[0]
+            mesh = mesh.where(mesh >= min_threshold)
+        
         custom_palettename = self.palettename.split(',')
         start_shade = time.time()
         shaded = tf.shade(

@@ -184,6 +184,10 @@ class WMSGetMapQuery(WMSBaseQuery):
         False,
         description="Whether to automatically scale the color scale range based on the data. When specified, colorscalerange is ignored",
     )
+    transparent_below_range: bool = Field(
+        False,
+        description="Whether to render values below the colorscalerange as transparent instead of clamping to the first colormap value",
+    )
 
     @field_validator("colorscalerange", mode="before")
     @classmethod
@@ -351,6 +355,7 @@ WMS_FILTERED_QUERY_PARAMS = {
     "height",
     "colorscalerange",
     "autoscale",
+    "transparent_below_range",
     "item",
     "day",
     "range",
