@@ -512,7 +512,7 @@ class GetMap:
         
         if self.transparent_below_range and not self.autoscale and self.colorscalerange:
             min_threshold = self.colorscalerange[0]
-            mesh = mesh.where(mesh >= min_threshold)
+            mesh = mesh.where(mesh > min_threshold)
         
         custom_palettename = self.palettename.split(',')
         start_shade = time.time()
