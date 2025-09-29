@@ -22,7 +22,7 @@ repos:
       args: [--config=pyproject.toml]
 
 - repo: https://github.com/keewis/blackdoc
-  rev: v0.4.1
+  rev: v0.4.2
   hooks:
     - id: blackdoc
 
@@ -41,7 +41,7 @@ repos:
       args: ["--profile", "black", "--filter-files"]
 
 - repo: https://github.com/psf/black
-  rev: 25.1.0
+  rev: 25.9.0
   hooks:
   - id: black
     language_version: python3
