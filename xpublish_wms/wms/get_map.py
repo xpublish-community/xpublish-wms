@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from xpublish_wms.grids import RenderMethod
 from xpublish_wms.logger import logger
 from xpublish_wms.query import WMSGetMapQuery
+from xpublish_wms.utils import normalize_hex_colors
 
 
 class GetMap:
@@ -54,6 +55,7 @@ class GetMap:
     style: str
     colorscalerange: List[float]
     autoscale: bool
+    bins: tuple[float, ...] | None
 
     def __init__(
         self,
@@ -215,6 +217,7 @@ class GetMap:
         self.colorscalerange = query.colorscalerange
         self.autoscale = query.autoscale
         self.transparent_below_range = query.transparent_below_range
+        self.bins = query.bins
 
         available_selectors = ds.gridded.additional_coords(ds[self.parameter])
         self.dim_selectors = {
@@ -510,11 +513,35 @@ class GetMap:
             )
         logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
         
-        if self.transparent_below_range and not self.autoscale and self.colorscalerange:
+        custom_palettename = self.palettename.split(',')
+        
+        if self.bins is not None:
+            n_colors = len(self.bins)
+            if len(custom_palettename) != n_colors:
+                raise HTTPException(
+                    422,
+                    f"bins requires exactly {n_colors} hex colors for {n_colors} bin boundaries. "
+                    f"Got {len(custom_palettename)} colors."
+                )
+            
+            custom_palettename = normalize_hex_colors(custom_palettename)
+            
+            if self.transparent_below_range:
+                mesh = mesh.where(mesh.values >= self.bins[0])
+            
+            color_indices = np.digitize(mesh.values, self.bins, right=False) - 1
+            color_indices = np.clip(color_indices, 0, n_colors - 1)
+            
+            mesh.values[:] = np.where(np.isnan(mesh.values), np.nan, color_indices * 256 + 128)
+            
+            # Repeat each color 256 times to prevent datashader interpolation
+            custom_palettename = [c for color in custom_palettename for c in [color] * 256]
+            span = (0, n_colors * 256 - 1)
+            
+        elif self.transparent_below_range and not self.autoscale and self.colorscalerange:
             min_threshold = self.colorscalerange[0]
             mesh = mesh.where(mesh >= min_threshold)
         
-        custom_palettename = self.palettename.split(',')
         start_shade = time.time()
         shaded = tf.shade(
             mesh,

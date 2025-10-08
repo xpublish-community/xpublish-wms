@@ -486,3 +486,26 @@ def lat_lng_find_quad(lng, lat, lng_values, lat_values):
             [top_left_index[0][0], top_left_index[1][0]],
             [top_left_index[0][0] + 1, top_left_index[1][0] + 1],
         ]
+
+
+def normalize_hex_colors(color_list):
+    """
+    Normalize a list of hex colors to ensure they have '#' prefix.
+    
+    Parameters
+    ----------
+    color_list : list of str
+        List of hex color strings (with or without '#' prefix)
+    
+    Returns
+    -------
+    list
+        List of hex color strings with '#' prefix
+    """
+    normalized = []
+    for color in color_list:
+        color = color.strip()
+        if len(color) == 6 and all(c in '0123456789abcdefABCDEF' for c in color):
+            color = '#' + color
+        normalized.append(color)
+    return normalized

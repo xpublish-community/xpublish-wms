@@ -28,6 +28,27 @@ def validate_colorscalerange(v: str | None) -> tuple[float, float] | None:
     return (min_val, max_val)
 
 
+def validate_bins(v: str | None) -> tuple[float, ...] | None:
+    if v is None:
+        return None
+
+    values = v.split(",")
+    if len(values) < 2:
+        raise ValueError("bins must contain at least 2 comma seperated boundary values")
+
+    try:
+        bins = tuple(float(x) for x in values)
+    except ValueError:
+        raise ValueError(
+            "bins must be comma-separated numeric values (e.g., '0,10,20,30')",
+        )
+    
+    if not all(bins[i] < bins[i + 1] for i in range(len(bins) - 1)):
+        raise ValueError("bins must be in ascending order")
+    
+    return bins
+
+
 def validate_tile(v: str | None) -> tuple[int, int, int] | None:
     if v is None:
         return None
@@ -188,11 +209,20 @@ class WMSGetMapQuery(WMSBaseQuery):
         False,
         description="Whether to render values below the colorscalerange as transparent instead of clamping to the first colormap value",
     )
+    bins: tuple[float, ...] | None = Field(
+        None,
+        description="Bin boundaries for creating a discrete colormap. Values should be comma-separated and in ascending order (e.g., '0,10,20'). When specified, you MUST provide exactly N hex colors in the palette where N is the number of bin boundaries. Each boundary marks the start of a new color range. Example: bins=0,10,20 with styles=raster/ff0000,00ff00,0000ff creates: 0-10 (red), 10-20 (green), 20+ (blue).",
+    )
 
     @field_validator("colorscalerange", mode="before")
     @classmethod
     def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
         return validate_colorscalerange(v)
+
+    @field_validator("bins", mode="before")
+    @classmethod
+    def validate_bins(cls, v: str | None) -> tuple[float, ...] | None:
+        return validate_bins(v)
 
     @field_validator("tile", mode="before")
     @classmethod
@@ -293,11 +323,20 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
         ("raster", "default"),
         description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
     )
+    bins: tuple[float, ...] | None = Field(
+        None,
+        description="Bin boundaries for creating a discrete colormap. Values should be comma-separated and in ascending order (e.g., '0,10,20'). When specified, provide the same number of hex values. Each boundary marks the start of a new color range.",
+    )
 
     @field_validator("colorscalerange", mode="before")
     @classmethod
     def validate_colorscalerange(cls, v: str | None) -> tuple[float, float]:
         return validate_colorscalerange(v)
+
+    @field_validator("bins", mode="before")
+    @classmethod
+    def validate_bins(cls, v: str | None) -> tuple[float, ...] | None:
+        return validate_bins(v)
 
     @field_validator("styles", mode="before")
     @classmethod
@@ -356,6 +395,7 @@ WMS_FILTERED_QUERY_PARAMS = {
     "colorscalerange",
     "autoscale",
     "transparent_below_range",
+    "bins",
     "item",
     "day",
     "range",
