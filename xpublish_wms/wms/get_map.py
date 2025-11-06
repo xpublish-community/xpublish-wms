@@ -31,8 +31,6 @@ class GetMap:
     DEFAULT_STYLE: str = "raster/default"
     DEFAULT_PALETTE: str = "turbo"
 
-    BBOX_BUFFER = 0.18
-
     cache: cachey.Cache
     array_render_threshold_bytes: int
 
@@ -63,7 +61,7 @@ class GetMap:
         self.cache = cache
         self.array_render_threshold_bytes = array_render_threshold_bytes
 
-    def get_map(
+    async def get_map(
         self,
         ds: xr.Dataset,
         query: WMSGetMapQuery,
@@ -125,7 +123,7 @@ class GetMap:
         # use the contoured renderer for regular grid datasets
         image_buffer = io.BytesIO()
         try:
-            render_result = self.render(ds, da, image_buffer, False)
+            render_result = await self.render(ds, da, image_buffer, False)
         except HTTPException as e:
             raise e
         except Exception as e:
@@ -140,7 +138,7 @@ class GetMap:
 
         return StreamingResponse(image_buffer, media_type="image/png")
 
-    def get_minmax(
+    async def get_minmax(
         self,
         ds: xr.Dataset,
         query: WMSGetMapQuery,
@@ -164,7 +162,7 @@ class GetMap:
         if entire_layer:
             return {"min": float(da.min()), "max": float(da.max())}
         else:
-            return self.render(ds, da, None, minmax_only=True)
+            return await self.render(ds, da, None, minmax_only=True)
 
     def ensure_query_types(
         self,
@@ -320,7 +318,7 @@ class GetMap:
 
         return da
 
-    def render(
+    async def render(
         self,
         ds: xr.Dataset,
         da: xr.DataArray,
@@ -378,7 +376,8 @@ class GetMap:
         # if filter_by_bbox was successful, preload data for projection
         if filter_success:
             filter_load_time = time.time()
-            da = da.load()
+            # TODO requires https://github.com/pydata/xarray/pull/10327
+            da = await da.load_async()
             logger.debug(
                 f"WMS GetMap load filtered data: {time.time() - filter_load_time}",
             )
@@ -414,9 +413,10 @@ class GetMap:
             )
         logger.debug(f"WMS GetMap loading DataArray size: {da_size:.2f} bytes")
 
-        start_dask = time.time()
-        da = da.load()
-        logger.debug(f"WMS GetMap load full data: {time.time() - start_dask}")
+        start_load = time.time()
+        # TODO requires https://github.com/pydata/xarray/pull/10327
+        da = await da.load_async()
+        logger.debug(f"WMS GetMap load full data: {time.time() - start_load}")
 
         if da.size == 0:
             logger.warning("No data to render")

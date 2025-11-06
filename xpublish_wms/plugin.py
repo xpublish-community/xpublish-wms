@@ -39,7 +39,7 @@ class CfWmsPlugin(Plugin):
 
         @router.get("", include_in_schema=False)
         @router.get("/")
-        def wms_root(
+        async def wms_root(
             request: Request,
             wms_query: Annotated[WMSQuery, Query()],
             dataset: xr.Dataset = Depends(deps.dataset),
@@ -54,7 +54,7 @@ class CfWmsPlugin(Plugin):
                     del query_params[query_key]
 
             # TODO: Make threshold configurable
-            return wms_handler(
+            return await wms_handler(
                 request,
                 wms_query.root,
                 extra_query_params,
