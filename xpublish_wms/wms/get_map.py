@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 
 from xpublish_wms.grids import RenderMethod
 from xpublish_wms.logger import logger
@@ -68,7 +68,7 @@ class GetMap:
         ds: xr.Dataset,
         query: WMSGetMapQuery,
         query_params: dict,
-    ) -> StreamingResponse:
+    ) -> Response:
         """
         Return the WMS map for the dataset and given parameters
         """
@@ -138,7 +138,7 @@ class GetMap:
         if render_result:
             image_buffer.seek(0)
 
-        return StreamingResponse(image_buffer, media_type="image/png")
+        return Response(image_buffer.getbuffer(), media_type="image/png")
 
     def get_minmax(
         self,
