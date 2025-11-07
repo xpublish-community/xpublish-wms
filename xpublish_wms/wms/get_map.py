@@ -138,7 +138,7 @@ class GetMap:
         if render_result:
             image_buffer.seek(0)
 
-        return Response(image_buffer, media_type="image/png")
+        return Response(image_buffer.getbuffer(), media_type="image/png")
 
     def get_minmax(
         self,
