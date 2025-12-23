@@ -61,7 +61,7 @@ def wms_handler(
         case WMSGetFeatureInfoQuery():
             return get_feature_info(dataset, query, extra_query_params)
         case WMSGetLegendInfoQuery():
-            return get_legend_info(dataset, query)
+            return get_legend_info(query)
         case _:
             raise HTTPException(
                 status_code=404,

@@ -1,4 +1,5 @@
 import pytest
+import xarray as xr
 
 from xpublish_wms.query import (
     WMSGetCapabilitiesQuery,
@@ -8,6 +9,7 @@ from xpublish_wms.query import (
     WMSGetMetadataQuery,
     WMSQuery,
 )
+from xpublish_wms.wms.get_map.main import GetMap
 
 
 def test_wms_query_discriminator():
@@ -209,3 +211,63 @@ def test_wms_query_discriminator():
         styles="raster/default",
     )
     assert isinstance(getlegendinfo_query.root, WMSGetLegendInfoQuery)
+
+
+@pytest.mark.parametrize("opt", ["colormap", "default", "magma"])
+def test_get_map_colormap(opt):
+    getmap_query = WMSGetMapQuery.model_validate(
+        {
+            "service": "WMS",
+            "version": "1.3.0",
+            "request": "GetMap",
+            "layers": "layer1",
+            "styles": f"raster/{opt}",
+            "crs": "EPSG:3857",
+            "tile": "1,1,1",
+            "width": 100,
+            "height": 100,
+            "colorscalerange": "0,100",
+            "autoscale": True,
+        },
+    )
+    request = GetMap(cache=None, array_render_threshold_bytes=1e9)
+    request.ensure_query_types(xr.Dataset({"layer1": [1, 2, 3]}), getmap_query, {})
+    assert request.styles.type == "colormap"
+    assert request.styles.palettename is not None
+    assert (
+        request.styles.palettename != "colormap"
+        and request.styles.palettename != "default"
+    )
+
+
+def test_get_map_vectors():
+    for style in [
+        "vector-arrow/none",
+        "vector-arrow/default",
+        "vector-arrow-color/default",
+    ]:
+        getmap_query = WMSGetMapQuery.model_validate(
+            {
+                "service": "WMS",
+                "version": "1.3.0",
+                "request": "GetMap",
+                "layers": "u,v",
+                "styles": style,
+                "crs": "EPSG:3857",
+                "tile": "1,1,1",
+                "width": 100,
+                "height": 100,
+                "colorscalerange": "0,100",
+                "autoscale": True,
+                "density": 3,
+            },
+        )
+        request = GetMap(cache=None, array_render_threshold_bytes=1e9)
+        request.ensure_query_types(
+            xr.Dataset({"u": [1, 2, 3], "v": [1, 2, 3]}),
+            getmap_query,
+            {},
+        )
+        assert request.styles.type == "vector"
+        assert request.styles.color == "black"
+        assert request.styles.density == 3
