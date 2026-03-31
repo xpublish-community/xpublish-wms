@@ -151,7 +151,6 @@ class TriangularGrid(Grid):
         ]
         if len(elevation_index) == 1:
             elevation_index = elevation_index[0]
-
         if "vertical" in da.cf:
             da = da.cf.isel(vertical=elevation_index)
 
