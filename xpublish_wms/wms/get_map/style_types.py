@@ -31,6 +31,7 @@ class VectorStyleParams(BaseModel):
     colormap: str | None
     draw_backing: bool
     arrow_mag_color: bool
+    use_cell_centers: bool = False
 
 
 ShadingStyleParams = ColormapStyleParams | VectorStyleParams

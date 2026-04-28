@@ -5,6 +5,7 @@ from typing import Sequence
 import matplotlib
 import numpy as np
 import xarray as xr
+from numpy.typing import NDArray
 from PIL.Image import Image
 
 from xpublish_wms.wms.get_map.style_types import VectorStyleParams
@@ -23,6 +24,26 @@ HEAD_WIDTH = [2.5, 2.5, 3.5]
 LINE_WIDTH = [5, 4, 1]
 
 
+def get_cell_center_indices(
+    das: Sequence[xr.DataArray],
+    bbox: tuple[float, float, float, float],
+    width: int,
+    height: int,
+) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
+    """Return (x_indices, y_indices) pixel coordinates of data cell centers."""
+    x_full = das[0].x.broadcast_like(das[0])
+    y_full = das[0].y.broadcast_like(das[0])
+    px = np.floor(
+        (x_full.values.ravel() - bbox[0]) / (bbox[2] - bbox[0]) * width,
+    ).astype(np.intp)
+    py = np.floor(
+        (y_full.values.ravel() - bbox[1]) / (bbox[3] - bbox[1]) * height,
+    ).astype(np.intp)
+
+    in_tile = (px >= 0) & (px < width) & (py >= 0) & (py < height)
+    return px[in_tile], py[in_tile]
+
+
 def visualize_vectors(
     meshes: Sequence[xr.DataArray],
     color: str,
@@ -32,9 +53,9 @@ def visualize_vectors(
     colormap: str | None = None,
     draw_backing: bool = False,
     arrow_mag_color: bool = False,
+    cell_center_indices: tuple[NDArray[np.intp], NDArray[np.intp]] | None = None,
 ) -> Image:
     """Renders a vector tile image."""
-    # Create a mesh of grid-points where we will draw arrows/barbs
     if density not in (1, 2, 3):
         raise ValueError(f"Invalid density value {density}")
 
@@ -43,19 +64,12 @@ def visualize_vectors(
     assert meshes[0].shape == meshes[1].shape
     tile_height, tile_width = meshes[0].shape
 
-    x_indices, y_indices = get_meshgrid(density, tile_width, tile_height)
-
-    # Select the vector components in a subgrid
-    u = meshes[0].isel(x=x_indices, y=y_indices).astype(np.float32)
-    v = meshes[1].isel(x=x_indices, y=y_indices).astype(np.float32)
-    # use the entire mesh for magnitude not just the sparse u,v
     mag: xr.DataArray = np.sqrt(
         meshes[0] ** 2 + meshes[1] ** 2,
     )  # pyright: ignore[reportAssignmentType]
-    # Initialize a plot with appropriate axes
+
     fig, ax = setup_tile_plot(tile_width, tile_height)
 
-    # If colormap background is desired, draw it now
     if draw_backing and colormap is not None:
         ax.imshow(
             mag,
@@ -67,24 +81,40 @@ def visualize_vectors(
             interpolation="nearest",
         )
 
-    # Scale the length up based on density
-    u *= LENGTH_SCALE[density - 1]
-    v *= LENGTH_SCALE[density - 1]
-    if scaling == VectorStyleParams.GlyphScaling.CONSTANT:
-        # normalize the vectors so their size is CONSTANT
-        u /= mag.isel(x=x_indices, y=y_indices)
-        v /= mag.isel(x=x_indices, y=y_indices)
+    # Build arrays with vector glyph positions
+    if cell_center_indices is None:
+        x_indices, y_indices = get_meshgrid(density, tile_width, tile_height)
     else:
-        # scale up just a little
-        # TODO: this should depend on dataset and its max magnitude
+        x_indices, y_indices = cell_center_indices
+        valid = (
+            np.isfinite(meshes[0].values[y_indices, x_indices])
+            & np.isfinite(meshes[1].values[y_indices, x_indices])
+        )
+        x_indices, y_indices = x_indices[valid], y_indices[valid]
+
+    # Build arrays to render vector glyphs
+    u = meshes[0].values[y_indices, x_indices].astype(np.float32)
+    v = meshes[1].values[y_indices, x_indices].astype(np.float32)
+
+    # Vector scaling
+    if scaling == VectorStyleParams.GlyphScaling.CONSTANT:
+        m = mag.values[y_indices, x_indices]
+        nz = m != 0
+        u[nz] /= m[nz]
+        v[nz] /= m[nz]
+    else:
+        # Scale up just a little
+        # TODO: this would ideally be based on the dataset max magnitude
         u *= 3
         v *= 3
+    # Scale the length based on density
+    u *= LENGTH_SCALE[density - 1]
+    v *= LENGTH_SCALE[density - 1]
 
     render_args = (x_indices, y_indices, u, v)
     if arrow_mag_color:
-        render_args += (mag.isel(x=x_indices, y=y_indices),)
+        render_args += (mag.values[y_indices, x_indices],)
 
-    # Sum the R, G, B values and determine a contrasting edgeline
     edgecolor = "black" if sum(matplotlib.colors.to_rgb(color)) > 1.5 else "white"
     render_kwargs = {
         "color": color,
