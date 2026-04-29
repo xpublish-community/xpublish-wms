@@ -29,8 +29,18 @@ def get_cell_center_indices(
     bbox: tuple[float, float, float, float],
     width: int,
     height: int,
+    density: int,
 ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-    """Return (x_indices, y_indices) pixel coordinates of data cell centers."""
+    """Return (x_indices, y_indices) pixel coordinates of data cell centers within the tile.
+
+    Uses broadcast_like to expand 1-D dimensional coords (regular grids) to the
+    data's dimension order before raveling, ensuring x/y positions correspond to
+    values element-wise. Both returned arrays are 1D and the same length.
+
+    Subsampling mirrors get_meshgrid: cell centers are binned into pixel-space
+    buckets of size `grid_step`; bucket centers are averaged so very dense
+    datasets do not draw too many arrows in a single tile.
+    """
     x_full = das[0].x.broadcast_like(das[0])
     y_full = das[0].y.broadcast_like(das[0])
     px = np.floor(
@@ -41,7 +51,19 @@ def get_cell_center_indices(
     ).astype(np.intp)
 
     in_tile = (px >= 0) & (px < width) & (py >= 0) & (py < height)
-    return px[in_tile], py[in_tile]
+    px, py = px[in_tile], py[in_tile]
+
+    # Subsample data points to prevent too many vector glyphs
+    grid_step = 64 // (2 ** (density - 1))
+    bucket_ids = (px // grid_step) * (height // grid_step + 1) + (py // grid_step)
+    # all the buckets with more than one cell center
+    _, inverse = np.unique(bucket_ids, return_inverse=True)
+    # calculate a mean point for multiple cell centers by averaging their coords
+    counts = np.bincount(inverse)
+    px_sub = (np.bincount(inverse, weights=px) / counts).round().astype(np.intp)
+    py_sub = (np.bincount(inverse, weights=py) / counts).round().astype(np.intp)
+
+    return px_sub, py_sub
 
 
 def visualize_vectors(
