@@ -10,6 +10,7 @@ from PIL.Image import Image
 
 from xpublish_wms.wms.get_map.style_types import VectorStyleParams
 from xpublish_wms.wms.get_map.vector_style_utils import (
+    get_grid_step,
     get_meshgrid,
     render_vector_arrows,
     setup_tile_plot,
@@ -31,16 +32,7 @@ def get_cell_center_indices(
     height: int,
     density: int,
 ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-    """Return (x_indices, y_indices) pixel coordinates of data cell centers within the tile.
-
-    Uses broadcast_like to expand 1-D dimensional coords (regular grids) to the
-    data's dimension order before raveling, ensuring x/y positions correspond to
-    values element-wise. Both returned arrays are 1D and the same length.
-
-    Subsampling mirrors get_meshgrid: cell centers are binned into pixel-space
-    buckets of size `grid_step`; bucket centers are averaged so very dense
-    datasets do not draw too many arrows in a single tile.
-    """
+    """Return (px, py) pixel coordinates of subsampled data cell centers."""
     x_full = das[0].x.broadcast_like(das[0])
     y_full = das[0].y.broadcast_like(das[0])
     px = np.floor(
@@ -53,12 +45,17 @@ def get_cell_center_indices(
     in_tile = (px >= 0) & (px < width) & (py >= 0) & (py < height)
     px, py = px[in_tile], py[in_tile]
 
-    # Subsample data points to prevent too many vector glyphs
-    grid_step = 64 // (2 ** (density - 1))
-    bucket_ids = (px // grid_step) * (height // grid_step + 1) + (py // grid_step)
-    # all the buckets with more than one cell center
+    grid_step = get_grid_step(density)
+    x_span = bbox[2] - bbox[0]
+    y_span = bbox[3] - bbox[1]
+    # Use globally aligned buckets so neighboring tiles use the same subsampling phase.
+    px_shifted = px + int((bbox[0] / x_span * width) % grid_step)
+    py_shifted = py + int((bbox[1] / y_span * height) % grid_step)
+    bucket_ids = (px_shifted // grid_step) * (height // grid_step + 1) + (
+        py_shifted // grid_step
+    )
+
     _, inverse = np.unique(bucket_ids, return_inverse=True)
-    # calculate a mean point for multiple cell centers by averaging their coords
     counts = np.bincount(inverse)
     px_sub = (np.bincount(inverse, weights=px) / counts).round().astype(np.intp)
     py_sub = (np.bincount(inverse, weights=py) / counts).round().astype(np.intp)
@@ -76,6 +73,7 @@ def visualize_vectors(
     draw_backing: bool = False,
     arrow_mag_color: bool = False,
     cell_center_indices: tuple[NDArray[np.intp], NDArray[np.intp]] | None = None,
+    margin_px: int = 0,
 ) -> Image:
     """Renders a vector tile image."""
     if density not in (1, 2, 3):
@@ -108,9 +106,8 @@ def visualize_vectors(
         x_indices, y_indices = get_meshgrid(density, tile_width, tile_height)
     else:
         x_indices, y_indices = cell_center_indices
-        valid = (
-            np.isfinite(meshes[0].values[y_indices, x_indices])
-            & np.isfinite(meshes[1].values[y_indices, x_indices])
+        valid = np.isfinite(meshes[0].values[y_indices, x_indices]) & np.isfinite(
+            meshes[1].values[y_indices, x_indices],
         )
         x_indices, y_indices = x_indices[valid], y_indices[valid]
 
@@ -151,4 +148,9 @@ def visualize_vectors(
         "vmin": colorscale_range[0] if arrow_mag_color and colorscale_range else None,
         "vmax": colorscale_range[1] if arrow_mag_color and colorscale_range else None,
     }
-    return render_vector_arrows(fig, ax, render_args, render_kwargs)
+    im = render_vector_arrows(fig, ax, render_args, render_kwargs)
+    if margin_px > 0:
+        im = im.crop(
+            (margin_px, margin_px, im.width - margin_px, im.height - margin_px),
+        )
+    return im
