@@ -1,3 +1,4 @@
+import asyncio
 import datetime as dt
 
 import cachey
@@ -13,7 +14,7 @@ from xpublish_wms.utils import format_timestamp
 from .get_map import GetMap
 
 
-def get_metadata(
+async def get_metadata(
     ds: xr.Dataset,
     cache: cachey.Cache,
     query: WMSGetMetadataQuery,
@@ -42,14 +43,14 @@ def get_metadata(
         )
 
     if metadata_type == "menu":
-        payload = get_menu(ds)
+        payload = await asyncio.to_thread(get_menu, ds)
     elif metadata_type == "layerdetails":
-        payload = get_layer_details(ds, layer_name)
+        payload = await asyncio.to_thread(get_layer_details, ds, layer_name)
     elif metadata_type == "timesteps":
         da = ds[layer_name]
-        payload = get_timesteps(da, query)
+        payload = await asyncio.to_thread(get_timesteps, da, query)
     elif metadata_type == "minmax":
-        payload = get_minmax(
+        payload = await get_minmax(
             ds,
             cache,
             query,
@@ -97,7 +98,7 @@ def get_timesteps(da: xr.DataArray, query: WMSGetMetadataQuery) -> dict:
     }
 
 
-def get_minmax(
+async def get_minmax(
     ds: xr.Dataset,
     cache: cachey.Cache,
     query: WMSGetMetadataQuery,
@@ -129,7 +130,7 @@ def get_minmax(
         cache=cache,
         array_render_threshold_bytes=array_get_map_render_threshold_bytes,
     )
-    return getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
+    return await getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
 
 
 def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:

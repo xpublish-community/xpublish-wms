@@ -2,6 +2,7 @@
 OGC WMS router for datasets with CF convention metadata
 """
 
+import asyncio
 from typing import Union
 
 import cachey
@@ -25,7 +26,7 @@ from .get_legend_info import get_legend_info
 from .get_metadata import get_metadata
 
 
-def wms_handler(
+async def wms_handler(
     request: Request,
     query: Union[
         WMSGetCapabilitiesQuery,
@@ -43,9 +44,9 @@ def wms_handler(
 
     match query:
         case WMSGetCapabilitiesQuery():
-            return get_capabilities(dataset, request, query)
+            return await asyncio.to_thread(get_capabilities, dataset, request, query)
         case WMSGetMetadataQuery():
-            return get_metadata(
+            return await get_metadata(
                 dataset,
                 cache,
                 query,
@@ -57,11 +58,16 @@ def wms_handler(
                 cache=cache,
                 array_render_threshold_bytes=array_get_map_render_threshold_bytes,
             )
-            return getmap_service.get_map(dataset, query, extra_query_params)
+            return await getmap_service.get_map(dataset, query, extra_query_params)
         case WMSGetFeatureInfoQuery():
-            return get_feature_info(dataset, query, extra_query_params)
+            return await asyncio.to_thread(
+                get_feature_info,
+                dataset,
+                query,
+                extra_query_params,
+            )
         case WMSGetLegendInfoQuery():
-            return get_legend_info(dataset, query)
+            return await asyncio.to_thread(get_legend_info, dataset, query)
         case _:
             raise HTTPException(
                 status_code=404,
