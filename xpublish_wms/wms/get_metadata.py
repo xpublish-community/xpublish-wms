@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import List
 
 import cachey
 import cf_xarray  # noqa
@@ -7,7 +8,11 @@ from fastapi import HTTPException, Response
 from fastapi.responses import JSONResponse
 
 from xpublish_wms.logger import logger
-from xpublish_wms.query import WMSGetMapQuery, WMSGetMetadataQuery
+from xpublish_wms.query import (
+    GET_MAP_STYLE_METHODS,
+    WMSGetMapQuery,
+    WMSGetMetadataQuery,
+)
 from xpublish_wms.utils import format_timestamp
 
 from .get_map import GetMap
@@ -25,29 +30,33 @@ def get_metadata(
 
     This is compliant subset of ncwms2's GetMetadata handler. Specifically, layerdetails, timesteps and minmax are supported.
     """
-    layer_name = query.layername
     metadata_type = query.item.lower()
 
-    if not layer_name and metadata_type != "minmax" and metadata_type != "menu":
+    if metadata_type in ["minmax", "menu"]:
+        pass  # minmax and menu do not require extra layers validation here
+    elif not query.layers:
         logger.error("layerName must be specified for GetMetadata requests")
         raise HTTPException(
             422,
             detail="layerName must be specified",
         )
-    elif layer_name not in ds and metadata_type != "minmax" and metadata_type != "menu":
-        logger.error(f"layerName {layer_name} not found in dataset")
+    elif any(layer not in ds for layer in query.layers):
+        not_found = [layer for layer in query.layers if layer not in ds]
+        logger.error(f"layers {not_found} were not found in dataset")
         raise HTTPException(
             422,
-            detail=f"layerName {layer_name} not found in dataset",
+            detail=f"layer name(s) {', '.join(not_found)} not found in dataset",
         )
 
     if metadata_type == "menu":
         payload = get_menu(ds)
     elif metadata_type == "layerdetails":
-        payload = get_layer_details(ds, layer_name)
+        payload = get_layer_details(ds, query.layers)
     elif metadata_type == "timesteps":
-        da = ds[layer_name]
-        payload = get_timesteps(da, query)
+        # If there are multiple layers, we assume they are vector components,
+        # and therefore should have the same timesteps, so we use the first layer name
+        first_layer = query.layers[0]
+        payload = get_timesteps(ds[first_layer], query)
     elif metadata_type == "minmax":
         payload = get_minmax(
             ds,
@@ -114,14 +123,14 @@ def get_minmax(
         service=query.service,
         version=query.version,
         request="GetMap",
-        layers=query.layername,
+        layers=query.layers and ",".join(query.layers),
         bbox=query.bbox if not entire_layer else "-180,-90,180,90",
         width=1 if entire_layer else 512,
         height=1 if entire_layer else 512,
         crs=query.crs,
         time=query.time,
         elevation=query.elevation,
-        styles="raster/default",
+        styles="raster/default" if len(query.layers or []) == 1 else "vector/none",
         colorscalerange="nan,nan",
     )
 
@@ -132,42 +141,58 @@ def get_minmax(
     return getmap.get_minmax(ds, getmap_query, query_params, entire_layer)
 
 
-def get_layer_details(ds: xr.Dataset, layer_name: str) -> dict:
+def get_layer_details(ds: xr.Dataset, layers: List[str]) -> dict:
     """
-    Returns a subset of layer details for the requested layer
+    Returns a subset of layer details for the requested layers
     """
-    da = ds[layer_name]
-    units = da.attrs.get("units", "")
-    supported_styles = "raster"  # TODO: more styles
-    bbox = ds.gridded.bbox(da)
-    if ds.gridded.has_elevation(da):
-        elevation = ds.gridded.elevations(da).values.round(5).tolist()
-        elevation_positive = ds.gridded.elevation_positive_direction(da)
-        elevation_units = ds.gridded.elevation_units(da)
+    das = [ds[layer] for layer in layers]
+
+    # We mostly just assume that multiple layers are vector components and that
+    # the client knows what they're doing but here we do a simple validation for it
+    all_units = {da.attrs.get("units", "") for da in das}
+    if len(all_units) > 1:
+        raise HTTPException(422, "Selected layers have different units")
+    units = next(iter(all_units))
+
+    supported_styles = [
+        s
+        for s in GET_MAP_STYLE_METHODS
+        if s.startswith("raster" if len(das) == 1 else "vector")
+    ]
+
+    # Otherwise take metadata from the first layer and assume second is the same
+    da1 = das[0]
+    bbox = ds.gridded.bbox(da1)
+    if ds.gridded.has_elevation(da1):
+        elevation = ds.gridded.elevations(da1).values.round(5).tolist()
+        elevation_positive = ds.gridded.elevation_positive_direction(da1)
+        elevation_units = ds.gridded.elevation_units(da1)
     else:
         elevation = None
         elevation_positive = None
         elevation_units = None
-    if "time" in da.cf:
-        timesteps = format_timestamp(da.cf["time"]).tolist()
+    if "time" in da1.cf:
+        timesteps = format_timestamp(da1.cf["time"]).tolist()
     else:
         timesteps = None
 
-    additional_coords = ds.gridded.additional_coords(da)
+    additional_coords = ds.gridded.additional_coords(da1)
     additional_coord_values = {
         coord: (
-            da.cf.coords[coord] if coord in da.cf.coords else da[coord]
+            da1.cf.coords[coord] if coord in da1.cf.coords else da1[coord]
         ).values.tolist()
         for coord in additional_coords
     }
 
     return {
-        "layerName": da.name,
-        "standard_name": da.cf.attrs.get("standard_name", da.name),
-        "long_name": da.cf.attrs.get("long_name", da.name),
+        "layerName": ",".join(str(da.name) for da in das),
+        "standard_name": ",".join(
+            da.cf.attrs.get("standard_name", da.name) for da in das
+        ),
+        "long_name": ",".join(da.cf.attrs.get("long_name", da.name) for da in das),
         "bbox": bbox,
         "units": units,
-        "supportedStyles": [supported_styles],
+        "supportedStyles": supported_styles,
         "elevation": elevation,
         "elevation_positive": elevation_positive,
         "elevation_units": elevation_units,

@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Self, Union
 
 from pydantic import (
     AliasChoices,
@@ -77,6 +77,19 @@ def validate_style(v: str | None) -> tuple[str, str] | None:
     return (values[0], values[1])
 
 
+LAYER_DELIMITER = ","
+
+
+def validate_layers(layers_str: str | None) -> List[str] | None:
+    """Parse layer name list and validate it."""
+    if layers_str is None:
+        return None
+    layers = layers_str.split(LAYER_DELIMITER)
+    if len(layers) > 2:
+        raise ValueError("More than two layers are not supported")
+    return layers
+
+
 class WMSBaseQuery(BaseModel):
     service: Literal["WMS"] = Field(..., description="Service type. Must be WMS")
     version: Literal["1.1.1", "1.3.0"] = Field(
@@ -95,7 +108,7 @@ class WMSGetMetadataQuery(WMSBaseQuery):
     """WMS GetMetadata query"""
 
     request: Literal["GetMetadata"] = Field(..., description="Request type")
-    layername: Optional[str] = Field(
+    layers: Optional[List[str]] = Field(
         None,
         description="Name of the layer to get metadata for",
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
@@ -135,17 +148,42 @@ class WMSGetMetadataQuery(WMSBaseQuery):
     def validate_bbox(cls, v: str | None) -> tuple[float, float, float, float] | None:
         return validate_bbox(v)
 
+    @field_validator("layers", mode="before")
+    @classmethod
+    def validate_layers(cls, val: str | None) -> List[str] | None:
+        return validate_layers(val)
+
+
+# Future styles might include:
+# - vector-arrow-tail/none (magnitude visualized by arrow tail length),
+# - vector-arrow-scale/none (magnitude visualized by uniform arrow scaling),
+# - vector-barb/none
+GetMapStyleMethod = Literal["raster", "vector-arrow", "vector-arrow-color"]
+GET_MAP_STYLE_METHODS: List[GetMapStyleMethod] = [
+    "raster",
+    "vector-arrow",
+    "vector-arrow-color",
+]
+
 
 class WMSGetMapQuery(WMSBaseQuery):
     """WMS GetMap query"""
 
     request: Literal["GetMap"] = Field(..., description="Request type")
-    layers: str = Field(
+    layers: List[str] = Field(
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
-    styles: tuple[str, str] = Field(
+    styles: tuple[GetMapStyleMethod, Literal["none"] | str] = Field(
         ("raster", "default"),
-        description="Style to use for the query. Defaults to raster/default. Default may be replaced by the name of any colormap defined by matplotlibs defaults",
+        description=(
+            "Style to use for the query. Options: 'raster/<colormap>', 'vector-arrow/none', "
+            "'vector-arrow/<colormap>', 'vector-arrow-color/<colormap>'. You can provide "
+            "a name of any colormap defined by matplotlib's defaults directly like 'raster/turbo'. "
+            "For vector tiles, 'vector-arrow/<colormap> renders directional arrows with "
+            "raster backing visualizing magnitude. 'vector-arrow/none' can be used for arrows only. "
+            "Passing 'raster/default' uses the default colormap. "
+            "This parameter defaults to 'raster/default'."
+        ),
     )
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(
         "EPSG:4326",
@@ -184,6 +222,21 @@ class WMSGetMapQuery(WMSBaseQuery):
         False,
         description="Whether to automatically scale the color scale range based on the data. When specified, colorscalerange is ignored",
     )
+    color: str = Field(
+        "black",
+        description="Color of directional glyphs when using a vector style. This is a matplotlib color parameter.",
+    )
+    density: int | None = Field(
+        None,
+        description="Density of directional glyphs when using a vector style.",
+        ge=1,
+        le=3,
+    )
+
+    @field_validator("layers", mode="before")
+    @classmethod
+    def validate_layers(cls, val: str | None) -> List[str] | None:
+        return validate_layers(val)
 
     @field_validator("colorscalerange", mode="before")
     @classmethod
@@ -206,18 +259,22 @@ class WMSGetMapQuery(WMSBaseQuery):
         return validate_style(v)
 
     @model_validator(mode="after")
-    @classmethod
-    def validate_dependent_colorscalerange(
-        cls,
-        v: "WMSGetMapQuery",
-    ) -> "WMSGetMapQuery":
-        if v.colorscalerange is None and not v.autoscale:
+    def validate_dependent_parameters(self) -> Self:
+        if self.colorscalerange is None and not self.autoscale:
             raise ValueError("colorscalerange is required when autoscale is False")
-        if v.bbox is None and v.tile is None:
+        if self.bbox is None and self.tile is None:
             raise ValueError("bbox or tile must be specified")
-        if v.tile is not None and v.crs != "EPSG:3857":
+        if self.tile is not None and self.crs != "EPSG:3857":
             raise ValueError("tile is only supported for EPSG:3857")
-        return v
+        if self.styles[0].startswith("raster") and len(self.layers) != 1:
+            raise ValueError(
+                "Raster styles require exactly 1 layer",
+            )
+        if self.styles[0].startswith("vector") and len(self.layers) != 2:
+            raise ValueError(
+                "Vector styles require exactly 2 layers (u and v components)",
+            )
+        return self
 
 
 class WMSGetFeatureInfoQuery(WMSBaseQuery):
@@ -274,7 +331,8 @@ class WMSGetLegendInfoQuery(WMSBaseQuery):
     """WMS GetLegendInfo query"""
 
     request: Literal["GetLegendGraphic"] = Field(..., description="Request type")
-    layers: str = Field(
+    layers: Optional[str] = Field(
+        None,
         validation_alias=AliasChoices("layername", "layers", "query_layers"),
     )
     width: int
@@ -351,6 +409,8 @@ WMS_FILTERED_QUERY_PARAMS = {
     "height",
     "colorscalerange",
     "autoscale",
+    "color",
+    "density",
     "item",
     "day",
     "range",
