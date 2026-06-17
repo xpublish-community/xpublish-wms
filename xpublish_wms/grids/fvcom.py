@@ -67,23 +67,22 @@ class FVCOMGrid(Grid):
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         if "vertical" in da.cf:
             return da.cf["vertical"][:, 0]
+
+        # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
+        vertical_var = None
+        if "siglay" in da.dims:
+            vertical_var = "siglay"
+        elif "siglev" in da.dims:
+            vertical_var = "siglev"
         else:
-            # Sometimes fvcom variables dont have coordinates assigned correctly, so brute force it
-            vertical_var = None
-            if "siglay" in da.dims:
-                vertical_var = "siglay"
-            elif "siglev" in da.dims:
-                vertical_var = "siglev"
+            return None
 
-            if vertical_var is not None:
-                return xr.DataArray(
-                    data=self.ds[vertical_var][:, 0].values,
-                    dims=vertical_var,
-                    name=self.ds[vertical_var].name,
-                    attrs=self.ds[vertical_var].attrs,
-                )
-
-        return None
+        return xr.DataArray(
+            data=self.ds[vertical_var][:, 0].values,
+            dims=vertical_var,
+            name=self.ds[vertical_var].name,
+            attrs=self.ds[vertical_var].attrs,
+        )
 
     def sel_lat_lng(
         self,
