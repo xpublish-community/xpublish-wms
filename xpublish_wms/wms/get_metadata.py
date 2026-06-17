@@ -118,19 +118,22 @@ def get_minmax(
 
     If BBOX is not specified, the entire selected temporal and elevation range is used.
     """
+    # validation should ensure that layers is not `None`
+    assert query.layers, "get_minmax expects query to have layers"
+
     entire_layer = query.bbox is None
     getmap_query = WMSGetMapQuery(
         service=query.service,
         version=query.version,
         request="GetMap",
-        layers=query.layers and ",".join(query.layers),
+        layers=",".join(query.layers),
         bbox=query.bbox if not entire_layer else "-180,-90,180,90",
         width=1 if entire_layer else 512,
         height=1 if entire_layer else 512,
         crs=query.crs,
         time=query.time,
         elevation=query.elevation,
-        styles="raster/default" if len(query.layers or []) == 1 else "vector/none",
+        styles="raster/default" if len(query.layers) == 1 else "vector-arrow/none",
         colorscalerange="nan,nan",
     )
 
