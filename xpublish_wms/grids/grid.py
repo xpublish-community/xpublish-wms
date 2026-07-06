@@ -73,7 +73,12 @@ class Grid(ABC):
     def elevations(self, da: xr.DataArray) -> Optional[xr.DataArray]:
         """Return the elevations for the given data array"""
         if "vertical" in da.cf:
-            return da.cf["vertical"]
+            vertical = da.cf["vertical"]
+            if vertical.ndim > 0:
+                return vertical
+            # Promote scalar coordinate to 1-D so callers can safely iterate/index
+            dim_name = vertical.name or "vertical"
+            return vertical.expand_dims(dim_name)
         else:
             return None
 
@@ -92,12 +97,13 @@ class Grid(ABC):
             elevations = [0.0]
 
         if "vertical" in da.cf:
+            if da.cf["vertical"].ndim == 0:
+                return da
             if len(elevations) == 1:
                 return da.cf.sel(vertical=elevations[0], method="nearest")
-            elif len(elevations) > 1:
+            if len(elevations) > 1:
                 return da.cf.sel(vertical=elevations)
-            else:
-                return da.cf.sel(vertical=0, method="nearest")
+            return da.cf.sel(vertical=0, method="nearest")
 
         return da
 

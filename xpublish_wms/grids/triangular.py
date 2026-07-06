@@ -133,7 +133,7 @@ class TriangularGrid(Grid):
         elevations: Optional[Sequence[float]],
     ) -> xr.DataArray:
         """Select the given data array by elevation"""
-        if not self.has_elevation(da):
+        if not self.has_elevation(da) or "vertical" not in da.cf:
             return da
 
         if (
@@ -152,10 +152,7 @@ class TriangularGrid(Grid):
         if len(elevation_index) == 1:
             elevation_index = elevation_index[0]
 
-        if "vertical" in da.cf:
-            da = da.cf.isel(vertical=elevation_index)
-
-        return da
+        return da.cf.isel(vertical=elevation_index)
 
     def additional_coords(self, da):
         filter_dims = ["nele", "node", "mesh", "nvertex", "nbou", "nope", "nvel_dim"]
