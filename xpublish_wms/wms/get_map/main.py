@@ -524,7 +524,9 @@ class GetMap:
         im = self.shade_mesh(meshes)
         logger.debug(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
-        assert buffer is not None, "buffer was None but minmax is False"
+        # NOTE: remember `assert` can be disabled with `python -O`
+        # This should never fail, caller should always pass `buffer` unless `minax=True`
+        assert buffer is not None
         im.save(buffer, format="PNG")
         return True
 

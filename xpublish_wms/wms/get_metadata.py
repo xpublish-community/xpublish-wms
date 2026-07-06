@@ -118,8 +118,9 @@ def get_minmax(
 
     If BBOX is not specified, the entire selected temporal and elevation range is used.
     """
-    # validation should ensure that layers is not `None`
-    assert query.layers, "get_minmax expects query to have layers"
+    # NOTE: remember `assert` can be disabled with `python -O`
+    # This should never fail, validation ensures layers are not `None` for minmax
+    assert query.layers
 
     entire_layer = query.bbox is None
     getmap_query = WMSGetMapQuery(

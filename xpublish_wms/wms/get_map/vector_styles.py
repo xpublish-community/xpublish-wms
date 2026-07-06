@@ -38,6 +38,8 @@ def visualize_vectors(
     if density not in (1, 2, 3):
         raise ValueError(f"Invalid density value {density}")
 
+    # NOTE: remember `assert` can be disabled with `python -O`
+    # This should never fail, datashader renders both in the shape of the tile
     assert meshes[0].shape == meshes[1].shape
     tile_height, tile_width = meshes[0].shape
 
