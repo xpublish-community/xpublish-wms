@@ -4,7 +4,7 @@ from typing import Any, MutableMapping, Tuple
 
 import matplotlib
 import numpy as np
-import xarray as xr
+from numpy.typing import NDArray
 from PIL.Image import Image, fromarray
 
 matplotlib.use("Agg")
@@ -12,20 +12,26 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
+def get_grid_step(density: int) -> int:
+    """Return vector glyph grid step for given density."""
+    return 64 // (2 ** (density - 1))
+
+
 def get_meshgrid(
     density: int,
     tile_width: int,
     tile_height: int,
-) -> tuple[np.ndarray[Tuple[int]], np.ndarray[Tuple[int]]]:
-    """Generate indices and a meshgrid for rendering vector glyphs."""
+) -> Tuple[NDArray[np.intp], NDArray[np.intp]]:
+    """Return flat (x, y) pixel index pairs for the vector subgrid."""
     # For a 256x256 tile, there will be:
     # - 4x4 glyphs at density 1,
     # - 8x8 glyphs for density 2,
     # - 16x16 glyphs for density 3.
-    grid_step = 64 // (2 ** (density - 1))
+    grid_step = get_grid_step(density)
     x_indices = np.arange(grid_step // 2, tile_width, grid_step)
     y_indices = np.arange(grid_step // 2, tile_height, grid_step)
-    return x_indices, y_indices
+    x_indices_grid, y_indices_grid = np.meshgrid(x_indices, y_indices)
+    return x_indices_grid.ravel(), y_indices_grid.ravel()
 
 
 def setup_tile_plot(tile_width: int, tile_height: int) -> tuple[plt.Figure, plt.Axes]:
@@ -45,13 +51,13 @@ def setup_tile_plot(tile_width: int, tile_height: int) -> tuple[plt.Figure, plt.
 
 
 VectorArrowsRenderArgs = (
-    Tuple[np.ndarray[Tuple[int]], np.ndarray[Tuple[int]], xr.DataArray, xr.DataArray]
+    Tuple[NDArray[np.intp], NDArray[np.intp], NDArray[np.float32], NDArray[np.float32]]
     | Tuple[
-        np.ndarray[Tuple[int]],
-        np.ndarray[Tuple[int]],
-        xr.DataArray,
-        xr.DataArray,
-        xr.DataArray,
+        NDArray[np.intp],
+        NDArray[np.intp],
+        NDArray[np.float32],
+        NDArray[np.float32],
+        NDArray[np.float32],
     ]
 )
 
@@ -72,12 +78,7 @@ def render_vector_arrows(
     # render, and scale. We explicitly set the width to prevent arrows from being larger on
     # tiles with fewer arrows, and we set scale=1 and units='xy' so we can very carefully set
     # the arrow lengths.
-    mapped_render_args = (
-        *np.meshgrid(*render_args[:2]),
-        *render_args[2:4],
-        *render_args[4:5],
-    )
-    q = ax.quiver(*mapped_render_args, scale=1, units="xy", **render_kwargs)
+    q = ax.quiver(*render_args, scale=1, units="xy", **render_kwargs)
     if vmin is not None and vmax is not None:
         q.set_clim(vmin, vmax)
 

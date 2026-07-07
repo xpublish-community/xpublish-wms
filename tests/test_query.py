@@ -245,6 +245,8 @@ def test_get_map_vectors():
         "vector-arrow/none",
         "vector-arrow/default",
         "vector-arrow-color/default",
+        "vector-cells-arrow/default",
+        "vector-cells-arrow-color/default",
     ]:
         getmap_query = WMSGetMapQuery.model_validate(
             {

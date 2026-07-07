@@ -158,11 +158,19 @@ class WMSGetMetadataQuery(WMSBaseQuery):
 # - vector-arrow-tail/none (magnitude visualized by arrow tail length),
 # - vector-arrow-scale/none (magnitude visualized by uniform arrow scaling),
 # - vector-barb/none
-GetMapStyleMethod = Literal["raster", "vector-arrow", "vector-arrow-color"]
+GetMapStyleMethod = Literal[
+    "raster",
+    "vector-arrow",
+    "vector-arrow-color",
+    "vector-cells-arrow",
+    "vector-cells-arrow-color",
+]
 GET_MAP_STYLE_METHODS: List[GetMapStyleMethod] = [
     "raster",
     "vector-arrow",
     "vector-arrow-color",
+    "vector-cells-arrow",
+    "vector-cells-arrow-color",
 ]
 
 
@@ -176,13 +184,17 @@ class WMSGetMapQuery(WMSBaseQuery):
     styles: tuple[GetMapStyleMethod, Literal["none"] | str] = Field(
         ("raster", "default"),
         description=(
-            "Style to use for the query. Options: 'raster/<colormap>', 'vector-arrow/none', "
-            "'vector-arrow/<colormap>', 'vector-arrow-color/<colormap>'. You can provide "
-            "a name of any colormap defined by matplotlib's defaults directly like 'raster/turbo'. "
-            "For vector tiles, 'vector-arrow/<colormap> renders directional arrows with "
-            "raster backing visualizing magnitude. 'vector-arrow/none' can be used for arrows only. "
-            "Passing 'raster/default' uses the default colormap. "
-            "This parameter defaults to 'raster/default'."
+            "Rendering style in the format '<method>/<palette>'. "
+            "Supported methods: 'raster', 'vector-arrow', 'vector-arrow-color', "
+            "'vector-cells-arrow', 'vector-cells-arrow-color'. "
+            "Examples: 'raster/default', 'raster/turbo', 'vector-arrow/none', "
+            "'vector-arrow/magma', 'vector-arrow-color/viridis', "
+            "'vector-cells-arrow/none', 'vector-cells-arrow-color/plasma'. "
+            "For vector methods, '/none' disables magnitude colormap coloring/backing when applicable. "
+            "'vector-arrow/<palette>' draws arrows over a magnitude-colored raster backing. "
+            "'vector-arrow-color/<palette>' colors arrow glyphs by magnitude. "
+            "'vector-cells-arrow*' variants place at most one arrow per source data cell. "
+            "The default is 'raster/default'."
         ),
     )
     crs: Literal["EPSG:4326", "EPSG:3857"] = Field(

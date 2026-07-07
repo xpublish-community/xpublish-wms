@@ -1,3 +1,4 @@
+import functools
 import io
 import time
 from datetime import datetime
@@ -15,6 +16,7 @@ import pandas as pd
 import xarray as xr
 from fastapi import HTTPException
 from fastapi.responses import Response
+from numpy.typing import NDArray
 from PIL.Image import Image
 
 from xpublish_wms.grids import RenderMethod
@@ -25,7 +27,11 @@ from xpublish_wms.wms.get_map.style_types import (
     ShadingStyleParams,
     VectorStyleParams,
 )
-from xpublish_wms.wms.get_map.vector_styles import visualize_vectors
+from xpublish_wms.wms.get_map.vector_style_utils import get_grid_step
+from xpublish_wms.wms.get_map.vector_styles import (
+    get_cell_center_indices,
+    visualize_vectors,
+)
 
 
 class GetMap:
@@ -54,12 +60,46 @@ class GetMap:
 
     # Grid
     crs: str
-    bbox = List[float]
+    bbox: tuple[float, float, float, float]
     width: int
     height: int
 
     # Output style
     styles: ShadingStyleParams
+
+    # NOTE: none of the following cached properties should be accessed before
+    # `ensure_query_types` populates the static attributes above
+
+    @functools.cached_property
+    def margin_px(self) -> int:
+        """Pixel margin added to each side of the mesh canvas for cell-center vector styles."""
+        if self.styles.type == "vector" and self.styles.use_cell_centers:
+            return get_grid_step(self.styles.density)
+        return 0
+
+    @functools.cached_property
+    def mesh_bbox(self) -> tuple[float, float, float, float]:
+        """Tile bbox expanded by margin_px on each side, in data coordinates."""
+        if self.margin_px == 0:
+            return self.bbox
+        x_span = abs(self.bbox[2] - self.bbox[0])
+        y_span = abs(self.bbox[3] - self.bbox[1])
+        x_margin = x_span / self.width * self.margin_px
+        y_margin = y_span / self.height * self.margin_px
+        return (
+            self.bbox[0] - x_margin,
+            self.bbox[1] - y_margin,
+            self.bbox[2] + x_margin,
+            self.bbox[3] + y_margin,
+        )
+
+    @functools.cached_property
+    def mesh_width(self) -> int:
+        return self.width + 2 * self.margin_px
+
+    @functools.cached_property
+    def mesh_height(self) -> int:
+        return self.height + 2 * self.margin_px
 
     def __init__(
         self,
@@ -282,8 +322,11 @@ class GetMap:
                 scaling=VectorStyleParams.GlyphScaling.CONSTANT,
                 colorscale_range=query.colorscalerange,
                 colormap=None if palette_name == "none" else palette_name,
-                draw_backing=palette_name != "none" and style_type == "vector-arrow",
-                arrow_mag_color=style_type == "vector-arrow-color",
+                draw_backing=palette_name != "none"
+                and style_type in ("vector-arrow", "vector-cells-arrow"),
+                arrow_mag_color=style_type
+                in ("vector-arrow-color", "vector-cells-arrow-color"),
+                use_cell_centers=style_type.startswith("vector-cells-"),
             )
             return
 
@@ -418,14 +461,17 @@ class GetMap:
         filter_start = time.time()
         filter_success = False
         try:
-            # Grab a buffer around the bbox to ensure we have enough data to render
-            x_buffer = (
-                abs(max(self.bbox[0], self.bbox[2]) - min(self.bbox[0], self.bbox[2]))
-                * 0.15
+            # Grab a buffer around the bbox to ensure we have enough data to render.
+            # Use at least the margin fraction so margin-cell data is always fetched.
+            x_span = abs(self.bbox[2] - self.bbox[0])
+            y_span = abs(self.bbox[3] - self.bbox[1])
+            x_buffer = x_span * max(
+                0.15,
+                (self.margin_px / self.width) if self.width else 0,
             )
-            y_buffer = (
-                abs(max(self.bbox[1], self.bbox[3]) - min(self.bbox[1], self.bbox[3]))
-                * 0.15
+            y_buffer = y_span * max(
+                0.15,
+                (self.margin_px / self.height) if self.height else 0,
             )
             bbox = [
                 self.bbox[0] - x_buffer,
@@ -518,10 +564,21 @@ class GetMap:
             self.create_mesh(ds, da, render_context=context)
             for da, context in zip(das, render_contexts)
         ]
+        cell_center_indices = (
+            get_cell_center_indices(
+                das,
+                self.mesh_bbox,
+                self.mesh_width,
+                self.mesh_height,
+                self.styles.density,
+            )
+            if self.styles.type == "vector" and self.styles.use_cell_centers
+            else None
+        )
         logger.debug(f"WMS GetMap Mesh time: {time.time() - start_mesh}")
 
         start_shade = time.time()
-        im = self.shade_mesh(meshes)
+        im = self.shade_mesh(meshes, cell_center_indices)
         logger.debug(f"WMS GetMap Shade time: {time.time() - start_shade}")
 
         # NOTE: remember `assert` can be disabled with `python -O`
@@ -562,10 +619,10 @@ class GetMap:
                 )
 
         cvs = dsh.Canvas(
-            plot_height=self.height,
-            plot_width=self.width,
-            x_range=(self.bbox[0], self.bbox[2]),
-            y_range=(self.bbox[1], self.bbox[3]),
+            plot_height=self.mesh_height,
+            plot_width=self.mesh_width,
+            x_range=(self.mesh_bbox[0], self.mesh_bbox[2]),
+            y_range=(self.mesh_bbox[1], self.mesh_bbox[3]),
         )
 
         if ds.gridded.render_method == RenderMethod.Raster:
@@ -614,12 +671,19 @@ class GetMap:
             f"Unexpected gridded dataset render method {ds.gridded.render_method}",
         )
 
-    def shade_mesh(self, meshes: Sequence[xr.DataArray]) -> Image:
+    def shade_mesh(
+        self,
+        meshes: Sequence[xr.DataArray],
+        cell_center_indices: tuple[NDArray[np.intp], NDArray[np.intp]] | None,
+    ) -> Image:
         if self.styles.type == "vector":
             style_kwargs = self.styles.model_dump()
             style_kwargs.pop("type")
+            use_cell_centers = style_kwargs.pop("use_cell_centers")
             return visualize_vectors(
                 meshes,
+                cell_center_indices=cell_center_indices if use_cell_centers else None,
+                margin_px=self.margin_px,
                 **style_kwargs,
             )
 
