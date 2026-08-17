@@ -34,7 +34,7 @@ repos:
       args: [--max-line-length=105]
 
 - repo: https://github.com/pycqa/isort
-  rev: 9.0.0b2
+  rev: 9.0.0b5
   hooks:
     - id: isort
       additional_dependencies: [toml]
