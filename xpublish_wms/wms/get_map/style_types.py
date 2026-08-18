@@ -25,6 +25,7 @@ class VectorStyleParams(BaseModel):
 
     type: Literal["vector"]
     color: str
+    stroke: int
     density: int
     scaling: GlyphScaling
     colorscale_range: tuple[float, float] | None
