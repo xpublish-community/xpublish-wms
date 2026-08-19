@@ -143,8 +143,10 @@ class ROMSGrid(Grid):
         corner_ur = z[1:, 1:]
         corner_ul = z[1:, :-1]
 
-        # See docstring above to understand why some models require an all-corners check
-        if render_context.get("quad_filter", "lower_left") == "all_corners":
+        # check all corners for the "special case" ROMS models that have invalid lat/lng for masked cells (see docstring)
+        # this is the worst hack I have ever written in my career, please forgive me
+        # TODO figure out if there's a better way to detect these models than checking the dataset name
+        if self.ds.attrs.get("title", "").lower() in ["cbofs", "dbofs", "nyofs"]:
             valid = (
                 np.isfinite(corner_ll)
                 & np.isfinite(corner_lr)
