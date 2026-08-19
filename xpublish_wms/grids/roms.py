@@ -14,6 +14,7 @@ from xpublish_wms.utils import (
     to_mercator,
 )
 
+
 class ROMSGrid(Grid):
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
@@ -146,7 +147,10 @@ class ROMSGrid(Grid):
         # check all corners for the "special case" ROMS models that have invalid lat/lng for masked cells (see docstring)
         # this is the worst hack I have ever written in my career, please forgive me
         # TODO figure out if there's a better way to detect these models than checking the dataset name
-        if any(sub in self.ds.attrs.get("title", "").lower() for sub in ["cbofs", "dbofs", "nyofs"]):
+        if any(
+            sub in self.ds.attrs.get("title", "").lower()
+            for sub in ["cbofs", "dbofs", "nyofs"]
+        ):
             valid = (
                 np.isfinite(corner_ll)
                 & np.isfinite(corner_lr)
@@ -229,14 +233,12 @@ class ROMSGrid(Grid):
 
         inside = hits if known is None else hits & known
 
-
         if not inside.any():
             # A bbox smaller than a grid cell can sit entirely between the corners of a single cell.
             # I have a working approach for dealing with this edge case, but it adds a lot of complexity for a case we
             # are extremely unlikely to ever actually see
             # this also catches tiles that are completely outside the grid, which is a more common case
             raise Exception("No fully visible cells in bbox (skipping)")
-
 
         # Take a contiguous window around the visible cells rather than the
         # individual indices: dropping interior rows/columns would stitch cells
