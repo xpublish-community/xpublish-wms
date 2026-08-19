@@ -656,7 +656,12 @@ class GetMap:
                     {"x": render_context["tri_x"], "y": render_context["tri_y"]},
                 )
                 tris = pd.DataFrame(triangles.astype(int), columns=["v0", "v1", "v2"])
-                tris = tris.assign(z=da.values)
+
+                # A grid may supply an explicit per-triangle value (eg ROMS emits
+                # two triangles per grid cell, so there are more triangles than data
+                # points); otherwise there is one value per triangle in the data.
+                tri_z = render_context.get("tri_z")
+                tris = tris.assign(z=da.values if tri_z is None else tri_z)
             else:
                 # We are coloring the vertices by the data values
                 verts = pd.DataFrame({"x": da.x, "y": da.y, "z": da})

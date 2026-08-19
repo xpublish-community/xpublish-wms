@@ -14,7 +14,6 @@ from xpublish_wms.utils import (
     to_mercator,
 )
 
-
 class ROMSGrid(Grid):
     def __init__(self, ds: xr.Dataset):
         self.ds = ds
@@ -29,26 +28,36 @@ class ROMSGrid(Grid):
 
     @property
     def render_method(self) -> RenderMethod:
-        return RenderMethod.Quad
+        return RenderMethod.Triangle
 
     @property
     def crs(self) -> str:
         return "EPSG:4326"
 
+    def grid_mask(self, grid_point: str) -> Optional[xr.DataArray]:
+        """The land/sea mask for one of the staggered grids, eg 'rho' or 'u'."""
+
+        # use the wet/dry mask when available, otherwise use the standard mask.
+        mask = self.ds.get(f"wetdry_mask_{grid_point}")
+        if mask is None:
+            mask = self.ds.get(f"mask_{grid_point}")
+        if mask is None:
+            return None
+
+        if "time" in mask.cf.coords:
+            mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
+        else:
+            mask = mask.cf.squeeze(drop=True)
+
+        return mask
+
     def mask(
         self,
         da: Union[xr.DataArray, xr.Dataset],
     ) -> Union[xr.DataArray, xr.Dataset]:
-        mask = self.ds[f'mask_{da.cf["latitude"].name.split("_")[1]}']
-        if "time" in mask.cf.coords:
-            mask = mask.cf.isel(time=0).squeeze(drop=True).cf.drop_vars("time")
-        else:
-            mask = mask.cf.squeeze(drop=True).copy(deep=True)
-
-        mask[:-1, :] = mask[:-1, :].where(mask[1:, :] == 1, 0)
-        mask[:, :-1] = mask[:, :-1].where(mask[:, 1:] == 1, 0)
-        mask[1:, :] = mask[1:, :].where(mask[:-1, :] == 1, 0)
-        mask[:, 1:] = mask[:, 1:].where(mask[:, :-1] == 1, 0)
+        mask = self.grid_mask(da.cf["latitude"].name.split("_")[-1])
+        if mask is None:
+            return da
 
         return da.where(mask == 1)
 
@@ -87,7 +96,90 @@ class ROMSGrid(Grid):
 
         return da, render_context
 
-    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = dict()):
+    def tessellate(
+        self,
+        da: xr.DataArray,
+        render_context: Optional[dict] = {},
+    ) -> tuple[np.ndarray, dict]:
+        """
+        Builds the ROMS cells in a way that exactly matches the native grids for tested ROMS models (CBOFS, DBOFS, TBOFS, etc.)
+
+        There are two main ways to interpret the rho points of a ROMS grid as quads.
+        The old way in this plugin (using quadmesh) treated rho points as the cell centers,
+        and expanded the grid by one cell in each direction to get the corners of each cell.
+        However, the output grid does not match the real ROMS native grid when using this approach.
+
+        We now interpret rho points is as the corners of the cells, which exactly matches
+        the native ROMS grid. The complication is that the ROMS grid has masked cells,
+        and the approach for dealing with these masked cells varies from model to model.
+
+        On most models, the masked cells have valid lat/lng even in the mask, but the values
+        of masked cells are set to -9999. To render these models, we simply look at the
+        lower left corner `pts[i,j]` of each potential cell, and if that corner has valid data,
+        we render a cell `pts[i,j] / [i,j+1] / [i+1,j+1] / [i+1,j]` as two triangles and fill
+        the cell with the value of the lower-left corner `data[i,j]`.
+
+        However, certain ROMS models (CBOFS, DBOFS, NYOFS are known examples)
+        have masked cells that do not have valid lat/lng, and instead have wildly varying
+        lat/lng values. If we render these models using the same approach as above,
+        we will end up with many broken / smeared cells. For these models specifically,
+        we need to check if ALL FOUR corners of a potential cell have valid data, instead of
+        just the lower-left corner.
+
+        Even if there technically are better ways of rendering this grid, the above approach is
+        the only way to exactly match the native ROMS grid for all tested models. Another benefit
+        is that directly rendering the quads as triangles is considerably faster than using quadmesh,
+        which has to infer the corners of each cell.
+        """
+        x = np.asarray(da.x.values)
+        y = np.asarray(da.y.values)
+        z = np.asarray(da.values)
+
+        n_eta, n_xi = z.shape
+
+        # Get the corners of each cell
+        corner_ll = z[:-1, :-1]
+        corner_lr = z[:-1, 1:]
+        corner_ur = z[1:, 1:]
+        corner_ul = z[1:, :-1]
+
+        # See docstring above to understand why some models require an all-corners check
+        if render_context.get("quad_filter", "lower_left") == "all_corners":
+            valid = (
+                np.isfinite(corner_ll)
+                & np.isfinite(corner_lr)
+                & np.isfinite(corner_ur)
+                & np.isfinite(corner_ul)
+            )
+        else:
+            valid = np.isfinite(corner_ll)
+
+        eta, xi = np.nonzero(valid)
+
+        # Flattened (row-major) index of each rho corner into the vertex table
+        v_ll = eta * n_xi + xi
+        v_lr = eta * n_xi + (xi + 1)
+        v_ur = (eta + 1) * n_xi + (xi + 1)
+        v_ul = (eta + 1) * n_xi + xi
+
+        # Split each quad along one diagonal into two triangles
+        triangles = np.empty((2 * eta.size, 3), dtype=np.int64)
+        triangles[0::2] = np.stack([v_ll, v_lr, v_ur], axis=1)
+        triangles[1::2] = np.stack([v_ll, v_ur, v_ul], axis=1)
+
+        # Both triangles of a quad take the lower-left corner's value
+        # TODO do we want to instead take an average of the valid corner values?
+        # more accurate, but slower
+        cell_z = corner_ll[eta, xi]
+        tri_z = np.repeat(cell_z, 2)
+
+        render_context["tri_x"] = x.reshape(-1)
+        render_context["tri_y"] = y.reshape(-1)
+        render_context["tri_z"] = tri_z
+
+        return triangles, render_context
+
+    def filter_by_bbox(self, da, bbox, crs, render_context: Optional[dict] = {}):
         da = self.mask(da)
         render_context["masked"] = True
 
@@ -98,27 +190,71 @@ class ROMSGrid(Grid):
             )
             bbox = [bbox[0][0], bbox[1][0], bbox[0][1], bbox[1][1]]
 
-        adjust_lng = 0
-        if np.min(da.cf["longitude"]) < -180:
-            adjust_lng = 360
-        elif np.max(da.cf["longitude"]) > 180:
-            adjust_lng = -360
-
         # Get the x and y values
-        x = da.cf["longitude"] + adjust_lng
+        x = da.cf["longitude"]
         y = da.cf["latitude"]
 
-        # Find the indices of the data within the bounding box
-        x_inds = np.where((x >= bbox[0]) & (x <= bbox[2]))
-        y_inds = np.where((y >= bbox[1]) & (y <= bbox[3]))
+        if x.dims != y.dims or x.ndim != 2:
+            raise Exception("Mismatched dims for filter_by_bbox")
 
-        if len(x.dims) != len(y.dims) or len(x_inds) != len(y_inds):
-            raise Exception("Mismatched number of dims for filter_by_bbox")
+        # masked/land cells can carry filler positions (eg. in cbofs, dbofs), so they cannot be trusted to say
+        # where the grid is or whether they are in view
+        mask = self.grid_mask(x.name.split("_")[-1])
+        known = None
+        if mask is not None and mask.shape == x.shape:
+            known = np.asarray(mask.values) == 1
 
-        # Select and return the data within the bounding box
-        sel_dims = dict()
-        for i in range(len(x.dims)):
-            sel_dims[x.dims[i]] = np.intersect1d(x_inds[i], y_inds[i])
+        lng = np.asarray(x.values)
+        lat = np.asarray(y.values)
+
+        adjust_lng = 0
+        in_grid = lng if known is None else lng[known]
+        if in_grid.size:
+            if np.min(in_grid) < -180:
+                adjust_lng = 360
+            elif np.max(in_grid) > 180:
+                adjust_lng = -360
+
+        lng = lng + adjust_lng
+
+        # check which cells are in view using a joint lng/lat test to prevent mixing up rows and columns
+        hits = (
+            (lng >= bbox[0] - 0.0)
+            & (lng <= bbox[2] + 0.0)
+            & (lat >= bbox[1] - 0.0)
+            & (lat <= bbox[3] + 0.0)
+        )
+
+        inside = hits if known is None else hits & known
+
+
+        if not inside.any():
+            # A bbox smaller than a grid cell can sit entirely between the corners of a single cell.
+            # I have a working approach for dealing with this edge case, but it adds a lot of complexity for a case we
+            # are extremely unlikely to ever actually see
+            raise Exception("No fully visible cells in bbox (try using a larger one)")
+
+
+        # Take a contiguous window around the visible cells rather than the
+        # individual indices: dropping interior rows/columns would stitch cells
+        # together that are nowhere near each other on the grid
+        sel_dims = {}
+        for axis, dim in enumerate(x.dims):
+            hits = np.where(inside.any(axis=1 - axis))[0]
+            if hits.size == 0:
+                sel_dims = {dim: slice(0, 0) for dim in x.dims}
+                break
+
+            low = max(int(hits[0]) - 2, 0)
+            high = min(int(hits[-1]) + 3, inside.shape[axis])
+
+            # Keep at least one full cell in each direction, otherwise the data
+            # squeezes down to a line and can no longer be rendered as quads
+            if high - low < 2:
+                low = max(high - 2, 0)
+                high = min(low + 2, inside.shape[axis])
+
+            sel_dims[dim] = slice(low, high)
 
         da = da.isel(sel_dims)
         return da, render_context
