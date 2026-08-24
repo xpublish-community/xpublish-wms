@@ -238,11 +238,17 @@ class WMSGetMapQuery(WMSBaseQuery):
         "black",
         description="Color of directional glyphs when using a vector style. This is a matplotlib color parameter.",
     )
-    density: int | None = Field(
-        None,
+    density: int = Field(
+        2,
         description="Density of directional glyphs when using a vector style.",
         ge=1,
         le=3,
+    )
+    stroke: int = Field(
+        3,
+        description="Outline thickness of drawn glyphs when using a vector style.",
+        ge=0,
+        le=10,
     )
 
     @field_validator("layers", mode="before")

@@ -22,7 +22,7 @@ LENGTH_SCALE = np.array([3, 2, 1]) * 9
 TAIL_WIDTH = np.array([3.5, 2, 1]) * 1.3
 HEAD_WIDTH = [2.5, 2.5, 3.5]
 # Arrow outline stroke width
-LINE_WIDTH = [5, 4, 1]
+LINE_WIDTH = np.array([5, 4, 1]) * 2
 
 
 def get_cell_center_indices(
@@ -66,6 +66,7 @@ def get_cell_center_indices(
 def visualize_vectors(
     meshes: Sequence[xr.DataArray],
     color: str,
+    stroke: int,
     density: int,
     scaling: VectorStyleParams.GlyphScaling,
     colorscale_range: tuple[float, float] | None = None,
@@ -134,16 +135,21 @@ def visualize_vectors(
     if arrow_mag_color:
         render_args += (mag.values[y_indices, x_indices],)
 
+    # If average of RGB is more than 0.5 use black stroke, white otherwise
     edgecolor = "black" if sum(matplotlib.colors.to_rgb(color)) > 1.5 else "white"
     render_kwargs = {
+        # solid fill color of glyph
         "color": color,
+        # glyph outline/stroke props
         "edgecolor": edgecolor,
-        "linewidth": LINE_WIDTH[density - 1],
+        "linewidth": LINE_WIDTH[density - 1] * stroke,
         "linestyle": "solid",
+        # glyph dimensions
         "width": TAIL_WIDTH[density - 1],
         "headwidth": HEAD_WIDTH[density - 1],
         "headlength": 3,
         "headaxislength": 2.8,
+        # glyph fill colormapping options
         "cmap": colormap if arrow_mag_color else None,
         "vmin": colorscale_range[0] if arrow_mag_color and colorscale_range else None,
         "vmax": colorscale_range[1] if arrow_mag_color and colorscale_range else None,

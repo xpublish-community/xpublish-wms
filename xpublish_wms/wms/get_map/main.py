@@ -318,7 +318,8 @@ class GetMap:
             self.styles = VectorStyleParams(
                 type="vector",
                 color=query.color,
-                density=query.density or 2,
+                density=query.density,
+                stroke=query.stroke,
                 scaling=VectorStyleParams.GlyphScaling.CONSTANT,
                 colorscale_range=query.colorscalerange,
                 colormap=None if palette_name == "none" else palette_name,
