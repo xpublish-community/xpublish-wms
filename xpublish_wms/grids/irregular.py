@@ -89,7 +89,7 @@ class IrregularGrid(Grid):
         subset = self.mask(subset)
 
         # cut the dataset down to 1 point, the values are adjusted anyhow so doesn't matter the point
-        subset_keys = [key for key in subset.dims]
+        subset_keys = [*subset.dims]
         ret_subset = subset.isel({subset_keys[-2]: 0, subset_keys[-1]: 0})
 
         lng_name = ret_subset.cf["longitude"].name
