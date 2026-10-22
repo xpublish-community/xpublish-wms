@@ -146,7 +146,6 @@ class ROMSGrid(Grid):
         corner_ul = z[1:, :-1]
 
         # check all corners for the "special case" ROMS models that have invalid lat/lng for masked cells (see docstring)
-        # this is the worst hack I have ever written in my career, please forgive me
         # TODO figure out if there's a better way to detect these models than checking the dataset name
         if any(
             sub in self.ds.attrs.get("title", "").lower()
