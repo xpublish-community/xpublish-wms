@@ -39,9 +39,7 @@ class ROMSGrid(Grid):
         """The land/sea mask for one of the staggered grids, eg 'rho' or 'u'."""
 
         # use the wet/dry mask when available, otherwise use the standard mask.
-        mask = self.ds.get(f"wetdry_mask_{grid_point}")
-        if mask is None:
-            mask = self.ds.get(f"mask_{grid_point}")
+        mask = self.ds.get(f"wetdry_mask_{grid_point}") or self.ds.get(f"mask_{grid_point}")
         if mask is None:
             return None
 
@@ -234,14 +232,11 @@ class ROMSGrid(Grid):
 
         inside = hits if known is None else hits & known
 
-        # commenting this out since it can cause improperly masked tiles to be drawn outside the grid
+        # skipping masking / bbox filtering altogether can cause data that should always be masked to be included
+        # the filtered dataset is always used even when all data is filtered (for now)
 
         # if not inside.any():
-        # A bbox smaller than a grid cell can sit entirely between the corners of a single cell.
-        # I have a working approach for dealing with this edge case, but it adds a lot of complexity for a case we
-        # are extremely unlikely to ever actually see
-        # this also catches tiles that are completely outside the grid, which is a more common case
-        # raise Exception("No fully visible cells in bbox (skipping)")
+            # raise Exception("No fully visible cells in bbox (skipping)")
 
         # Take a contiguous window around the visible cells rather than the
         # individual indices: dropping interior rows/columns would stitch cells
