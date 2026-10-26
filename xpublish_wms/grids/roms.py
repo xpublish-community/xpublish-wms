@@ -39,7 +39,9 @@ class ROMSGrid(Grid):
         """The land/sea mask for one of the staggered grids, eg 'rho' or 'u'."""
 
         # use the wet/dry mask when available, otherwise use the standard mask.
-        mask = self.ds.get(f"wetdry_mask_{grid_point}") or self.ds.get(f"mask_{grid_point}")
+        mask = self.ds.get(f"wetdry_mask_{grid_point}") or self.ds.get(
+            f"mask_{grid_point}",
+        )
         if mask is None:
             return None
 
@@ -236,7 +238,7 @@ class ROMSGrid(Grid):
         # the filtered dataset is always used even when all data is filtered (for now)
 
         # if not inside.any():
-            # raise Exception("No fully visible cells in bbox (skipping)")
+        # raise Exception("No fully visible cells in bbox (skipping)")
 
         # Take a contiguous window around the visible cells rather than the
         # individual indices: dropping interior rows/columns would stitch cells
